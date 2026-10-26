@@ -2,64 +2,120 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Admin; 
+use App\Http\Requests\Commercial\StoreCommercialRequest;
+use App\Http\Requests\Commercial\UpdateCommercialRequest;
+use App\Http\Resources\CommercialResource;
 use App\Models\Commercial;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class CommercialController extends Controller
 {
-    public function index(Request $request)
+    /**
+     * Liste des commerciaux de l'admin connecté
+     */
+    public function index(Request $request): JsonResponse
     {
-        $query = Commercial::query();
+        // Un admin ne voit que ses propres commerciaux
+        $query = Commercial::where('id_admin', $request->user()->id_admin);
 
+        // Recherche
         if ($request->filled('search')) {
-            $search = $request->input('search');
+            $search = $request->string('search');
             $query->where(function ($q) use ($search) {
                 $q->where('nom', 'like', "%{$search}%")
                   ->orWhere('prenom', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('contact', 'like', "%{$search}%");
+                  ->orWhere('email', 'like', "%{$search}%");
             });
         }
 
-        return response()->json($query->orderBy('id', 'asc')->get());
-    }
+        // Filtre par statut (actif / inactif)
+        if ($request->has('actif')) {
+            $query->where('actif', $request->boolean('actif'));
+        }
 
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'nom' => 'required|string|max:100',
-            'prenom' => 'required|string|max:100',
-            'email' => 'required|email|max:150|unique:commerciaux',
-            'contact' => 'nullable|string|max:50',
-            'prospects' => 'nullable|integer',
-            'ventes' => 'nullable|integer',
+        $commerciaux = $query->orderByDesc('created_at')->paginate(15);
+
+        return response()->json([
+            'data' => CommercialResource::collection($commerciaux->items()),
+            'meta' => [
+                'current_page' => $commerciaux->currentPage(),
+                'last_page'    => $commerciaux->lastPage(),
+                'per_page'     => $commerciaux->perPage(),
+                'total'        => $commerciaux->total(),
+            ],
         ]);
-
-        $commercial = Commercial::create($validated);
-
-        return response()->json($commercial, 201);
     }
 
-    public function update(Request $request, Commercial $commercial)
+    /**
+     * Créer un commercial
+     */
+    public function store(StoreCommercialRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'nom' => 'sometimes|string|max:100',
-            'prenom' => 'sometimes|string|max:100',
-            'email' => 'sometimes|email|max:150|unique:commerciaux,email,' . $commercial->id,
-            'contact' => 'nullable|string|max:50',
-            'prospects' => 'nullable|integer',
-            'ventes' => 'nullable|integer',
-        ]);
+        $data = $request->validated();
+        
+        $data['id_admin'] = $request->user()->id_admin;
+        $data['password'] = Hash::make($data['password']);
+        $data['actif'] = $data['actif'] ?? true;
 
-        $commercial->update($validated);
+        $commercial = Commercial::create($data);
 
-        return response()->json($commercial);
+        return (new CommercialResource($commercial))
+            ->additional(['message' => 'Commercial créé avec succès'])
+            ->response()
+            ->setStatusCode(201);
     }
 
-    public function destroy(Commercial $commercial)
+    /**
+     * Afficher un commercial
+     */
+    public function show(Request $request, $id): JsonResponse
     {
+        // On s'assure que le commercial appartient bien à l'admin connecté
+        $commercial = Commercial::where('id_admin', $request->user()->id_admin)->findOrFail($id);
+
+        return (new CommercialResource($commercial))->response();
+    }
+
+    /**
+     * Mettre à jour un commercial
+     */
+    public function update(UpdateCommercialRequest $request, $id): JsonResponse
+    {
+        $commercial = Commercial::where('id_admin', $request->user()->id_admin)->findOrFail($id);
+
+        $data = $request->validated();
+
+        // Si le mot de passe est modifié, on le hash
+        if (isset($data['password'])) {
+            $data['password'] = Hash::make($data['password']);
+        }
+
+        $commercial->update($data);
+
+        return (new CommercialResource($commercial->fresh()))
+            ->additional(['message' => 'Commercial mis à jour avec succès'])
+            ->response();
+    }
+
+    /**
+     * Supprimer un commercial
+     */
+    public function destroy(Request $request, $id): JsonResponse
+    {
+        $commercial = Commercial::where('id_admin', $request->user()->id_admin)->findOrFail($id);
+
+        // On empêche la suppression s'il a des clients liés (pour garder l'historique)
+        if ($commercial->clients()->exists()) {
+            return response()->json([
+                'message' => 'Impossible de supprimer ce commercial car il a des clients associés.'
+            ], 409);
+        }
+
         $commercial->delete();
 
-        return response()->json(['message' => 'Commercial supprimé']);
+        return response()->json(['message' => 'Commercial supprimé avec succès']);
     }
 }

@@ -2,73 +2,63 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Closing;
-use App\Models\Prospect;
+use App\Models\Admin;
+use App\Models\Client;
 use App\Models\Prospection;
-use App\Models\RendezVous;
-use App\Models\Vente;
+use App\Models\Produit;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class DashboardController extends Controller
 {
-    public function stats()
+    public function stats(Request $request): JsonResponse
     {
-        $prospectsCount = Prospect::count();
-        $prospectionsCount = Prospection::count();
-        $rdvDuJourCount = RendezVous::count();
+        $user = $request->user();
+        $isAdmin = $user instanceof Admin;
 
-        // Calcul du montant des ventes
-        $ventes = Vente::all();
-        $totalVentes = 0;
-        foreach ($ventes as $v) {
-            $cleaned = preg_replace('/[^\d]/', '', $v->montant);
-            $totalVentes += (float)$cleaned;
-        }
+        // Requêtes de base
+        $clientQuery = $isAdmin ? Client::where('id_admin', $user->id_admin) : Client::where('id_commercial', $user->id_commercial);
+        $prospectionQuery = $isAdmin ? Prospection::where('id_admin', $user->id_admin) : Prospection::where('id_commercial', $user->id_commercial);
 
-        $formattedVentes = $totalVentes > 1000000
-            ? number_format($totalVentes / 1000000, 1) . 'M'
-            : number_format($totalVentes, 0, ',', ' ');
+        // Statistiques
+        $totalClients = $clientQuery->count();
+        $totalProspections = $prospectionQuery->count();
+        
+        // Prospections en cours (non perdues)
+        $prospectionsActives = (clone $prospectionQuery)->where('est_perdu', false)->count();
+        
+        // Prospections gagnées (Exemple : etat = 'gagne' ou 'closing')
+        $prospectionsGagnees = (clone $prospectionQuery)->where('etat', 'gagne')->count();
 
-        // Activités récentes
-        $activities = [];
+        // Produits
+        $totalProduits = $isAdmin ? Produit::where('id_admin', $user->id_admin)->count() : 0;
 
-        $recentProspects = Prospect::latest()->take(2)->get();
-        foreach ($recentProspects as $p) {
-            $name = trim(($p->prenom ?? '') . ' ' . ($p->nom ?? '')) ?: ($p->entreprise ?? 'Prospect');
-            $activities[] = [
-                'name' => $name,
-                'action' => 'Nouveau prospect ajouté',
-                'time' => $p->created_at ? $p->created_at->diffForHumans() : 'Récemment',
-                'type' => 'prospect',
-            ];
-        }
+        // Alertes de stock (uniquement pour l'admin)
+        $alertesStock = [];
+        if ($isAdmin) {
+            $produits = Produit::where('id_admin', $user->id_admin)->get();
+            foreach ($produits as $produit) {
+                $entrees = $produit->mouvementsStock()->where('type_mouvement', 'entree')->sum('quantite');
+                $sorties = $produit->mouvementsStock()->where('type_mouvement', 'sortie')->sum('quantite');
+                $stockActuel = $entrees - $sorties;
 
-        $recentClosings = Closing::latest()->take(2)->get();
-        foreach ($recentClosings as $c) {
-            $activities[] = [
-                'name' => $c->client,
-                'action' => 'Prospection clôturée (' . $c->offre . ')',
-                'time' => $c->created_at ? $c->created_at->diffForHumans() : 'Récemment',
-                'type' => 'closing',
-            ];
-        }
-
-        $recentRdv = RendezVous::latest()->take(1)->get();
-        foreach ($recentRdv as $r) {
-            $activities[] = [
-                'name' => $r->prospect,
-                'action' => 'RDV planifié (' . $r->heure . ')',
-                'time' => $r->created_at ? $r->created_at->diffForHumans() : 'Récemment',
-                'type' => 'rdv',
-            ];
+                if ($stockActuel <= 5) {
+                    $alertesStock[] = [
+                        'id_produit' => $produit->id_produit,
+                        'designation' => $produit->designation,
+                        'stock_actuel' => $stockActuel
+                    ];
+                }
+            }
         }
 
         return response()->json([
-            'prospectsCount' => $prospectsCount,
-            'prospectionsCount' => $prospectionsCount,
-            'rdvDuJourCount' => $rdvDuJourCount,
-            'ventesMoisMontant' => $formattedVentes,
-            'activities' => $activities,
+            'total_clients' => $totalClients,
+            'total_prospections' => $totalProspections,
+            'prospections_actives' => $prospectionsActives,
+            'prospections_gagnees' => $prospectionsGagnees,
+            'total_produits' => $totalProduits,
+            'alertes_stock' => array_slice($alertesStock, 0, 5),
         ]);
     }
 }

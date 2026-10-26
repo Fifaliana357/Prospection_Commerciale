@@ -2,84 +2,100 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Admin;
+use App\Models\Client;
 use App\Models\Prospection;
+use App\Traits\ScopesToOwner;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class ProspectionController extends Controller
 {
-    public function index(Request $request)
-    {
-        $query = Prospection::query();
+    use ScopesToOwner;
 
-        if ($request->filled('search')) {
-            $search = $request->input('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('objet', 'like', "%{$search}%")
-                  ->orWhere('nom', 'like', "%{$search}%")
-                  ->orWhere('matricule', 'like', "%{$search}%")
-                  ->orWhere('produit', 'like', "%{$search}%")
-                  ->orWhere('entreprise', 'like', "%{$search}%")
-                  ->orWhere('contact', 'like', "%{$search}%");
-            });
+    public function index(Request $request): JsonResponse
+    {
+        $query = Prospection::with(['client:id_client,nom,prenom,entreprise', 'commercial:id_commercial,nom,prenom']);
+        
+        $this->scopeToOwner($query, $request->user());
+
+        // Filtrer par état (ex: 'en_cours', 'gagne', 'perdu')
+        if ($request->filled('etat')) {
+            $query->where('etat', $request->etat);
         }
 
-        return response()->json($query->orderBy('id', 'desc')->get());
+        // Filtrer les perdus ou actifs
+        if ($request->has('est_perdu')) {
+            $query->where('est_perdu', $request->boolean('est_perdu'));
+        }
+
+        $prospections = $query->orderByDesc('created_at')->paginate(15);
+        return response()->json($prospections);
     }
 
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'matricule' => 'nullable|string|max:50',
-            'date' => 'required|string',
-            'objet' => 'required|string|max:191',
-            'contact' => 'nullable|string|max:50',
-            'nom' => 'nullable|string|max:100',
-            'entreprise' => 'nullable|string|max:150',
-            'fonction' => 'nullable|string|max:100',
-            'produit' => 'nullable|string|max:191',
-            'type' => 'nullable|string|max:50',
-            'message' => 'nullable|string',
-            'etat' => 'nullable|string|max:50',
-            'editeur' => 'nullable|string|max:100',
-            'score' => 'nullable|integer',
+            'id_client'         => 'required|exists:client,id_client',
+            'id_offre'          => 'nullable|exists:offre,id_offre', // Si tu as une table offre
+            'produit_prospecte' => 'nullable|string|max:255',
+            'etat'              => 'required|string|max:50',
+            'note_actuelle'     => 'nullable|integer',
+            'est_perdu'         => 'boolean',
         ]);
 
-        if (empty($validated['etat'])) {
-            $validated['etat'] = 'Non clôturé';
+        $user = $request->user();
+        $validated['id_admin'] = $user->id_admin;
+        
+        if (! $user instanceof Admin) {
+            $validated['id_commercial'] = $user->id_commercial;
         }
 
         $prospection = Prospection::create($validated);
 
-        return response()->json($prospection, 201);
+        return response()->json([
+            'message' => 'Prospection créée avec succès',
+            'prospection' => $prospection->load('client')
+        ], 201);
     }
 
-    public function update(Request $request, Prospection $prospection)
+    public function show(Request $request, $id): JsonResponse
     {
-        $validated = $request->validate([
-            'matricule' => 'nullable|string|max:50',
-            'date' => 'sometimes|string',
-            'objet' => 'sometimes|string|max:191',
-            'contact' => 'nullable|string|max:50',
-            'nom' => 'nullable|string|max:100',
-            'entreprise' => 'nullable|string|max:150',
-            'fonction' => 'nullable|string|max:100',
-            'produit' => 'nullable|string|max:191',
-            'type' => 'nullable|string|max:50',
-            'message' => 'nullable|string',
-            'etat' => 'sometimes|string|max:50',
-            'editeur' => 'nullable|string|max:100',
-            'score' => 'nullable|integer',
-        ]);
-
-        $prospection->update($validated);
+        $prospection = Prospection::with(['client', 'commercial', 'propositions', 'closing'])->findOrFail($id);
+        
+        $this->authorizeOwnership($prospection, $request->user());
 
         return response()->json($prospection);
     }
 
-    public function destroy(Prospection $prospection)
+    public function update(Request $request, $id): JsonResponse
     {
-        $prospection->delete();
+        $prospection = Prospection::findOrFail($id);
+        $this->authorizeOwnership($prospection, $request->user());
 
+        $validated = $request->validate([
+            'id_client'         => 'sometimes|exists:client,id_client',
+            'id_offre'          => 'nullable|exists:offre,id_offre',
+            'produit_prospecte' => 'nullable|string|max:255',
+            'etat'              => 'sometimes|string|max:50',
+            'note_actuelle'     => 'nullable|integer',
+            'est_perdu'         => 'boolean',
+        ]);
+
+        $prospection->update($validated);
+
+        return response()->json([
+            'message' => 'Prospection mise à jour avec succès',
+            'prospection' => $prospection->fresh()->load('client')
+        ]);
+    }
+
+    public function destroy(Request $request, $id): JsonResponse
+    {
+        $prospection = Prospection::findOrFail($id);
+        $this->authorizeOwnership($prospection, $request->user());
+
+        $prospection->delete();
         return response()->json(['message' => 'Prospection supprimée']);
     }
 }

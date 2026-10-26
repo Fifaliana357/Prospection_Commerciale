@@ -2,75 +2,74 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
+use App\Models\Admin;
+use App\Models\Commercial;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    public function register(Request $request)
-    {
-        $validated = $request->validate([
-            'name' => 'required|string|max:100',
-            'email' => 'required|string|email|max:150|unique:users',
-            'password' => 'required|string|min:6',
-        ]);
-
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-        ]);
-
-        $token = $user->createToken('softio_auth_token')->plainTextToken;
-
-        return response()->json([
-            'message' => 'Utilisateur enregistré avec succès',
-            'user' => $user,
-            'token' => $token,
-        ], 201);
-    }
-
+    /**
+     * Connexion Admin ou Commercial
+     */
     public function login(Request $request)
     {
-        $credentials = $request->validate([
+        $request->validate([
             'email' => 'required|email',
             'password' => 'required',
+            'type' => 'required|in:admin,commercial',
         ]);
 
-        $user = User::where('email', $credentials['email'])->first();
+        if ($request->type === 'admin') {
+            $user = Admin::where('email', $request->email)->first();
+        } else {
+            $user = Commercial::where('email', $request->email)->first();
+        }
 
-        if (!$user || !Hash::check($credentials['password'], $user->password)) {
+        if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
-                'email' => ['Les identifiants fournis sont incorrects.'],
+                'email' => ['Email ou mot de passe incorrect.'],
             ]);
         }
 
-        $token = $user->createToken('softio_auth_token')->plainTextToken;
+        // Vérifier si le commercial est actif
+        if ($request->type === 'commercial' && !$user->actif) {
+            return response()->json([
+                'message' => 'Votre compte est désactivé.'
+            ], 403);
+        }
+
+        $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'message' => 'Connexion réussie',
             'user' => $user,
+            'type' => $request->type,
             'token' => $token,
         ]);
     }
 
+    /**
+     * Déconnexion
+     */
+    public function logout(Request $request)
+    {
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'message' => 'Déconnexion réussie'
+        ]);
+    }
+
+    /**
+     * Récupérer l'utilisateur connecté
+     */
     public function me(Request $request)
     {
         return response()->json([
             'user' => $request->user(),
-        ]);
-    }
-
-    public function logout(Request $request)
-    {
-        if ($request->user()) {
-            $request->user()->currentAccessToken()->delete();
-        }
-
-        return response()->json([
-            'message' => 'Déconnexion réussie',
+            'type' => $request->user() instanceof Admin ? 'admin' : 'commercial',
         ]);
     }
 }

@@ -2,58 +2,72 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\MouvementStock;
 use App\Models\Produit;
+use App\Models\StockMouvement;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 class StockController extends Controller
 {
-    public function getMouvements()
-    {
-        return response()->json(MouvementStock::orderBy('id', 'desc')->get());
-    }
-
-    public function getInventaire()
-    {
-        $produits = Produit::where('type', 'Produit')->get();
-
-        $inventaire = $produits->map(function ($p) {
-            $stock = $p->stock ?? 0;
-            return [
-                'ref' => $p->ref,
-                'designation' => $p->designation,
-                'stock' => $stock,
-                'statut' => $stock < 5 ? 'Stock faible' : 'En stock',
-            ];
-        });
-
-        return response()->json($inventaire);
-    }
-
-    public function storeMouvement(Request $request)
+    /**
+     * Enregistrer un mouvement de stock
+     */
+    public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'ref' => 'required|string|max:50',
-            'designation' => 'required|string|max:191',
-            'quantite' => 'required|integer|min:1',
-            'date' => 'required|string',
-            'type' => 'required|in:Entrée,Sortie',
+            'id_produit'     => 'required|exists:produit,id_produit',
+            'type_mouvement' => 'required|in:entree,sortie',
+            'quantite'       => 'required|integer|min:1',
+            'reference'      => 'nullable|string|max:100',
+            'commentaire'    => 'nullable|string',
+            'date_mouvement' => 'required|date',
         ]);
 
-        $mouvement = MouvementStock::create($validated);
+        // Vérifier que le produit appartient bien à l'admin
+        $produit = Produit::where('id_admin', $request->user()->id_admin)
+            ->findOrFail($validated['id_produit']);
 
-        // Mettre à jour le stock du produit si présent
-        $produit = Produit::where('ref', $validated['ref'])->first();
-        if ($produit && $produit->type === 'Produit') {
-            $currentStock = $produit->stock ?? 0;
-            if ($validated['type'] === 'Entrée') {
-                $produit->stock = $currentStock + $validated['quantite'];
-            } else {
-                $produit->stock = max(0, $currentStock - $validated['quantite']);
+        $validated['id_admin'] = $request->user()->id_admin;
+        $validated['id_commercial'] = $request->user()->id_commercial ?? null;
+
+        // (Optionnel) Vérifier qu'il y a assez de stock pour une sortie
+        if ($validated['type_mouvement'] === 'sortie') {
+            $stockActuel = $produit->mouvementsStock()
+                ->where('type_mouvement', 'entree')->sum('quantite') 
+                - $produit->mouvementsStock()
+                ->where('type_mouvement', 'sortie')->sum('quantite');
+                
+            if ($stockActuel < $validated['quantite']) {
+                return response()->json([
+                    'message' => 'Stock insuffisant pour ce produit.',
+                    'stock_actuel' => $stockActuel
+                ], 400);
             }
-            $produit->save();
         }
 
-        return response()->json($mouvement, 201);
+        $mouvement = StockMouvement::create($validated);
+
+        return response()->json([
+            'message' => 'Mouvement de stock enregistré avec succès',
+            'mouvement' => $mouvement
+        ], 201);
+    }
+
+    /**
+     * Historique des mouvements pour un produit ou global
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $query = StockMouvement::with('produit')
+            ->where('id_admin', $request->user()->id_admin);
+
+        if ($request->filled('id_produit')) {
+            $query->where('id_produit', $request->id_produit);
+        }
+
+        $mouvements = $query->orderByDesc('date_mouvement')->paginate(20);
+        
+        return response()->json($mouvements);
     }
 }
