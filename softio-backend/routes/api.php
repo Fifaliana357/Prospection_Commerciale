@@ -41,7 +41,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // 3. Catalogue & Stock
     Route::apiResource('produits', ProduitController::class);
-    
+
     Route::prefix('stock')->group(function () {
         Route::get('/mouvements', [StockController::class, 'index']);
         Route::post('/mouvements', [StockController::class, 'store']);
@@ -55,8 +55,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // (Ne les décommente que si tu as bien créé le contrôleur correspondant)
     // =====================================================================
 
-    // Route::apiResource('rendez-vous', RendezVousController::class);
-    // Route::apiResource('ventes', VenteController::class);
+    Route::apiResource('rendez-vous', RendezVousController::class);
+    Route::apiResource('ventes', VenteController::class);
     // Route::apiResource('factures', FactureController::class);
     // Route::apiResource('interets', InteretController::class);
     // Route::apiResource('closings', ClosingController::class);
