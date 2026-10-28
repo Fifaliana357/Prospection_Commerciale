@@ -1,28 +1,33 @@
-import { Outlet } from "react-router-dom"
 import { useState } from "react"
+import { Outlet } from "react-router-dom"
 import Sidebar from "./Sidebar"
 import Header from "./Header"
+import { cn } from "@/lib/utils"
 
 export default function MainLayout() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <div className="flex min-h-dvh bg-background">
-      {mobileMenuOpen && (
-        <button
-          className="fixed inset-0 z-30 bg-slate-950/40 backdrop-blur-[1px] md:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-          aria-label="Fermer le menu"
-        />
-      )}
+    <div className="min-h-screen bg-background text-foreground">
       <Sidebar
-        mobileOpen={mobileMenuOpen}
-        onMobileClose={() => setMobileMenuOpen(false)}
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        collapsed={collapsed}
+        onCollapsedChange={setCollapsed}
       />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Header onMenuClick={() => setMobileMenuOpen(true)} />
-        <main className="min-w-0 flex-1 overflow-auto p-4 sm:p-6">
-          <Outlet />
+
+      <div
+        className={cn(
+          "flex min-h-screen flex-col transition-all duration-300",
+          collapsed ? "md:pl-[72px]" : "md:pl-[260px]"
+        )}
+      >
+        <Header onMenuClick={() => setMenuOpen(true)} />
+        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          <div className="mx-auto w-full max-w-[1600px]">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

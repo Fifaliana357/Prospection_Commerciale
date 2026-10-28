@@ -38,6 +38,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('clients', ClientController::class);
     Route::apiResource('commerciaux', CommercialController::class);
     Route::apiResource('prospections', ProspectionController::class);
+    Route::post('prospections/{id}/messages', [ProspectionController::class, 'addMessage']);
 
     // 3. Catalogue & Stock
     Route::apiResource('produits', ProduitController::class);
@@ -58,7 +59,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('rendez-vous', RendezVousController::class);
     Route::apiResource('ventes', VenteController::class);
     // Route::apiResource('factures', FactureController::class);
-    // Route::apiResource('interets', InteretController::class);
+    Route::get('/interets', [InteretController::class, 'index']);
+    Route::post('/interets', [InteretController::class, 'store']);
+    Route::delete('/interets/{id}', [InteretController::class, 'destroy']);
     // Route::apiResource('closings', ClosingController::class);
     // Route::apiResource('sav-tickets', SavTicketController::class);
     // Route::apiResource('bibliotheque', BibliothequeController::class)->only(['index', 'store', 'destroy']);

@@ -1,139 +1,208 @@
 import { NavLink } from "react-router-dom"
 import {
-  Users, MessageSquare, Calendar, Handshake, ShoppingCart,
-  Package, Warehouse, FileText, UserCog, BarChart3,
-  FolderOpen, BookOpen, Headphones
+  LayoutDashboard, BarChart3, UserSearch, Target, CalendarDays, Sparkles, Trophy,
+  Users, ShoppingCart, FileText, LifeBuoy, Package, Boxes, UserCog, BookOpen, GraduationCap,
+  LogOut, X, ChevronLeft, ChevronRight,
 } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { getSessionUser, logout } from "@/lib/session"
 import { useState } from "react"
-import { useTheme } from "@/contexts/ThemeContext"
 
-// Importe tes logos
-import logoLight from "@/assets/softio-fixed.png"        // version claire / blanche
-import logoDark from "@/assets/softio-fixed-black.png"   // version noire
-import logoIcon from "@/assets/softio-logo.png"          // cube
-import logoIconBlack from "@/assets/softio-logo-black.png"
+type Item = { name: string; path: string; icon: LucideIcon; adminOnly?: boolean }
+type Group = { title: string; items: Item[] }
 
-const menuItems = [
+const groups: Group[] = [
+  {
+    title: "Pilotage",
+    items: [
+      { name: "Tableau de bord", path: "/dashboard", icon: LayoutDashboard },
+      { name: "Statistiques", path: "/statistiques", icon: BarChart3 },
+    ],
+  },
   {
     title: "Prospection",
     items: [
-      { name: "Prospects", path: "/prospects", icon: Users },
-      { name: "Prospection", path: "/prospection", icon: MessageSquare },
-      { name: "Intérêts", path: "/interets", icon: BookOpen },
-      { name: "Rendez-vous", path: "/rendez-vous", icon: Calendar },
-      { name: "Closing", path: "/closing", icon: Handshake },
+      { name: "Prospects", path: "/prospects", icon: UserSearch },
+      { name: "Prospections", path: "/prospections", icon: Target },
+      { name: "Rendez-vous", path: "/rendez-vous", icon: CalendarDays },
+      { name: "Intérêts", path: "/interets", icon: Sparkles },
+      { name: "Closing", path: "/closing", icon: Trophy },
     ],
   },
   {
-    title: "Offres",
+    title: "Ventes",
     items: [
+      { name: "Clients", path: "/clients", icon: Users },
       { name: "Ventes", path: "/ventes", icon: ShoppingCart },
-      { name: "Produits & Services", path: "/catalogue", icon: Package },
-      { name: "Gestion de stock", path: "/stock", icon: Warehouse },
       { name: "Facturation", path: "/facturation", icon: FileText },
-      { name: "SAV", path: "/sav", icon: Headphones }, // ← Ajouté
+      { name: "SAV", path: "/sav", icon: LifeBuoy },
     ],
   },
   {
-    title: "Autres",
+    title: "Catalogue",
     items: [
-      { name: "Commerciaux", path: "/commerciaux", icon: UserCog },
-      { name: "Statistiques", path: "/statistiques", icon: BarChart3 },
-      { name: "Bibliothèque", path: "/bibliotheque", icon: FolderOpen },
-      { name: "Tutoriels", path: "/tutoriels", icon: BookOpen },
+      { name: "Produits", path: "/catalogue", icon: Package },
+      { name: "Stock", path: "/stock", icon: Boxes },
+    ],
+  },
+  {
+    title: "Équipe & Savoir",
+    items: [
+      { name: "Commerciaux", path: "/commerciaux", icon: UserCog, adminOnly: true },
+      { name: "Bibliothèque", path: "/bibliotheque", icon: BookOpen },
+      { name: "Tutoriels", path: "/tutoriels", icon: GraduationCap },
     ],
   },
 ]
 
+// En haut du composant
 export default function Sidebar({
-  mobileOpen,
-  onMobileClose,
+  open,
+  onClose,
+  collapsed,
+  onCollapsedChange,
 }: {
-  mobileOpen: boolean
-  onMobileClose: () => void
+  open: boolean
+  onClose: () => void
+  collapsed: boolean
+  onCollapsedChange: (value: boolean) => void
 }) {
-  const [collapsed, setCollapsed] = useState(false)
-  const { theme } = useTheme()
+  const user = getSessionUser()
+  const [setCollapsed] = useState(false)
 
   return (
-    <aside
-      className={cn(
-        "fixed inset-y-0 left-0 z-40 h-dvh border-r border-border bg-sidebar flex flex-col transition-all duration-300 md:sticky md:top-0 md:z-auto md:h-screen md:translate-x-0",
-        mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
-        collapsed ? "w-[72px] md:w-[72px]" : "w-64 md:w-56"
+    <>
+      {/* Overlay mobile */}
+      {open && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-[2px] md:hidden"
+          onClick={onClose}
+        />
       )}
-    >
-      {/* Logo */}
-      {/* Logo */}
-<div className="h-16 flex items-center px-3 border-b border-border">
-  {!collapsed ? (
-    // Sidebar ouverte → logo cliquable pour fermer
-    <button
-    onClick={() => {
-      setCollapsed(true)
-      onMobileClose()
-    }}
-      className="flex items-center gap-2 w-full hover:opacity-80 transition-opacity"
-      title="Fermer le menu"
-    >
-      <img
-        src={theme === "dark" ? logoLight : logoDark}
-        alt="Softio"
-        className="h-10 max-w-full object-contain"
-      />
-    </button>
-  ) : (
-    // Sidebar fermée → logo cliquable pour ouvrir
-    <button
-    onClick={() => {
-      setCollapsed(false)
-      onMobileClose()
-    }}
-      className="mx-auto p-1.5 rounded-md hover:bg-accent transition-colors"
-      title="Ouvrir le menu"
-    >
-      <img
-        src={theme === "light" ? logoIconBlack : logoIcon}
-        alt="Softio"
-        className="h-8 w-8 object-contain"
-      />
-    </button>
-  )}
-</div>
 
-      {/* Navigation */}
-      <nav className="sidebar-navigation flex-1 overflow-y-auto py-4 px-3 space-y-6">
-        {menuItems.map((group) => (
-          <div key={group.title}>
-            {!collapsed && (
-              <p className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {group.title}
-              </p>
-            )}
-            <div className="space-y-1">
-              {group.items.map((item) => (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  onClick={onMobileClose}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                      isActive
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                    )
-                  }
-                >
-                  <item.icon size={18} className="shrink-0" />
-                  {!collapsed && <span>{item.name}</span>}
-                </NavLink>
-              ))}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border bg-card text-card-foreground transition-all duration-300",
+          collapsed ? "w-[72px]" : "w-[260px]",
+          open ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        )}
+      >
+        {/* Header */}
+        <div className="flex h-16 shrink-0 items-center justify-between px-3 border-b border-border">
+          {!collapsed && (
+            <div className="flex items-center gap-2.5 px-1">
+              <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary font-bold text-primary-foreground text-sm">
+                S
+              </span>
+              <span className="text-lg font-semibold tracking-tight">Softio</span>
             </div>
+          )}
+
+          {collapsed && (
+            <span className="mx-auto grid h-8 w-8 place-items-center rounded-lg bg-primary font-bold text-primary-foreground text-sm">
+              S
+            </span>
+          )}
+
+          {/* Bouton collapse (desktop) */}
+          <button
+            onClick={() => onCollapsedChange(!collapsed)}
+            className="hidden md:flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            title={collapsed ? "Agrandir" : "Réduire"}
+          >
+            {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
+
+          {/* Bouton fermer (mobile) */}
+          <button
+            onClick={onClose}
+            className="md:hidden flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:bg-accent"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-5">
+          {groups.map((group) => {
+            const items = group.items.filter((i) => !i.adminOnly || user.role === "admin")
+            if (!items.length) return null
+
+            return (
+              <div key={group.title}>
+                {!collapsed && (
+                  <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {group.title}
+                  </p>
+                )}
+                <ul className="space-y-0.5">
+                  {items.map(({ name, path, icon: Icon }) => (
+                    <li key={path}>
+                      <NavLink
+                        to={path}
+                        onClick={onClose}
+                        title={collapsed ? name : undefined}
+                        className={({ isActive }) =>
+                          cn(
+                            "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all",
+                            collapsed && "justify-center px-0",
+                            isActive
+                              ? "bg-primary/10 text-primary font-medium"
+                              : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                          )
+                        }
+                      >
+                        {({ isActive }) => (
+                          <>
+                            {isActive && !collapsed && (
+                              <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary" />
+                            )}
+                            <Icon
+                              size={18}
+                              className={cn(
+                                "shrink-0",
+                                isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                              )}
+                            />
+                            {!collapsed && <span>{name}</span>}
+                          </>
+                        )}
+                      </NavLink>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )
+          })}
+        </nav>
+
+        {/* User 
+        <div className="shrink-0 border-t border-border p-3">
+          <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
+              {user.initiale}
+            </span>
+            {!collapsed && (
+              <>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{user.nom}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {user.role === "admin" ? "Administrateur" : "Commercial"}
+                  </p>
+                </div>
+                <button
+                  onClick={logout}
+                  title="Se déconnecter"
+                  className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                >
+                  <LogOut size={16} />
+                </button>
+              </>
+            )}
           </div>
-        ))}
-      </nav>
-    </aside>
+        </div>*/}
+      </aside>
+    </>
   )
 }

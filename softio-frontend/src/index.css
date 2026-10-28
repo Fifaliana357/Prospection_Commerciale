@@ -1,6 +1,10 @@
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Inter:wght@400;500;600&display=swap");
 @import "tailwindcss";
 
 @theme {
+  --font-display: "Bricolage Grotesque", Inter, ui-sans-serif, system-ui, sans-serif;
+  --color-ink: hsl(var(--ink));
+  --color-ink-foreground: hsl(var(--ink-foreground));
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
   --color-card: hsl(var(--card));
@@ -231,3 +235,10 @@
 .animate-toast-in {
   animation: toast-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
+
+/* Sidebar "encre" : identique en clair et en sombre */
+:root { --ink: 222 40% 10%; --ink-foreground: 210 30% 92%; }
+.font-display { font-feature-settings: "ss01"; letter-spacing: -0.02em; }
+@keyframes ring-draw { from { stroke-dashoffset: var(--ring-full); } }
+.ring-draw { animation: ring-draw 1s cubic-bezier(.2,.8,.2,1) both; }
+@media (prefers-reduced-motion: reduce) { .ring-draw { animation: none; } }

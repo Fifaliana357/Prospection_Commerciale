@@ -1,177 +1,130 @@
-import { useState, useEffect } from "react"
-import {
-  Users,
-  MessageSquare,
-  Calendar,
-  TrendingUp,
-  ArrowUpRight,
-  ArrowDownRight,
-  MoreHorizontal,
-} from "lucide-react"
-import { dashboardApi, type DashboardStats } from "@/services/api"
+import { useEffect, useState } from "react"
+import { Link, useNavigate } from "react-router-dom"
+import { AlertTriangle, CheckCircle2, Users, Target, Trophy, ArrowUpRight, Loader2 } from "lucide-react"
+import api from "../services/api"
+import { getSessionUser } from "@/lib/session"
 
-const stats = [
-  {
-    title: "Prospects",
-    value: "1 248",
-    change: "+12.5%",
-    trend: "up",
-    icon: Users,
-    color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  },
-  {
-    title: "Prospections",
-    value: "386",
-    change: "+8.2%",
-    trend: "up",
-    icon: MessageSquare,
-    color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  },
-  {
-    title: "RDV du jour",
-    value: "12",
-    change: "-3.1%",
-    trend: "down",
-    icon: Calendar,
-    color: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
-  },
-  {
-    title: "Ventes du mois",
-    value: "42.8M",
-    change: "+18.7%",
-    trend: "up",
-    icon: TrendingUp,
-    color: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
-  },
-]
+interface Alerte { id_produit: number; designation: string; stock_actuel: number }
+interface Stats {
+  total_clients: number
+  prospections_actives: number
+  prospections_gagnees: number
+  alertes_stock: Alerte[]
+}
 
-const recentActivities = [
-  { name: "Rakoto Jean", action: "Nouveau prospect ajouté", time: "Il y a 12 min", type: "prospect" },
-  { name: "Société NirInfo", action: "Prospection clôturée", time: "Il y a 34 min", type: "closing" },
-  { name: "Rasoanaivo Mamy", action: "RDV planifié", time: "Il y a 1h", type: "rdv" },
-  { name: "Andrianasolo Faly", action: "Message envoyé", time: "Il y a 2h", type: "message" },
-  { name: "Société SoftLabs", action: "Vente enregistrée", time: "Il y a 3h", type: "vente" },
-]
+function Ring({ value }: { value: number }) {
+  const r = 54
+  const c = 2 * Math.PI * r
+  return (
+    <svg viewBox="0 0 140 140" className="h-40 w-40 -rotate-90" role="img" aria-label={`Taux de conversion ${value} %`}>
+      <circle cx="70" cy="70" r={r} fill="none" strokeWidth="14" className="stroke-muted" />
+      <circle
+        cx="70" cy="70" r={r} fill="none" strokeWidth="14" strokeLinecap="round"
+        className="ring-draw stroke-primary"
+        strokeDasharray={c}
+        strokeDashoffset={c * (1 - value / 100)}
+        style={{ ["--ring-full" as string]: c }}
+      />
+    </svg>
+  )
+}
 
 export default function Dashboard() {
-  const [liveStats, setLiveStats] = useState<DashboardStats | null>(null)
+  const [stats, setStats] = useState<Stats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
+  const user = getSessionUser()
 
   useEffect(() => {
-    dashboardApi.getStats()
-      .then((data) => setLiveStats(data))
-      .catch((err) => console.warn("Dashboard stats non joint:", err))
-  }, [])
+    api.get("/dashboard/stats")
+      .then((res) => setStats(res.data))
+      .catch((err) => { if (err.response?.status === 401) navigate("/login") })
+      .finally(() => setLoading(false))
+  }, [navigate])
 
-  const displayStats = stats.map((s) => {
-    if (!liveStats) return s
-    if (s.title === "Prospects") return { ...s, value: String(liveStats.prospectsCount) }
-    if (s.title === "Prospections") return { ...s, value: String(liveStats.prospectionsCount) }
-    if (s.title === "RDV du jour") return { ...s, value: String(liveStats.rdvDuJourCount) }
-    if (s.title === "Ventes du mois") return { ...s, value: liveStats.ventesMoisMontant }
-    return s
-  })
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-20 text-muted-foreground">
+        <Loader2 className="animate-spin" size={18} /> Chargement…
+      </div>
+    )
+  }
+
+  const actives = stats?.prospections_actives ?? 0
+  const gagnees = stats?.prospections_gagnees ?? 0
+  const total = actives + gagnees
+  const taux = total ? Math.round((gagnees / total) * 100) : 0
+  const alertes = stats?.alertes_stock ?? []
+  const date = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })
 
   return (
-    <div className="space-y-6">
-      {/* En-tête */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Tableau de bord</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Vue d’ensemble de votre activité commerciale
-          </p>
-        </div>
-        <div className="text-sm text-muted-foreground">
-          {new Date().toLocaleDateString("fr-FR", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
-        </div>
+    <div className="space-y-8">
+      <div>
+        <p className="text-sm capitalize text-muted-foreground">{date}</p>
+        <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">Bonjour {user.nom.split(" ")[0]}</h1>
       </div>
 
-      {/* Cartes de statistiques */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {displayStats.map((stat) => (
-          <div
-            key={stat.title}
-            className="bg-card border border-border rounded-xl p-5 hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className={`p-2.5 rounded-lg ${stat.color}`}>
-                <stat.icon size={20} />
-              </div>
-              <div
-                className={`flex items-center gap-1 text-xs font-medium ${
-                  stat.trend === "up" ? "text-emerald-600" : "text-red-500"
-                }`}
-              >
-                {stat.trend === "up" ? (
-                  <ArrowUpRight size={14} />
-                ) : (
-                  <ArrowDownRight size={14} />
-                )}
-                {stat.change}
-              </div>
+      <section className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
+        <div className="flex flex-col items-center gap-8 rounded-2xl border border-border bg-card p-6 sm:flex-row sm:p-8">
+          <div className="relative shrink-0">
+            <Ring value={taux} />
+            <div className="absolute inset-0 grid place-items-center">
+              <span className="font-display text-4xl font-semibold">{taux}<span className="text-xl text-muted-foreground"> %</span></span>
             </div>
-            <p className="text-sm text-muted-foreground">{stat.title}</p>
-            <p className="text-2xl font-bold mt-1">{stat.value}</p>
           </div>
-        ))}
-      </div>
-
-      {/* Contenu principal */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Graphique / Zone principale */}
-        <div className="lg:col-span-2 bg-card border border-border rounded-xl p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="font-semibold">Évolution des ventes</h2>
-              <p className="text-sm text-muted-foreground">Derniers 6 mois</p>
-            </div>
-            <button className="p-2 rounded-lg hover:bg-accent text-muted-foreground">
-              <MoreHorizontal size={18} />
-            </button>
-          </div>
-
-          {/* Placeholder graphique */}
-          <div className="h-64 flex items-end justify-between gap-3 px-2">
-            {[40, 65, 45, 80, 55, 90].map((height, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                <div
-                  className="w-full bg-primary/80 rounded-t-md transition-all hover:bg-primary"
-                  style={{ height: `${height}%` }}
-                />
-                <span className="text-xs text-muted-foreground">
-                  {["Mai", "Juin", "Juil", "Août", "Sept", "Oct"][i]}
-                </span>
-              </div>
-            ))}
+          <div className="w-full">
+            <h2 className="font-display text-xl font-semibold">Taux de conversion</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {total ? `${gagnees} prospection${gagnees > 1 ? "s" : ""} gagnée${gagnees > 1 ? "s" : ""} sur ${total}.` : "Aucune prospection pour l'instant."}
+            </p>
+            <dl className="mt-5 grid grid-cols-2 gap-3">
+              <Link to="/prospection" className="group rounded-xl bg-muted/60 p-4 transition hover:bg-muted">
+                <dt className="flex items-center justify-between text-sm text-muted-foreground"><span className="flex items-center gap-1.5"><Target size={14} />En cours</span><ArrowUpRight size={14} className="opacity-0 transition group-hover:opacity-100" /></dt>
+                <dd className="mt-1 font-display text-3xl font-semibold">{actives}</dd>
+              </Link>
+              <Link to="/closing" className="group rounded-xl bg-primary/10 p-4 transition hover:bg-primary/15">
+                <dt className="flex items-center justify-between text-sm text-primary"><span className="flex items-center gap-1.5"><Trophy size={14} />Gagnées</span><ArrowUpRight size={14} className="opacity-0 transition group-hover:opacity-100" /></dt>
+                <dd className="mt-1 font-display text-3xl font-semibold text-primary">{gagnees}</dd>
+              </Link>
+            </dl>
           </div>
         </div>
 
-        {/* Activités récentes */}
-        <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="font-semibold mb-4">Activités récentes</h2>
-          <div className="space-y-4">
-            {recentActivities.map((activity, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold shrink-0">
-                  {activity.name.charAt(0)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{activity.name}</p>
-                  <p className="text-xs text-muted-foreground">{activity.action}</p>
-                </div>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  {activity.time}
-                </span>
-              </div>
-            ))}
+        <Link to="/clients" className="group flex flex-col justify-between rounded-2xl border border-border bg-card p-6 transition hover:border-primary/40 sm:p-8">
+          <div className="flex items-center justify-between">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-muted text-muted-foreground"><Users size={18} /></span>
+            <ArrowUpRight size={18} className="text-muted-foreground transition group-hover:text-primary" />
           </div>
+          <div className="mt-8">
+            <p className="font-display text-5xl font-semibold">{stats?.total_clients ?? 0}</p>
+            <p className="mt-1 text-sm text-muted-foreground">clients dans votre portefeuille</p>
+          </div>
+        </Link>
+      </section>
+
+      <section className="rounded-2xl border border-border bg-card">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <h2 className="font-display text-lg font-semibold">Stock à surveiller</h2>
+          {alertes.length > 0 && (
+            <span className="rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-medium text-destructive">{alertes.length} produit{alertes.length > 1 ? "s" : ""}</span>
+          )}
         </div>
-      </div>
+        {alertes.length === 0 ? (
+          <div className="flex items-center gap-3 px-6 py-10 text-sm text-muted-foreground">
+            <CheckCircle2 className="text-primary" size={20} />
+            Tous les produits ont un stock suffisant.
+          </div>
+        ) : (
+          <ul className="divide-y divide-border">
+            {alertes.map((a) => (
+              <li key={a.id_produit} className="flex items-center justify-between gap-4 px-6 py-3.5">
+                <span className="flex items-center gap-3 text-sm font-medium"><AlertTriangle size={16} className="text-destructive" />{a.designation}</span>
+                <span className="rounded-md bg-destructive/10 px-2 py-1 text-xs font-semibold text-destructive">Reste {a.stock_actuel}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   )
 }

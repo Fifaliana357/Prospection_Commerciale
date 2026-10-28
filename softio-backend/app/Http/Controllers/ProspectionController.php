@@ -2,100 +2,190 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Admin;
-use App\Models\Client;
 use App\Models\Prospection;
-use App\Traits\ScopesToOwner;
+use App\Models\Proposition;
+use App\Models\Client;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 
 class ProspectionController extends Controller
 {
-    use ScopesToOwner;
-
-    public function index(Request $request): JsonResponse
+    public function index(Request $request)
     {
-        $query = Prospection::with(['client:id_client,nom,prenom,entreprise', 'commercial:id_commercial,nom,prenom']);
-        
-        $this->scopeToOwner($query, $request->user());
+        $user = $request->user();
 
-        // Filtrer par état (ex: 'en_cours', 'gagne', 'perdu')
+        $query = Prospection::with([
+            'client:id_client,nom,prenom,telephone,email,entreprise',
+            'commercial:id_commercial,nom,prenom',
+            'offre:id_offre,denomination'
+        ]);
+
+        if ($user instanceof \App\Models\Admin) {
+            $query->where('id_admin', $user->id_admin);
+        } else {
+            $query->where('id_commercial', $user->id_commercial);
+        }
+
+        // Filtres
         if ($request->filled('etat')) {
-            $query->where('etat', $request->etat);
+            if ($request->etat === 'perdu') {
+                $query->where('est_perdu', true);
+            } elseif ($request->etat === 'cloture') {
+                $query->where('etat', 'cloture')->where('est_perdu', false);
+            } elseif ($request->etat === 'non_cloture') {
+                $query->where('etat', '!=', 'cloture')->where('est_perdu', false);
+            }
         }
 
-        // Filtrer les perdus ou actifs
-        if ($request->has('est_perdu')) {
-            $query->where('est_perdu', $request->boolean('est_perdu'));
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('produit_prospecte', 'like', "%{$search}%")
+                  ->orWhereHas('client', function ($q2) use ($search) {
+                      $q2->where('nom', 'like', "%{$search}%")
+                         ->orWhere('prenom', 'like', "%{$search}%")
+                         ->orWhere('telephone', 'like', "%{$search}%");
+                  });
+            });
         }
 
-        $prospections = $query->orderByDesc('created_at')->paginate(15);
+        $prospections = $query->orderBy('created_at', 'desc')->paginate(15);
+
         return response()->json($prospections);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request)
     {
+        $user = $request->user();
+
         $validated = $request->validate([
             'id_client'         => 'required|exists:client,id_client',
-            'id_offre'          => 'nullable|exists:offre,id_offre', // Si tu as une table offre
+            'id_offre'          => 'nullable|exists:offre,id_offre',
             'produit_prospecte' => 'nullable|string|max:255',
-            'etat'              => 'required|string|max:50',
-            'note_actuelle'     => 'nullable|integer',
-            'est_perdu'         => 'boolean',
+            'objet'             => 'nullable|string|max:255',
+            'message'           => 'nullable|string',
+            'type_message'      => 'nullable|string|max:50',
         ]);
 
-        $user = $request->user();
-        $validated['id_admin'] = $user->id_admin;
-        
-        if (! $user instanceof Admin) {
-            $validated['id_commercial'] = $user->id_commercial;
-        }
+        $prospection = Prospection::create([
+            'id_admin'          => $user instanceof \App\Models\Admin ? $user->id_admin : $user->id_admin,
+            'id_commercial'     => $user instanceof \App\Models\Commercial ? $user->id_commercial : null,
+            'id_client'         => $validated['id_client'],
+            'id_offre'          => $validated['id_offre'] ?? null,
+            'produit_prospecte' => $validated['produit_prospecte'] ?? null,
+            'etat'              => 'en_cours',
+            'est_perdu'         => false,
+        ]);
 
-        $prospection = Prospection::create($validated);
+        // Créer le premier message (proposition)
+        if (!empty($validated['message']) || !empty($validated['objet'])) {
+            Proposition::create([
+                'id_prospection'   => $prospection->id_prospection,
+                'id_commercial'    => $prospection->id_commercial,
+                'id_admin'         => $prospection->id_admin,
+                'date_proposition' => now(),
+                'objet'            => $validated['objet'] ?? 'Premier contact',
+                'type'             => 'sortant',
+                'message'          => $validated['message'] ?? '',
+                'type_message'     => $validated['type_message'] ?? 'Email',
+                'lu'               => true,
+            ]);
+        }
 
         return response()->json([
             'message' => 'Prospection créée avec succès',
-            'prospection' => $prospection->load('client')
+            'prospection' => $prospection->load(['client', 'offre'])
         ], 201);
     }
 
-    public function show(Request $request, $id): JsonResponse
+    public function show(Request $request, $id)
     {
-        $prospection = Prospection::with(['client', 'commercial', 'propositions', 'closing'])->findOrFail($id);
-        
-        $this->authorizeOwnership($prospection, $request->user());
+        $user = $request->user();
+
+        $prospection = Prospection::with([
+            'client',
+            'commercial:id_commercial,nom,prenom',
+            'offre',
+            'propositions' => function ($q) {
+                $q->orderBy('date_proposition', 'asc');
+            }
+        ])->findOrFail($id);
+
+        // Sécurité
+        if ($user instanceof \App\Models\Admin) {
+            if ($prospection->id_admin !== $user->id_admin) {
+                return response()->json(['message' => 'Non autorisé'], 403);
+            }
+        } else {
+            if ($prospection->id_commercial !== $user->id_commercial) {
+                return response()->json(['message' => 'Non autorisé'], 403);
+            }
+        }
 
         return response()->json($prospection);
     }
 
-    public function update(Request $request, $id): JsonResponse
+    public function update(Request $request, $id)
     {
+        $user = $request->user();
         $prospection = Prospection::findOrFail($id);
-        $this->authorizeOwnership($prospection, $request->user());
+
+        // Sécurité simple
+        if ($user instanceof \App\Models\Admin && $prospection->id_admin !== $user->id_admin) {
+            return response()->json(['message' => 'Non autorisé'], 403);
+        }
 
         $validated = $request->validate([
-            'id_client'         => 'sometimes|exists:client,id_client',
-            'id_offre'          => 'nullable|exists:offre,id_offre',
-            'produit_prospecte' => 'nullable|string|max:255',
-            'etat'              => 'sometimes|string|max:50',
-            'note_actuelle'     => 'nullable|integer',
-            'est_perdu'         => 'boolean',
+            'etat'      => 'sometimes|string',
+            'est_perdu' => 'sometimes|boolean',
+            'note_actuelle' => 'nullable|integer|min:0|max:5',
         ]);
 
         $prospection->update($validated);
 
         return response()->json([
-            'message' => 'Prospection mise à jour avec succès',
-            'prospection' => $prospection->fresh()->load('client')
+            'message' => 'Prospection mise à jour',
+            'prospection' => $prospection
         ]);
     }
 
-    public function destroy(Request $request, $id): JsonResponse
+    public function destroy(Request $request, $id)
     {
         $prospection = Prospection::findOrFail($id);
-        $this->authorizeOwnership($prospection, $request->user());
-
         $prospection->delete();
+
         return response()->json(['message' => 'Prospection supprimée']);
+    }
+
+    // Ajouter un message (proposition)
+    public function addMessage(Request $request, $id)
+    {
+        $user = $request->user();
+        $prospection = Prospection::findOrFail($id);
+
+        $validated = $request->validate([
+            'objet'        => 'nullable|string|max:255',
+            'message'      => 'required|string',
+            'type'         => 'required|in:sortant,entrant',
+            'type_message' => 'nullable|string|max:50',
+            'note'         => 'nullable|integer|min:0|max:5',
+        ]);
+
+        $proposition = Proposition::create([
+            'id_prospection'   => $prospection->id_prospection,
+            'id_commercial'    => $user instanceof \App\Models\Commercial ? $user->id_commercial : null,
+            'id_admin'         => $user instanceof \App\Models\Admin ? $user->id_admin : $prospection->id_admin,
+            'date_proposition' => now(),
+            'objet'            => $validated['objet'] ?? null,
+            'type'             => $validated['type'],
+            'message'          => $validated['message'],
+            'type_message'     => $validated['type_message'] ?? 'Email',
+            'note'             => $validated['note'] ?? null,
+            'lu'               => true,
+        ]);
+
+        return response()->json([
+            'message' => 'Message ajouté',
+            'proposition' => $proposition
+        ], 201);
     }
 }

@@ -1,240 +1,263 @@
-import { useState } from "react"
-import {
-  Search,
-  Plus,
-  MoreHorizontal,
-  Package,
-  Building2,
-  User,
-} from "lucide-react"
-import { cn } from "@/lib/utils"
-import { RecordFormModal } from "@/components/ui/Modal"
-
-const interets = [
-  {
-    id: 1,
-    prospect: "Jean Rakoto",
-    type: "particulier",
-    produit: "Power Station 1000wh",
-    typeOffre: "Produit",
-    date: "18/10/2026",
-    niveau: "Élevé",
-    commentaire: "Très intéressé, demande un devis rapidement",
-  },
-  {
-    id: 2,
-    prospect: "Nir'Info",
-    type: "entreprise",
-    produit: "Speaker Champignon",
-    typeOffre: "Produit",
-    date: "17/10/2026",
-    niveau: "Moyen",
-    commentaire: "Souhaite comparer avec d'autres modèles",
-  },
-  {
-    id: 3,
-    prospect: "Mamy Rasoanaivo",
-    type: "particulier",
-    produit: "Formation Softio",
-    typeOffre: "Service",
-    date: "15/10/2026",
-    niveau: "Élevé",
-    commentaire: "Besoin de formation pour son équipe",
-  },
-  {
-    id: 4,
-    prospect: "SoftLabs",
-    type: "entreprise",
-    produit: "Power Station 300wh",
-    typeOffre: "Produit",
-    date: "12/10/2026",
-    niveau: "Faible",
-    commentaire: "Simple prise d'information",
-  },
-  {
-    id: 5,
-    prospect: "Faly Andrianasolo",
-    type: "particulier",
-    produit: "Gourde Thermos",
-    typeOffre: "Produit",
-    date: "10/10/2026",
-    niveau: "Moyen",
-    commentaire: "Intéressé pour un achat groupé",
-  },
-]
-
-const niveaux = ["Tous", "Élevé", "Moyen", "Faible"]
-
-const niveauStyle: Record<string, string> = {
-  Élevé: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  Moyen: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  Faible: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
-}
+import { useEffect, useState } from 'react';
+import { Search, Eye, Star } from 'lucide-react';
+import { getInterets, type ClientWithInterets } from '../services/interets';
+import { useToast } from '../contexts/ToastContext';
 
 export default function Interets() {
-  const [interestItems, setInterestItems] = useState(interets)
-  const [search, setSearch] = useState("")
-  const [filterNiveau, setFilterNiveau] = useState("Tous")
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [initialValues, setInitialValues] = useState<Record<string, string>>({})
+  const toast = useToast();
 
-  const openCreate = () => {
-    setEditingId(null)
-    setInitialValues({ date: new Date().toLocaleDateString("fr-FR"), type: "particulier", typeOffre: "Produit", niveau: "Moyen" })
-    setModalOpen(true)
-  }
+  const [clients, setClients] = useState<ClientWithInterets[]>([]);
+  const [produits, setProduits] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [produitFilter, setProduitFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
-  const openEdit = (interest: (typeof interets)[number]) => {
-    setEditingId(interest.id)
-    setInitialValues({
-      prospect: interest.prospect,
-      type: interest.type,
-      produit: interest.produit,
-      typeOffre: interest.typeOffre,
-      date: interest.date,
-      niveau: interest.niveau,
-      commentaire: interest.commentaire,
-    })
-    setModalOpen(true)
-  }
+  // Modal détail
+  const [selectedClient, setSelectedClient] = useState<ClientWithInterets | null>(null);
 
-  const saveInterest = (values: Record<string, string>) => {
-    const updated = {
-      id: editingId ?? Date.now(),
-      prospect: values.prospect,
-      type: values.type,
-      produit: values.produit,
-      typeOffre: values.typeOffre,
-      date: values.date,
-      niveau: values.niveau,
-      commentaire: values.commentaire,
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const res = await getInterets({
+        search: search || undefined,
+        produit: produitFilter || undefined,
+        page,
+      });
+      setClients(res.clients.data || []);
+      setLastPage(res.clients.last_page || 1);
+      setTotal(res.clients.total || 0);
+      setProduits(res.produits || []);
+    } catch {
+      toast.error('Erreur lors du chargement des intérêts');
+    } finally {
+      setLoading(false);
     }
-    setInterestItems((current) => editingId
-      ? current.map((item) => item.id === editingId ? updated : item)
-      : [updated, ...current])
-  }
+  };
 
-  const filtered = interestItems.filter((i) => {
-    const matchSearch =
-      i.prospect.toLowerCase().includes(search.toLowerCase()) ||
-      i.produit.toLowerCase().includes(search.toLowerCase())
-
-    const matchNiveau = filterNiveau === "Tous" || i.niveau === filterNiveau
-
-    return matchSearch && matchNiveau
-  })
+  useEffect(() => {
+    fetchData();
+  }, [search, produitFilter, page]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Intérêts</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Suivez les centres d’intérêt de vos prospects
-          </p>
-        </div>
-        <button onClick={openCreate} className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">
-          <Plus size={18} />
-          Ajouter un intérêt
-        </button>
-      </div>
-
-      {/* Filtres */}
-      <div className="bg-card border border-border rounded-xl p-4">
-        <div className="flex flex-col md:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-            <input
-              type="text"
-              placeholder="Rechercher un prospect ou produit..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 rounded-lg bg-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
+    <div className="p-6 max-w-[1600px] mx-auto">
+      {/* Header */}
+      <div className="mb-5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+            <Star size={20} />
           </div>
-
-          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
-            {niveaux.map((n) => (
-              <button
-                key={n}
-                onClick={() => setFilterNiveau(n)}
-                className={cn(
-                  "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-                  filterNiveau === n
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {n}
-              </button>
-            ))}
+          <div>
+            <h1 className="text-xl font-bold text-foreground">Intérêts des prospects</h1>
+            <p className="text-sm text-muted-foreground">
+              Visualisez les services et produits qui intéressent vos prospects
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Liste */}
-      <div className="grid gap-4">
-        {filtered.length === 0 ? (
-          <div className="bg-card border border-border rounded-xl py-16 text-center text-muted-foreground">
-            Aucun intérêt trouvé
-          </div>
-        ) : (
-          filtered.map((i) => (
-            <div
-              key={i.id}
-              className="bg-card border border-border rounded-xl p-5 hover:shadow-md transition-shadow"
+      {/* Search */}
+      <div className="relative mb-4 max-w-xl">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+        <input
+          type="text"
+          placeholder="Rechercher un prospect..."
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+          className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+      </div>
+
+      {/* Filtres produits + total */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => {
+              setProduitFilter('');
+              setPage(1);
+            }}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              produitFilter === ''
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-secondary text-secondary-foreground hover:bg-accent'
+            }`}
+          >
+            Tout
+          </button>
+          {produits.map((p) => (
+            <button
+              key={p}
+              onClick={() => {
+                setProduitFilter(p);
+                setPage(1);
+              }}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                produitFilter === p
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-secondary text-secondary-foreground hover:bg-accent'
+              }`}
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                    {i.type === "entreprise" ? <Building2 size={18} /> : <User size={18} />}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold">{i.prospect}</h3>
-                      <span className={cn("inline-flex px-2 py-0.5 rounded-full text-xs font-medium", niveauStyle[i.niveau])}>
-                        {i.niveau}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Package size={14} />
-                      <span>{i.produit}</span>
-                      <span className="text-xs bg-muted px-2 py-0.5 rounded">{i.typeOffre}</span>
-                    </div>
-                    {i.commentaire && (
-                      <p className="text-sm text-muted-foreground mt-2">{i.commentaire}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-muted-foreground">{i.date}</span>
-                  <button onClick={() => openEdit(i)} title="Modifier" aria-label={`Modifier l’intérêt de ${i.prospect}`} className="p-2 rounded-lg hover:bg-accent text-muted-foreground">
-                    <MoreHorizontal size={16} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
+              {p}
+            </button>
+          ))}
+        </div>
+        <span className="text-sm text-muted-foreground whitespace-nowrap">
+          {total} prospect{total > 1 ? 's' : ''}
+        </span>
       </div>
-      <RecordFormModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSubmit={saveInterest}
-        title={editingId ? "Modifier l’intérêt" : "Ajouter un intérêt"}
-        initialValues={initialValues}
-        fields={[
-          { name: "prospect", label: "Prospect", required: true },
-          { name: "type", label: "Type de prospect", type: "select", required: true, options: [{ label: "Particulier", value: "particulier" }, { label: "Entreprise", value: "entreprise" }] },
-          { name: "produit", label: "Produit ou service", required: true },
-          { name: "typeOffre", label: "Type d’offre", type: "select", required: true, options: ["Produit", "Service"].map((value) => ({ label: value, value })) },
-          { name: "date", label: "Date", required: true, placeholder: "JJ/MM/AAAA" },
-          { name: "niveau", label: "Niveau d’intérêt", type: "select", required: true, options: ["Élevé", "Moyen", "Faible"].map((value) => ({ label: value, value })) },
-          { name: "commentaire", label: "Commentaire", type: "textarea" },
-        ]}
-      />
+
+      {/* Table */}
+      <div className="bg-muted/40 border border-border rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-primary text-primary-foreground">
+                <th className="px-4 py-3 text-left font-medium">Nom et Prénom</th>
+                <th className="px-4 py-3 text-left font-medium">Contact</th>
+                <th className="px-4 py-3 text-left font-medium">Email</th>
+                <th className="px-4 py-3 text-left font-medium">Facebook</th>
+                <th className="px-4 py-3 text-left font-medium">LinkedIn</th>
+                <th className="px-4 py-3 text-left font-medium">Intérêts</th>
+                <th className="px-4 py-3 text-right font-medium">Vue</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
+                    Chargement...
+                  </td>
+                </tr>
+              ) : clients.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
+                    Aucun intérêt trouvé
+                  </td>
+                </tr>
+              ) : (
+                clients.map((client) => (
+                  <tr key={client.id_client} className="hover:bg-accent/40 transition-colors">
+                    <td className="px-4 py-3 font-medium">
+                      <div className="flex items-center gap-2">
+                        <span className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                          {(client.nom?.[0] || '') + (client.prenom?.[0] || '')}
+                        </span>
+                        {client.nom} {client.prenom || ''}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">{client.telephone || '—'}</td>
+                    <td className="px-4 py-3">{client.email || '—'}</td>
+                    <td className="px-4 py-3">
+                      {client.facebook ? (
+                        <a
+                          href={client.facebook}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          Profil
+                        </a>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {client.linkedin ? (
+                        <a
+                          href={client.linkedin}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          Profil
+                        </a>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        {client.interets?.slice(0, 2).map((i) => (
+                          <span
+                            key={i.id_interet}
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs bg-primary/10 text-primary"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                            {i.produit_concerne}
+                          </span>
+                        ))}
+                        {(client.interets?.length || 0) > 2 && (
+                          <span className="text-xs text-muted-foreground">
+                            +{client.interets.length - 2} autre
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => setSelectedClient(client)}
+                        className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
+                        title="Voir les détails"
+                      >
+                        <Eye size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Modal détail */}
+      {selectedClient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-card border border-border rounded-xl w-full max-w-lg shadow-xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-semibold">
+                Intérêts de {selectedClient.nom} {selectedClient.prenom || ''}
+              </h2>
+              <button
+                onClick={() => setSelectedClient(null)}
+                className="p-1.5 rounded-lg hover:bg-accent"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6 space-y-3">
+              {selectedClient.interets?.length === 0 ? (
+                <p className="text-muted-foreground text-sm">Aucun intérêt enregistré</p>
+              ) : (
+                selectedClient.interets.map((i) => (
+                  <div
+                    key={i.id_interet}
+                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                  >
+                    <span className="font-medium">{i.produit_concerne}</span>
+                    <span className="text-sm text-muted-foreground">
+                      Niveau {i.niveau}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-border flex justify-end">
+              <button
+                onClick={() => setSelectedClient(null)}
+                className="px-4 py-2 border border-border rounded-lg hover:bg-accent"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  )
+  );
 }

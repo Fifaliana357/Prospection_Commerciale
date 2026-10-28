@@ -1,552 +1,324 @@
-import { useState, useEffect } from "react"
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Search,
-  Plus,
-  MessageSquare,
-  MoreHorizontal,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  User,
-  Building2,
-} from "lucide-react"
-import type { LucideIcon } from "lucide-react"
-import { cn } from "@/lib/utils"
-import Modal from "@/components/ui/Modal"
-import { prospectionsApi, prospectsApi } from "@/services/api"
-import type { ProspectModel } from "@/services/api"
-import { useToast } from "@/components/ui/Toast"
+  Search, Plus, Trash2, MessageSquare, CheckCircle2, XCircle, Target, CalendarDays
+} from 'lucide-react';
+import {
+  getProspections,
+  deleteProspection,
+  updateProspection,
+  type Prospection
+} from '../services/prospections';
+import { useToast } from '../contexts/ToastContext';
 
-interface ProspectionItem {
-  id: number
-  date: string
-  objet: string
-  contact: string
-  nom: string
-  entreprise: string
-  fonction: string
-  etat: string
-  editeur: string
-  score: number | null
-  prospect_id?: number | null
-}
+export default function Prospections() {
+  const toast = useToast();
+  const navigate = useNavigate();
 
-const initialProspections: ProspectionItem[] = [
-  { id: 1, date: "16/10/2026", objet: "Salut", contact: "034 36 040 22", nom: "Szs Ketaka", entreprise: "-", fonction: "-", etat: "Non clôturé", editeur: "Admin", score: 49 },
-  { id: 2, date: "16/10/2026", objet: "Présentation Softio", contact: "034 70 840 46", nom: "Jean Rakoto", entreprise: "Nir'Info", fonction: "Directeur", etat: "Non clôturé", editeur: "Admin", score: 69 },
-  { id: 3, date: "23/09/2026", objet: "Commande speaker", contact: "032 11 112 02", nom: "Client", entreprise: "-", fonction: "-", etat: "Clôturé", editeur: "Admin", score: null },
-  { id: 4, date: "23/09/2026", objet: "Commande power station 1000wh", contact: "034 20 701 15", nom: "Client", entreprise: "-", fonction: "-", etat: "Clôturé", editeur: "Admin", score: null },
-  { id: 5, date: "23/09/2026", objet: "Proposition speaker champignon", contact: "034 50 917 65", nom: "Njiva", entreprise: "-", fonction: "-", etat: "Clôturé", editeur: "Admin", score: null },
-  { id: 6, date: "20/09/2026", objet: "Relance devis", contact: "033 98 765 43", nom: "Mamy Rasoanaivo", entreprise: "SoftLabs", fonction: "Responsable Achat", etat: "Perdu", editeur: "Admin", score: 22 },
-]
+  const [prospections, setProspections] = useState<Prospection[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [etatFilter, setEtatFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
 
-const etats = ["Tout", "Clôturé", "Non clôturé", "Perdu"]
+  const fetchProspections = async () => {
+    try {
+      setLoading(true);
+      const res = await getProspections({
+        search: search || undefined,
+        etat: etatFilter || undefined,
+        page,
+      });
+      setProspections(res.data);
+      setLastPage(res.last_page);
+      setTotal(res.total);
+    } catch {
+      toast.error('Erreur lors du chargement des prospections');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-const etatStyle: Record<string, string> = {
-  "Clôturé": "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  "Non clôturé": "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  "Perdu": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-}
-
-const etatIcon: Record<string, LucideIcon> = {
-  "Clôturé": CheckCircle2,
-  "Non clôturé": Clock,
-  "Perdu": XCircle,
-}
-
-const emptyForm = {
-  prospect_id: "" as string | number,
-  date: "",
-  objet: "",
-  contact: "",
-  nom: "",
-  entreprise: "",
-  fonction: "",
-  etat: "Non clôturé",
-}
-
-export default function Prospection() {
-  const { showToast } = useToast()
-  const [prospectionItems, setProspectionItems] = useState<ProspectionItem[]>(initialProspections)
-  const [prospects, setProspects] = useState<ProspectModel[]>([])
-  const [search, setSearch] = useState("")
-  const [filterEtat, setFilterEtat] = useState("Tout")
-  const [modalOpen, setModalOpen] = useState(false)
-  const [modalClosing, setModalClosing] = useState(false)
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [deleteId, setDeleteId] = useState<number | null>(null)
-  const [form, setForm] = useState(emptyForm)
-
-  // Charger les prospections depuis le backend
   useEffect(() => {
-    prospectionsApi.getAll()
-      .then((data) => {
-        if (data && data.length > 0) {
-          setProspectionItems(data as ProspectionItem[])
-        }
-      })
-      .catch((err) => console.warn("Backend non joint:", err))
-  }, [])
+    fetchProspections();
+  }, [search, etatFilter, page]);
 
-  // Charger la liste des prospects pour le sélecteur
-  useEffect(() => {
-    prospectsApi.getAll()
-      .then((data) => setProspects(data))
-      .catch(() => {})
-  }, [])
-
-  const closeModal = () => {
-    setModalClosing(true)
-    setTimeout(() => {
-      setModalOpen(false)
-      setModalClosing(false)
-    }, 160)
-  }
-
-  const openCreate = () => {
-    setEditingId(null)
-    setForm({
-      ...emptyForm,
-      date: new Date().toLocaleDateString("fr-FR"),
-    })
-    setModalOpen(true)
-  }
-
-  const openEdit = (item: ProspectionItem) => {
-    setEditingId(item.id)
-    setForm({
-      prospect_id: item.prospect_id ?? "",
-      date: item.date,
-      objet: item.objet,
-      contact: item.contact,
-      nom: item.nom,
-      entreprise: item.entreprise === "-" ? "" : item.entreprise,
-      fonction: item.fonction === "-" ? "" : item.fonction,
-      etat: item.etat,
-    })
-    setModalOpen(true)
-  }
-
-  // Quand un prospect est sélectionné dans le dropdown, pré-remplir nom/contact/entreprise
-  const handleProspectSelect = (id: string) => {
-    if (!id) {
-      setForm((f) => ({ ...f, prospect_id: "", nom: "", contact: "", entreprise: "" }))
-      return
+  const handleCloturer = async (id: number) => {
+    try {
+      await updateProspection(id, { etat: 'cloture', est_perdu: false });
+      toast.success('Prospection clôturée');
+      fetchProspections();
+    } catch {
+      toast.error('Erreur');
     }
-    const selected = prospects.find((p) => String(p.id) === id)
-    if (selected) {
-      const nom = selected.type === "entreprise"
-        ? selected.entreprise
-        : `${selected.prenom} ${selected.nom}`.trim()
-      setForm((f) => ({
-        ...f,
-        prospect_id: selected.id,
-        nom,
-        contact: selected.contact,
-        entreprise: selected.entreprise !== "-" ? selected.entreprise : "",
-      }))
+  };
+
+  const handlePerdu = async (id: number) => {
+    try {
+      await updateProspection(id, { est_perdu: true });
+      toast.success('Prospection marquée comme perdue');
+      fetchProspections();
+    } catch {
+      toast.error('Erreur');
     }
-  }
+  };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const payload = {
-      date: form.date,
-      objet: form.objet,
-      contact: form.contact,
-      nom: form.nom,
-      entreprise: form.entreprise || "-",
-      fonction: form.fonction || "-",
-      etat: form.etat,
-      editeur: "Admin",
-      score: null,
-      prospect_id: form.prospect_id || null,
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+    try {
+      await deleteProspection(deleteId);
+      toast.success('Prospection supprimée');
+      setDeleteId(null);
+      fetchProspections();
+    } catch {
+      toast.error('Erreur lors de la suppression');
     }
+  };
 
-    if (editingId) {
-      prospectionsApi.update(editingId, payload)
-        .then((res) => {
-          setProspectionItems((current) =>
-            current.map((item) => (item.id === editingId ? { ...item, ...res } : item))
-          )
-          showToast("Prospection modifiée avec succès", "success")
-        })
-        .catch(() => {
-          setProspectionItems((current) =>
-            current.map((item) =>
-              item.id === editingId ? { ...item, ...payload, id: editingId } : item
-            )
-          )
-          showToast("Prospection modifiée (hors ligne)", "info")
-        })
-    } else {
-      prospectionsApi.create(payload)
-        .then((res) => {
-          setProspectionItems((current) => [...current, res as ProspectionItem])
-          showToast("Prospection ajoutée avec succès", "success")
-        })
-        .catch(() => {
-          setProspectionItems((current) => [
-            ...current,
-            { ...payload, id: Date.now() } as ProspectionItem,
-          ])
-          showToast("Prospection ajoutée (hors ligne)", "info")
-        })
+  const getEtatBadge = (p: Prospection) => {
+    if (p.est_perdu) {
+      return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-600">Perdu</span>;
     }
-    closeModal()
-  }
-
-  const handleDelete = () => {
-    if (deleteId) {
-      prospectionsApi.delete(deleteId)
-        .then(() => showToast("Prospection supprimée", "success"))
-        .catch(() => showToast("Prospection supprimée (hors ligne)", "info"))
-      setProspectionItems((prev) => prev.filter((p) => p.id !== deleteId))
-      setDeleteId(null)
+    if (p.etat === 'cloture') {
+      return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600">Clôturé</span>;
     }
-  }
+    return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600">Non clôturé</span>;
+  };
 
-  const filtered = prospectionItems.filter((p) => {
-    const matchSearch =
-      p.objet.toLowerCase().includes(search.toLowerCase()) ||
-      p.nom.toLowerCase().includes(search.toLowerCase()) ||
-      p.contact.includes(search) ||
-      p.entreprise.toLowerCase().includes(search.toLowerCase())
-
-    const matchEtat = filterEtat === "Tout" || p.etat === filterEtat
-
-    return matchSearch && matchEtat
-  })
-
-  const inputClass = "w-full px-3 py-2.5 rounded-lg bg-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+  const getPageNumbers = () => {
+    const pages = [];
+    for (let i = 1; i <= lastPage; i++) pages.push(i);
+    return pages;
+  };
 
   return (
-    <div className="space-y-6">
-      {/* En-tête */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Prospection</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Suivez vos actions de prospection et vos échanges
-          </p>
+    <div className="p-6 max-w-[1600px] mx-auto">
+      {/* Header */}
+      <div className="mb-5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+            <Target size={20} />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-foreground">Prospections</h1>
+            <p className="text-sm text-muted-foreground">Gérez vos actions de prospection</p>
+          </div>
         </div>
-        <button onClick={openCreate} className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">
+      </div>
+
+      {/* Search + Actions */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+          <input
+            type="text"
+            placeholder="Rechercher..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+          />
+        </div>
+        <button
+          onClick={() => navigate('/prospections/create')}
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground hover:opacity-90 rounded-lg font-medium"
+        >
           <Plus size={18} />
           Nouvelle prospection
         </button>
       </div>
 
-      {/* Filtres */}
-      <div className="bg-card border border-border rounded-xl p-4">
-        <div className="flex flex-col md:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-            <input
-              type="text"
-              placeholder="Rechercher par objet, nom, contact..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 rounded-lg bg-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
-          </div>
-
-          {/* Boutons d'état */}
-          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
-            {etats.map((etat) => (
-              <button
-                key={etat}
-                onClick={() => setFilterEtat(etat)}
-                className={cn(
-                  "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-                  filterEtat === etat
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {etat}
-              </button>
-            ))}
-          </div>
+      {/* Filtres + Total */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="flex flex-wrap gap-2">
+          {[
+            { value: '', label: 'Tout' },
+            { value: 'non_cloture', label: 'Non clôturé' },
+            { value: 'cloture', label: 'Clôturé' },
+            { value: 'perdu', label: 'Perdu' },
+          ].map((f) => (
+            <button
+              key={f.value}
+              onClick={() => {
+                setEtatFilter(f.value);
+                setPage(1);
+              }}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                etatFilter === f.value
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-secondary text-secondary-foreground hover:bg-accent'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
+        <span className="text-sm text-muted-foreground">{total} élément{total > 1 ? 's' : ''}</span>
       </div>
 
-      {/* Tableau */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      {/* Table */}
+      <div className="bg-muted/40 border border-border rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border bg-muted/50">
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Objet</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Prospect</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Contact</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">État</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Score</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Éditeur</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground">Actions</th>
+              <tr className="bg-primary text-primary-foreground">
+                <th className="px-3 py-3 text-left font-medium">Matricule</th>
+                <th className="px-3 py-3 text-left font-medium">Date</th>
+                <th className="px-3 py-3 text-left font-medium">Objet / Produit</th>
+                <th className="px-3 py-3 text-left font-medium">Contact</th>
+                <th className="px-3 py-3 text-left font-medium">Prospect</th>
+                <th className="px-3 py-3 text-left font-medium">Entreprise</th>
+                <th className="px-3 py-3 text-left font-medium">État</th>
+                <th className="px-3 py-3 text-left font-medium">Commercial</th>
+                <th className="px-3 py-3 text-right font-medium">Actions</th>
               </tr>
             </thead>
-            <tbody>
-              {filtered.length === 0 ? (
+            <tbody className="divide-y divide-border">
+              {loading ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
+                    Chargement...
+                  </td>
+                </tr>
+              ) : prospections.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
                     Aucune prospection trouvée
                   </td>
                 </tr>
               ) : (
-                filtered.map((p) => {
-                  const Icon = etatIcon[p.etat] ?? Clock
-                  return (
-                    <tr
-                      key={p.id}
-                      className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
-                    >
-                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{p.date}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <MessageSquare size={15} className="text-primary shrink-0" />
-                          <span className="font-medium">{p.objet}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="font-medium">{p.nom}</p>
-                        {p.entreprise !== "-" && (
-                          <p className="text-xs text-muted-foreground">{p.entreprise}</p>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{p.contact}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={cn(
-                            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
-                            etatStyle[p.etat]
-                          )}
+                prospections.map((p) => (
+                  <tr key={p.id_prospection} className="hover:bg-accent/40 transition-colors">
+                    <td className="px-3 py-2.5 font-medium whitespace-nowrap">
+                      P-{String(p.id_prospection).padStart(4, '0')}
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      {new Date(p.created_at).toLocaleDateString('fr-FR')}
+                    </td>
+                    <td className="px-3 py-2.5 max-w-[200px] truncate">
+                      {p.produit_prospecte || p.offre?.denomination || '—'}
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      {p.client?.telephone || '—'}
+                    </td>
+                    <td className="px-3 py-2.5 font-medium">
+                      {p.client ? `${p.client.nom} ${p.client.prenom || ''}`.trim() : '—'}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {p.client?.entreprise || '—'}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {getEtatBadge(p)}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {p.commercial
+                        ? `${p.commercial.nom} ${p.commercial.prenom}`
+                        : 'Admin'}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {/* Voir messages */}
+                        <button
+                          onClick={() => navigate(`/prospections/${p.id_prospection}`)}
+                          className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 hover:bg-blue-500/20"
+                          title="Voir les messages"
                         >
-                          <Icon size={12} />
-                          {p.etat}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        {p.score !== null ? (
-                          <span
-                            className={cn(
-                              "font-semibold text-sm",
-                              p.score >= 60
-                                ? "text-emerald-600"
-                                : p.score >= 40
-                                ? "text-amber-600"
-                                : "text-red-500"
-                            )}
+                          <MessageSquare size={15} />
+                        </button>
+
+                        {/* Clôturer */}
+                        {!p.est_perdu && p.etat !== 'cloture' && (
+                          <button
+                            onClick={() => handleCloturer(p.id_prospection)}
+                            className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
+                            title="Clôturer"
                           >
-                            {p.score}%
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
+                            <CheckCircle2 size={15} />
+                          </button>
                         )}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{p.editeur}</td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => openEdit(p)}
-                            title="Modifier"
-                            aria-label={`Modifier ${p.objet}`}
-                            className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground"
-                          >
-                            <MoreHorizontal size={16} />
-                          </button>
-                          <button
-                            onClick={() => setDeleteId(p.id)}
-                            title="Supprimer"
-                            className="p-2 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500 dark:hover:bg-red-900/20"
-                          >
-                            <XCircle size={15} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })
+
+                        {/* Fixer un rendez-vous */}
+                        <button
+                          onClick={() => {
+                            // Pour l’instant on redirige vers la page RDV (on l’améliorera plus tard)
+                            navigate(`/rendez-vous?prospection=${p.id_prospection}`);
+                          }}
+                          className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
+                          title="Fixer un rendez-vous"
+                        >
+                          <CalendarDays size={15} />
+                        </button>
+
+                        {/* Supprimer */}
+                        <button
+                          onClick={() => setDeleteId(p.id_prospection)}
+                          className="p-1.5 rounded-lg bg-red-500/10 text-red-600 hover:bg-red-500/20"
+                          title="Supprimer"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
 
-        <div className="px-4 py-3 border-t border-border flex items-center justify-between text-sm text-muted-foreground">
-          <span>{filtered.length} prospection(s)</span>
-        </div>
+        {/* Pagination */}
+        {lastPage > 1 && (
+          <div className="flex items-center justify-end gap-1.5 px-4 py-3 border-t border-border">
+            {getPageNumbers().map((p) => (
+              <button
+                key={p}
+                onClick={() => setPage(p)}
+                className={`min-w-[36px] h-9 rounded-lg text-sm font-medium ${
+                  page === p
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-secondary text-secondary-foreground hover:bg-accent'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Modal Ajout / Modification */}
-      <Modal
-        open={modalOpen}
-        onClose={closeModal}
-        title={editingId ? "Modifier la prospection" : "Nouvelle prospection"}
-        size="lg"
-        closing={modalClosing}
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Sélecteur de prospect */}
-          <div>
-            <label className="text-sm font-medium mb-1.5 block">Prospect</label>
-            <div className="relative">
-              <select
-                value={String(form.prospect_id)}
-                onChange={(e) => handleProspectSelect(e.target.value)}
-                className={inputClass}
+      {/* Modal suppression */}
+      {deleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-card border border-border rounded-xl w-full max-w-md p-6 shadow-xl text-center">
+            <div className="w-14 h-14 rounded-full bg-amber-500/15 text-amber-500 flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+              !
+            </div>
+            <h3 className="text-lg font-semibold mb-2">Êtes-vous sûr ?</h3>
+            <p className="text-muted-foreground mb-6">
+              Cette prospection et ses messages seront supprimés.
+            </p>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => setDeleteId(null)}
+                className="px-5 py-2 border border-border rounded-lg hover:bg-accent"
               >
-                <option value="">— Saisir manuellement —</option>
-                {prospects.map((p) => {
-                  const label = p.type === "entreprise"
-                    ? p.entreprise
-                    : `${p.prenom} ${p.nom}`.trim()
-                  const icon = p.type === "entreprise" ? "🏢" : "👤"
-                  return (
-                    <option key={p.id} value={String(p.id)}>
-                      {icon} {label} — {p.contact}
-                    </option>
-                  )
-                })}
-              </select>
-            </div>
-            {form.prospect_id && (() => {
-              const sel = prospects.find((p) => String(p.id) === String(form.prospect_id))
-              if (!sel) return null
-              return (
-                <div className="mt-2 flex items-center gap-2 p-2.5 rounded-lg bg-primary/5 border border-primary/20 text-sm">
-                  <div className="w-7 h-7 rounded-full bg-primary/15 text-primary flex items-center justify-center shrink-0">
-                    {sel.type === "entreprise" ? <Building2 size={14} /> : <User size={14} />}
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground">
-                      {sel.type === "entreprise" ? sel.entreprise : `${sel.prenom} ${sel.nom}`.trim()}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{sel.matricule} · {sel.contact}</p>
-                  </div>
-                </div>
-              )
-            })()}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Nom (pré-rempli ou saisi manuellement) */}
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">Nom du contact</label>
-              <input
-                required
-                value={form.nom}
-                onChange={(e) => setForm({ ...form, nom: e.target.value })}
-                className={inputClass}
-                placeholder="Nom complet"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">Contact</label>
-              <input
-                required
-                type="tel"
-                value={form.contact}
-                onChange={(e) => setForm({ ...form, contact: e.target.value })}
-                className={inputClass}
-                placeholder="034 XX XXX XX"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">Entreprise</label>
-              <input
-                value={form.entreprise}
-                onChange={(e) => setForm({ ...form, entreprise: e.target.value })}
-                className={inputClass}
-                placeholder="Optionnel"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">Fonction</label>
-              <input
-                value={form.fonction}
-                onChange={(e) => setForm({ ...form, fonction: e.target.value })}
-                className={inputClass}
-                placeholder="Optionnel"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">Date</label>
-              <input
-                required
-                value={form.date}
-                onChange={(e) => setForm({ ...form, date: e.target.value })}
-                className={inputClass}
-                placeholder="JJ/MM/AAAA"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">État</label>
-              <select
-                required
-                value={form.etat}
-                onChange={(e) => setForm({ ...form, etat: e.target.value })}
-                className={inputClass}
+                Annuler
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
               >
-                {["Non clôturé", "Clôturé", "Perdu"].map((v) => (
-                  <option key={v} value={v}>{v}</option>
-                ))}
-              </select>
-            </div>
-            <div className="sm:col-span-2">
-              <label className="text-sm font-medium mb-1.5 block">Objet</label>
-              <input
-                required
-                value={form.objet}
-                onChange={(e) => setForm({ ...form, objet: e.target.value })}
-                className={inputClass}
-                placeholder="Objet de la prospection"
-              />
+                Confirmer
+              </button>
             </div>
           </div>
-
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
-            <button
-              type="button"
-              onClick={closeModal}
-              className="px-4 py-2.5 rounded-lg text-sm font-medium border border-border hover:bg-muted transition-colors"
-            >
-              Annuler
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2.5 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
-            >
-              {editingId ? "Enregistrer" : "Créer la prospection"}
-            </button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Modal Suppression */}
-      <Modal
-        open={deleteId !== null}
-        onClose={() => setDeleteId(null)}
-        title="Confirmer la suppression"
-        size="sm"
-      >
-        <p className="text-sm text-muted-foreground mb-6">
-          Êtes-vous sûr de vouloir supprimer cette prospection ? Cette action est irréversible.
-        </p>
-        <div className="flex items-center justify-end gap-3">
-          <button
-            onClick={() => setDeleteId(null)}
-            className="px-4 py-2.5 rounded-lg text-sm font-medium border border-border hover:bg-muted transition-colors"
-          >
-            Annuler
-          </button>
-          <button
-            onClick={handleDelete}
-            className="px-4 py-2.5 rounded-lg text-sm font-medium bg-red-500 text-white hover:bg-red-600 transition-colors"
-          >
-            Supprimer
-          </button>
         </div>
-      </Modal>
+      )}
     </div>
-  )
+  );
 }

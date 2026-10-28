@@ -1,7 +1,16 @@
 import { useState, useRef, useEffect } from "react"
-import { Menu, Moon, Sun, Bell, User, Settings, LogOut, Palette } from "lucide-react"
+import { Menu, Moon, Sun, Bell, LogOut, Palette } from "lucide-react"
 import { useTheme } from "@/contexts/ThemeContext"
 import { cn } from "@/lib/utils"
+import { getSessionUser, logout } from "@/lib/session"
+import { useLocation } from "react-router-dom"
+
+const titles: Record<string, string> = {
+  dashboard: "Tableau de bord", statistiques: "Statistiques", prospects: "Prospects", prospection: "Prospections",
+  "rendez-vous": "Rendez-vous", interets: "Intérêts", closing: "Closing", clients: "Clients", ventes: "Ventes",
+  facturation: "Facturation", sav: "SAV", catalogue: "Produits", stock: "Stock", commerciaux: "Commerciaux",
+  bibliotheque: "Bibliothèque", tutoriels: "Tutoriels",
+}
 
 const colorOptions = [
   { name: "Émeraude", value: "emerald", color: "#10b981" },
@@ -11,15 +20,12 @@ const colorOptions = [
   { name: "Ardoise", value: "slate", color: "#94a3b8" },
 ] as const
 
-const notifications = [
-  { id: 1, title: "Nouveau prospect", message: "Jean Rakoto a été ajouté", time: "Il y a 12 min", read: false },
-  { id: 2, title: "RDV à venir", message: "Rendez-vous avec Nir'Info à 14h", time: "Il y a 34 min", read: false },
-  { id: 3, title: "Vente validée", message: "VTE-2026-0012 a été validée", time: "Il y a 1h", read: true },
-  { id: 4, title: "Ticket SAV", message: "Nouveau ticket ouvert par SoftLabs", time: "Il y a 2h", read: true },
-]
+const notifications: { id: number; title: string; message: string; time: string; read: boolean }[] = []
 
 export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const { theme, toggleTheme, colorTheme, setColorTheme } = useTheme()
+  const user = getSessionUser()
+  const page = titles[useLocation().pathname.split("/")[1]] ?? ""
   const [showPalette, setShowPalette] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
@@ -60,7 +66,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const unreadCount = notifications.filter((n) => !n.read).length
 
   return (
-    <header className="h-16 border-b border-border bg-card/90 backdrop-blur sticky top-0 z-20 flex items-center justify-between px-3 sm:px-6">
+    <header className="h-16 border-b border-border bg-background/80 backdrop-blur sticky top-0 z-20 flex items-center justify-between px-3 sm:px-6">
       <button
         onClick={onMenuClick}
         className="md:hidden p-2 rounded-lg text-muted-foreground hover:bg-accent"
@@ -70,6 +76,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
         <Menu size={20} />
       </button>
 
+      <h2 className="ml-2 font-display text-lg font-semibold md:ml-0">{page}</h2>
       {/* Actions */}
       <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
         <div className="relative" ref={paletteRef}>
@@ -149,6 +156,9 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
                 <span className="text-xs text-muted-foreground">{unreadCount} non lue(s)</span>
               </div>
               <div className="max-h-80 overflow-y-auto">
+                {notifications.length === 0 && (
+                  <p className="px-4 py-8 text-center text-sm text-muted-foreground">Rien de nouveau pour le moment.</p>
+                )}
                 {notifications.map((n) => (
                   <div
                     key={n.id}
@@ -170,11 +180,6 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
                   </div>
                 ))}
               </div>
-              <div className="px-4 py-2.5 border-t border-border text-center">
-                <button className="text-xs text-primary font-medium hover:underline">
-                  Voir toutes les notifications
-                </button>
-              </div>
             </div>
           )}
         </div>
@@ -191,27 +196,17 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
             aria-label="Menu utilisateur"
             aria-expanded={showUserMenu}
           >
-            A
+            {user.initiale}
           </button>
 
           {showUserMenu && (
             <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-xl shadow-lg overflow-hidden z-50">
               <div className="px-4 py-3 border-b border-border">
-                <p className="text-sm font-semibold">Admin Softio</p>
-                <p className="text-xs text-muted-foreground">admin@softio.mg</p>
-              </div>
-              <div className="py-1">
-                <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted/50 transition-colors">
-                  <User size={16} className="text-muted-foreground" />
-                  Mon profil
-                </button>
-                <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted/50 transition-colors">
-                  <Settings size={16} className="text-muted-foreground" />
-                  Paramètres
-                </button>
+                <p className="text-sm font-semibold">{user.nom}</p>
+                <p className="text-xs text-muted-foreground">{user.email}</p>
               </div>
               <div className="border-t border-border py-1">
-                <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
                   <LogOut size={16} />
                   Déconnexion
                 </button>
