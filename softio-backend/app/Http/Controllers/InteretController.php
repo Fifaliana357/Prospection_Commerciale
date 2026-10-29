@@ -36,7 +36,7 @@ class InteretController extends Controller
         }
 
         // Sécurité simple (admin voit tout pour l’instant)
-        $clients = $query->orderBy('nom')->paginate(20);
+        $clients = $query->orderBy('nom')->paginate(10);
 
         // Liste des produits distincts pour les filtres
         $produits = Interet::select('produit_concerne')

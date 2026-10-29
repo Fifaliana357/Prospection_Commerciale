@@ -11,9 +11,9 @@ class RendezVous extends Model
     protected $primaryKey = 'id_rendez_vous';
 
     protected $fillable = [
-        'id_client',
-        'id_commercial',
         'id_admin',
+        'id_commercial',
+        'id_client',
         'date_rdv',
         'lieu',
         'type_rdv',
@@ -25,8 +25,6 @@ class RendezVous extends Model
 
     protected $casts = [
         'date_rdv' => 'datetime',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
     ];
 
     public function client(): BelongsTo

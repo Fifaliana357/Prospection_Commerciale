@@ -43,7 +43,7 @@ class ClientController extends Controller
             $query->where('type', $request->type);
         }
 
-        $clients = $query->orderBy('created_at', 'desc')->paginate(15);
+        $clients = $query->orderBy('created_at', 'desc')->paginate(10);
 
         return response()->json($clients);
     }

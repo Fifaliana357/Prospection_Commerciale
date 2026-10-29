@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Admin; 
+use App\Models\Admin;
 use App\Http\Requests\Commercial\StoreCommercialRequest;
 use App\Http\Requests\Commercial\UpdateCommercialRequest;
 use App\Http\Resources\CommercialResource;
@@ -36,7 +36,7 @@ class CommercialController extends Controller
             $query->where('actif', $request->boolean('actif'));
         }
 
-        $commerciaux = $query->orderByDesc('created_at')->paginate(15);
+        $commerciaux = $query->orderByDesc('created_at')->paginate(10);
 
         return response()->json([
             'data' => CommercialResource::collection($commerciaux->items()),
@@ -55,7 +55,7 @@ class CommercialController extends Controller
     public function store(StoreCommercialRequest $request): JsonResponse
     {
         $data = $request->validated();
-        
+
         $data['id_admin'] = $request->user()->id_admin;
         $data['password'] = Hash::make($data['password']);
         $data['actif'] = $data['actif'] ?? true;

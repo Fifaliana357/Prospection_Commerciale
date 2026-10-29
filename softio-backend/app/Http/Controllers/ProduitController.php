@@ -21,8 +21,8 @@ class ProduitController extends Controller
             });
         }
 
-        $produits = $query->orderByDesc('created_at')->paginate(15);
-        
+        $produits = $query->orderByDesc('created_at')->paginate(10);
+
         // On pourrait ajouter une logique pour calculer le stock actuel ici
         return response()->json($produits);
     }
@@ -52,7 +52,7 @@ class ProduitController extends Controller
         $produit = Produit::with('mouvementsStock')
             ->where('id_admin', $request->user()->id_admin)
             ->findOrFail($id);
-            
+
         return response()->json($produit);
     }
 
