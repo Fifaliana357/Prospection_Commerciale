@@ -10,6 +10,7 @@ import {
   type Prospection
 } from '../services/prospections';
 import { useToast } from '../contexts/ToastContext';
+import { createClosing } from '../services/closings';
 
 export default function Prospections() {
   const toast = useToast();
@@ -42,19 +43,19 @@ export default function Prospections() {
     }
   };
 
+  const [showClosingModal, setShowClosingModal] = useState(false);
+  const [closingProspection, setClosingProspection] = useState<Prospection | null>(null);
+  const [closingForm, setClosingForm] = useState({
+    produit: '',
+    description: '',
+    montant: '',
+  });
+  const [savingClosing, setSavingClosing] = useState(false);
+
   useEffect(() => {
     fetchProspections();
   }, [search, etatFilter, page]);
-
-  const handleCloturer = async (id: number) => {
-    try {
-      await updateProspection(id, { etat: 'cloture', est_perdu: false });
-      toast.success('Prospection clôturée');
-      fetchProspections();
-    } catch {
-      toast.error('Erreur');
-    }
-  };
+;
 
   const handlePerdu = async (id: number) => {
     try {
@@ -63,6 +64,33 @@ export default function Prospections() {
       fetchProspections();
     } catch {
       toast.error('Erreur');
+    }
+  };
+
+  const handleClosing = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!closingProspection || !closingForm.produit || !closingForm.montant) {
+      toast.error('Produit et montant sont obligatoires');
+      return;
+    }
+
+    try {
+      setSavingClosing(true);
+      await createClosing({
+        id_prospection: closingProspection.id_prospection,
+        id_client: closingProspection.id_client,
+        produit: closingForm.produit,
+        description: closingForm.description || null,
+        montant: Number(closingForm.montant),
+      });
+      toast.success('Prospection clôturée');
+      setShowClosingModal(false);
+      setClosingProspection(null);
+      fetchProspections();
+    } catch {
+      toast.error('Erreur lors de la clôture');
+    } finally {
+      setSavingClosing(false);
     }
   };
 
@@ -234,9 +262,17 @@ export default function Prospections() {
                         {/* Clôturer */}
                         {!p.est_perdu && p.etat !== 'cloture' && (
                           <button
-                            onClick={() => handleCloturer(p.id_prospection)}
+                            onClick={() => {
+                              setClosingProspection(p);
+                              setClosingForm({
+                                produit: p.produit_prospecte || p.offre?.denomination || '',
+                                description: '',
+                                montant: '',
+                              });
+                              setShowClosingModal(true);
+                            }}
                             className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
-                            title="Clôturer"
+                            title="Closing"
                           >
                             <CheckCircle2 size={15} />
                           </button>
@@ -290,6 +326,76 @@ export default function Prospections() {
           </div>
         )}
       </div>
+
+      {showClosingModal && closingProspection && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-semibold">Clôture de la prospection</h2>
+              <button
+                onClick={() => setShowClosingModal(false)}
+                className="p-1.5 rounded-lg hover:bg-accent"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleClosing} className="p-6 space-y-4">
+              <div>
+                <label className="text-sm font-medium">Nom du service ou produit *</label>
+                <input
+                  required
+                  value={closingForm.produit}
+                  onChange={(e) => setClosingForm({ ...closingForm, produit: e.target.value })}
+                  className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
+                  placeholder="Rechercher un service ou produit..."
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Description</label>
+                <textarea
+                  value={closingForm.description}
+                  onChange={(e) => setClosingForm({ ...closingForm, description: e.target.value })}
+                  rows={3}
+                  className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background resize-none"
+                  placeholder="Description de l'offre"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Tarif de l'offre (Ar) *</label>
+                <input
+                  required
+                  type="number"
+                  min="0"
+                  value={closingForm.montant}
+                  onChange={(e) => setClosingForm({ ...closingForm, montant: e.target.value })}
+                  className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
+                  placeholder="Tarif"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowClosingModal(false)}
+                  className="px-4 py-2 border border-border rounded-lg hover:bg-accent"
+                >
+                  Fermer
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingClosing}
+                  className="px-5 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
+                >
+                  {savingClosing ? 'Enregistrement...' : 'Ajouter'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal suppression */}
       {deleteId && (

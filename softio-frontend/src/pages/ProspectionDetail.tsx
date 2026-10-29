@@ -13,6 +13,7 @@ import {
   type Proposition
 } from '../services/prospections';
 import { useToast } from '../contexts/ToastContext';
+import { createClosing } from '../services/closings';
 
 export default function ProspectionDetail() {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +25,15 @@ export default function ProspectionDetail() {
   const [activeTab, setActiveTab] = useState<'sortant' | 'entrant'>('sortant');
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+
+  const [showClosingModal, setShowClosingModal] = useState(false);
+  const [closingForm, setClosingForm] = useState({
+    produit: '',
+    objet: '',
+    description: '',
+    montant: '',
+  });
+  const [savingClosing, setSavingClosing] = useState(false);
 
   // Formulaire message
   const [form, setForm] = useState({
@@ -70,6 +80,35 @@ export default function ProspectionDetail() {
       fetchData();
     } catch {
       toast.error('Erreur');
+    }
+  };
+
+  const handleClosing = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!prospection || !closingForm.produit || !closingForm.montant) {
+      toast.error('Produit et montant sont obligatoires');
+      return;
+    }
+
+    try {
+      setSavingClosing(true);
+      await createClosing({
+        id_prospection: prospection.id_prospection,
+        id_client: prospection.id_client,
+        produit: closingForm.produit,
+        description: [closingForm.objet, closingForm.description]
+          .filter(Boolean)
+          .join(' — ') || null,
+        montant: Number(closingForm.montant),
+      });
+      toast.success('Prospection clôturée avec succès');
+      setShowClosingModal(false);
+      setClosingForm({ produit: '', objet: '', description: '', montant: '' });
+      fetchData();
+    } catch {
+      toast.error('Erreur lors de la clôture');
+    } finally {
+      setSavingClosing(false);
     }
   };
 
@@ -175,15 +214,24 @@ export default function ProspectionDetail() {
 
           {/* Actions */}
           <div className="flex flex-wrap gap-2">
-            {!prospection.est_perdu && prospection.etat !== 'cloture' && (
-              <button
-                onClick={handleCloturer}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
-              >
-                <CheckCircle2 size={15} />
-                Clôturer
-              </button>
-            )}
+          {!prospection.est_perdu && prospection.etat !== 'cloture' && (
+          <button
+            type="button"
+            onClick={() => {
+              setClosingForm({
+                produit: prospection.produit_prospecte || prospection.offre?.denomination || '',
+                objet: '',
+                description: '',
+                montant: '',
+              });
+              setShowClosingModal(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
+          >
+            <CheckCircle2 size={15} />
+            Closing
+          </button>
+          )}
             {!prospection.est_perdu && (
               <button
                 onClick={handlePerdu}
@@ -364,6 +412,92 @@ export default function ProspectionDetail() {
           ))
         )}
       </div>
+
+      {showClosingModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                  <CheckCircle2 size={16} />
+                </div>
+                <h2 className="font-semibold">Clôture de la prospection</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowClosingModal(false)}
+                className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleClosing} className="p-5 space-y-4">
+              <div>
+                <label className="text-sm font-medium">Nom du service ou produit</label>
+                <input
+                  required
+                  value={closingForm.produit}
+                  onChange={(e) => setClosingForm({ ...closingForm, produit: e.target.value })}
+                  className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
+                  placeholder="Rechercher un service ou produit..."
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Objet du service</label>
+                <input
+                  value={closingForm.objet}
+                  onChange={(e) => setClosingForm({ ...closingForm, objet: e.target.value })}
+                  className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
+                  placeholder="Objet du service"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Description</label>
+                <textarea
+                  value={closingForm.description}
+                  onChange={(e) => setClosingForm({ ...closingForm, description: e.target.value })}
+                  rows={3}
+                  className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background resize-none"
+                  placeholder="Description de l'offre"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Tarif de l'offre (Ar)</label>
+                <input
+                  required
+                  type="number"
+                  min="0"
+                  value={closingForm.montant}
+                  onChange={(e) => setClosingForm({ ...closingForm, montant: e.target.value })}
+                  className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
+                  placeholder="Tarif"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowClosingModal(false)}
+                  className="px-4 py-2 border border-border rounded-lg hover:bg-accent"
+                >
+                  Fermer
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingClosing}
+                  className="px-5 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
+                >
+                  {savingClosing ? '...' : 'Ajouter'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal suppression */}
       {deleteConfirm && (

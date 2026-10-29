@@ -337,19 +337,20 @@ export default function Prospects() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-primary text-primary-foreground">
-                <th className="px-3 py-3 text-left font-medium whitespace-nowrap">Matricule</th>
-                <th className="px-3 py-3 text-left font-medium">Type</th>
-                <th className="px-3 py-3 text-left font-medium">Contact</th>
-                <th className="px-3 py-3 text-left font-medium">Nom</th>
-                <th className="px-3 py-3 text-left font-medium">Prénom</th>
-                <th className="px-3 py-3 text-left font-medium">Email</th>
-                <th className="px-3 py-3 text-left font-medium">Facebook</th>
-                <th className="px-3 py-3 text-left font-medium">LinkedIn</th>
-                <th className="px-3 py-3 text-left font-medium">Entreprise</th>
-                <th className="px-3 py-3 text-left font-medium">Classification</th>
-                <th className="px-3 py-3 text-left font-medium">Pays</th>
-                <th className="px-3 py-3 text-left font-medium">Domaine</th>
-                <th className="px-3 py-3 text-right font-medium">Actions</th>
+                <th className="px-2 py-2.5 text-left font-medium whitespace-nowrap">Matricule</th>
+                <th className="px-2 py-2.5 text-left font-medium">Type</th>
+                <th className="px-2 py-2.5 text-left font-medium">Contact</th>
+                <th className="px-2 py-2.5 text-left font-medium">Nom</th>
+                <th className="px-2 py-2.5 text-left font-medium">Prénom</th>
+                <th className="px-2 py-2.5 text-left font-medium">Email</th>
+                <th className="px-2 py-2.5 text-left font-medium">Facebook</th>
+                <th className="px-2 py-2.5 text-left font-medium">LinkedIn</th>
+                <th className="px-2 py-2.5 text-left font-medium">Entreprise</th>
+                <th className="px-2 py-2.5 text-left font-medium">Classification</th>
+                <th className="px-2 py-2.5 text-left font-medium">Pays</th>
+                <th className="px-2 py-2.5 text-left font-medium">Domaine</th>
+                <th className="px-2 py-2.5 text-left font-medium">Site web</th>
+                <th className="px-2 py-2.5 text-right font-medium">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -368,23 +369,45 @@ export default function Prospects() {
               ) : (
                 clients.map((client) => (
                   <tr key={client.id_client} className="hover:bg-accent/40 transition-colors">
-                    <td className="px-3 py-2.5 font-medium whitespace-nowrap">{client.matricule}</td>
-                    <td className="px-3 py-2.5">
+                    <td className="px-2 py-2.5 font-medium whitespace-nowrap">{client.matricule}</td>
+                    <td className="px-2 py-2.5">
                       <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary capitalize">
                         {client.type}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">{client.telephone || '—'}</td>
-                    <td className="px-3 py-2.5 font-medium">{client.nom}</td>
-                    <td className="px-3 py-2.5">{client.prenom || '—'}</td>
-                    <td className="px-3 py-2.5">{client.email || '—'}</td>
-                    <td className="px-3 py-2.5 max-w-[140px] truncate">{client.facebook || '—'}</td>
-                    <td className="px-3 py-2.5 max-w-[140px] truncate">{client.linkedin || '—'}</td>
-                    <td className="px-3 py-2.5">{client.entreprise || '—'}</td>
-                    <td className="px-3 py-2.5">{client.classification || '—'}</td>
-                    <td className="px-3 py-2.5">{client.pays || '—'}</td>
-                    <td className="px-3 py-2.5">{client.domaine || '—'}</td>
-                    <td className="px-3 py-2.5">
+                    <td className="px-2 py-2.5 whitespace-nowrap">{client.telephone || '—'}</td>
+                    <td className="px-2 py-2.5 font-medium">
+                      {client.type === 'entreprise' || (client.entreprise && client.entreprise.trim() !== '')
+                        ? (client.entreprise || client.nom || '—')
+                        : (client.nom || '—')}
+                    </td>
+                    <td className="px-2 py-2.5">
+                      {client.type === 'entreprise' || (client.entreprise && client.entreprise.trim() !== '')
+                        ? '—'
+                        : (client.prenom || '—')}
+                    </td>
+                    <td className="px-2 py-2.5">{client.email || '—'}</td>
+                    <td className="px-2 py-2.5 max-w-[140px] truncate">{client.facebook || '—'}</td>
+                    <td className="px-2 py-2.5 max-w-[140px] truncate">{client.linkedin || '—'}</td>
+                    <td className="px-2 py-2.5">{client.entreprise || '—'}</td>
+                    <td className="px-2 py-2.5">{client.classification || '—'}</td>
+                    <td className="px-2 py-2.5">{client.pays || '—'}</td>
+                    <td className="px-2 py-2.5">{client.domaine || '—'}</td>
+                    <td className="px-2 py-2.5">
+                      {client.site_web ? (
+                        <a
+                          href={client.site_web.startsWith('http') ? client.site_web : `https://${client.site_web}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          {client.site_web}
+                        </a>
+                      ) : (
+                        '—'
+                      )}
+</td>
+                    <td className="px-2 py-2.5">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => openEditModal(client)}

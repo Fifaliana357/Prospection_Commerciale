@@ -62,7 +62,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/interets', [InteretController::class, 'index']);
     Route::post('/interets', [InteretController::class, 'store']);
     Route::delete('/interets/{id}', [InteretController::class, 'destroy']);
-    // Route::apiResource('closings', ClosingController::class);
+    Route::get('/closings', [ClosingController::class, 'index']);
+    Route::post('/closings', [ClosingController::class, 'store']);
+    Route::delete('/closings/{id}', [ClosingController::class, 'destroy']);
     // Route::apiResource('sav-tickets', SavTicketController::class);
     // Route::apiResource('bibliotheque', BibliothequeController::class)->only(['index', 'store', 'destroy']);
 

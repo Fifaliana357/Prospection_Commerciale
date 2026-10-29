@@ -5,6 +5,7 @@ import Dashboard from "./pages/Dashboard"
 import Clients from "./pages/Clients"
 import Interets from "./pages/Interets"
 import Closing from "./pages/Closing"
+import RendezVous from "./pages/RendezVous"
 import Ventes from "./pages/Ventes"
 import Facturation from "./pages/Facturation"
 import SAV from "./pages/SAV"
@@ -42,7 +43,7 @@ function App() {
         <Route path="/prospections" element={<Prospection />} />
         <Route path="/prospections/create" element={<ProspectionCreate />} />
         <Route path="/prospections/:id" element={<ProspectionDetail />} />
-        <Route path="/rendez-vous" element={<Bientot />} />
+        <Route path="/rendez-vous" element={<RendezVous />} />
         <Route path="/interets" element={<Interets />} />
         <Route path="/closing" element={<Closing />} />
         <Route path="/clients" element={<Clients />} />

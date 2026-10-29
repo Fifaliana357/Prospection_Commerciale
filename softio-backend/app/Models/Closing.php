@@ -10,43 +10,37 @@ class Closing extends Model
     protected $table = 'closing';
     protected $primaryKey = 'id_closing';
 
-    public $timestamps = false;
-
     protected $fillable = [
         'id_prospection',
         'id_client',
         'id_admin',
         'id_commercial',
-        'offre',
-        'objet_offre',
+        'produit',
         'description',
-        'tarif',
-        'date_closing',
+        'montant',
     ];
 
     protected $casts = [
-        'tarif' => 'integer',
-        'date_closing' => 'datetime',
-        'created_at' => 'datetime',
+        'montant' => 'decimal:2',
     ];
-
-    public function prospection(): BelongsTo
-    {
-        return $this->belongsTo(Prospection::class, 'id_prospection', 'id_prospection');
-    }
 
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class, 'id_client', 'id_client');
     }
 
-    public function admin(): BelongsTo
+    public function prospection(): BelongsTo
     {
-        return $this->belongsTo(Admin::class, 'id_admin', 'id_admin');
+        return $this->belongsTo(Prospection::class, 'id_prospection', 'id_prospection');
     }
 
     public function commercial(): BelongsTo
     {
         return $this->belongsTo(Commercial::class, 'id_commercial', 'id_commercial');
+    }
+
+    public function admin(): BelongsTo
+    {
+        return $this->belongsTo(Admin::class, 'id_admin', 'id_admin');
     }
 }

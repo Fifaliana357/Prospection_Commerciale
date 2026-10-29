@@ -215,49 +215,73 @@ export default function Interets() {
         </div>
       </div>
 
-      {/* Modal détail */}
-      {selectedClient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-card border border-border rounded-xl w-full max-w-lg shadow-xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <h2 className="text-lg font-semibold">
-                Intérêts de {selectedClient.nom} {selectedClient.prenom || ''}
-              </h2>
-              <button
-                onClick={() => setSelectedClient(null)}
-                className="p-1.5 rounded-lg hover:bg-accent"
-              >
-                ✕
-              </button>
+    {/* Modal détail */}
+    {selectedClient && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+        <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                <Star size={16} />
+              </div>
+              <h2 className="font-semibold text-foreground">Intérêts du prospect</h2>
             </div>
-            <div className="p-6 space-y-3">
+            <button
+              onClick={() => setSelectedClient(null)}
+              className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Contenu */}
+          <div className="p-5 space-y-4">
+            {/* Carte prospect */}
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
+              <div className="w-11 h-11 rounded-full bg-primary/15 text-primary flex items-center justify-center text-sm font-bold shrink-0">
+                {(selectedClient.nom?.[0] || '') + (selectedClient.prenom?.[0] || '')}
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-foreground truncate">
+                  {selectedClient.nom} {selectedClient.prenom || ''}
+                </p>
+                <p className="text-sm text-muted-foreground truncate">
+                  {selectedClient.email || selectedClient.telephone || '—'}
+                </p>
+              </div>
+            </div>
+
+            {/* Liste des intérêts */}
+            <div className="flex flex-wrap gap-2">
               {selectedClient.interets?.length === 0 ? (
-                <p className="text-muted-foreground text-sm">Aucun intérêt enregistré</p>
+                <p className="text-sm text-muted-foreground">Aucun intérêt enregistré</p>
               ) : (
                 selectedClient.interets.map((i) => (
-                  <div
+                  <span
                     key={i.id_interet}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm bg-primary/10 text-primary font-medium"
                   >
-                    <span className="font-medium">{i.produit_concerne}</span>
-                    <span className="text-sm text-muted-foreground">
-                      Niveau {i.niveau}
-                    </span>
-                  </div>
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                    {i.produit_concerne}
+                  </span>
                 ))
               )}
             </div>
-            <div className="px-6 py-4 border-t border-border flex justify-end">
-              <button
-                onClick={() => setSelectedClient(null)}
-                className="px-4 py-2 border border-border rounded-lg hover:bg-accent"
-              >
-                Fermer
-              </button>
-            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="px-5 py-4 border-t border-border flex justify-end">
+            <button
+              onClick={() => setSelectedClient(null)}
+              className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-accent transition-colors"
+            >
+              ✕ Fermer
+            </button>
           </div>
         </div>
-      )}
+      </div>
+    )}
     </div>
   );
 }
