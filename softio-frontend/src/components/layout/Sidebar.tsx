@@ -7,7 +7,6 @@ import {
 import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getSessionUser, logout } from "@/lib/session"
-import { useState } from "react"
 
 type Item = { name: string; path: string; icon: LucideIcon; adminOnly?: boolean }
 type Group = { title: string; items: Item[] }
@@ -56,7 +55,6 @@ const groups: Group[] = [
   },
 ]
 
-// En haut du composant
 export default function Sidebar({
   open,
   onClose,
@@ -69,11 +67,9 @@ export default function Sidebar({
   onCollapsedChange: (value: boolean) => void
 }) {
   const user = getSessionUser()
-  const [setCollapsed] = useState(false)
 
   return (
     <>
-      {/* Overlay mobile */}
       {open && (
         <div
           className="fixed inset-0 z-30 bg-black/40 backdrop-blur-[2px] md:hidden"
@@ -83,29 +79,26 @@ export default function Sidebar({
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border bg-card text-card-foreground transition-all duration-300",
+          "fixed inset-y-0 left-0 z-40 flex flex-col bg-card text-card-foreground shadow-md transition-all duration-300",
           collapsed ? "w-[72px]" : "w-[260px]",
           open ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
       >
         {/* Header */}
-        <div className="flex h-16 shrink-0 items-center justify-between px-3 border-b border-border">
-          {!collapsed && (
+        <div className="flex h-14 shrink-0 items-center justify-between px-3 shadow-sm">
+          {!collapsed ? (
             <div className="flex items-center gap-2.5 px-1">
               <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary font-bold text-primary-foreground text-sm">
                 S
               </span>
               <span className="text-lg font-semibold tracking-tight">Softio</span>
             </div>
-          )}
-
-          {collapsed && (
+          ) : (
             <span className="mx-auto grid h-8 w-8 place-items-center rounded-lg bg-primary font-bold text-primary-foreground text-sm">
               S
             </span>
           )}
 
-          {/* Bouton collapse (desktop) */}
           <button
             onClick={() => onCollapsedChange(!collapsed)}
             className="hidden md:flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
@@ -114,7 +107,6 @@ export default function Sidebar({
             {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
           </button>
 
-          {/* Bouton fermer (mobile) */}
           <button
             onClick={onClose}
             className="md:hidden flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:bg-accent"
@@ -126,7 +118,9 @@ export default function Sidebar({
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-5">
           {groups.map((group) => {
-            const items = group.items.filter((i) => !i.adminOnly || user.role === "admin")
+            const items = group.items.filter(
+              (i) => !i.adminOnly || user.role === "admin"
+            )
             if (!items.length) return null
 
             return (
@@ -162,7 +156,9 @@ export default function Sidebar({
                               size={18}
                               className={cn(
                                 "shrink-0",
-                                isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                                isActive
+                                  ? "text-primary"
+                                  : "text-muted-foreground group-hover:text-foreground"
                               )}
                             />
                             {!collapsed && <span>{name}</span>}
@@ -177,8 +173,8 @@ export default function Sidebar({
           })}
         </nav>
 
-        {/* User 
-        <div className="shrink-0 border-t border-border p-3">
+        {/* User */}
+        <div className="shrink-0 p-3 shadow-[0_-1px_0_0_hsl(var(--border))]">
           <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
               {user.initiale}
@@ -201,7 +197,7 @@ export default function Sidebar({
               </>
             )}
           </div>
-        </div>*/}
+        </div>
       </aside>
     </>
   )

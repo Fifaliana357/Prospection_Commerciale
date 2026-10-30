@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Search, Plus, Trash2, MessageSquare, CheckCircle2, XCircle, Target, CalendarDays
+  Search, Plus, Trash2, MessageSquare, CheckCircle2, Target, CalendarDays
 } from 'lucide-react';
 import {
   getProspections,
   deleteProspection,
-  updateProspection,
   type Prospection
 } from '../services/prospections';
-import { useToast } from '../contexts/ToastContext';
 import { createClosing } from '../services/closings';
+import { createRendezVous } from '../services/rendezvous';
+import { useToast } from '../contexts/ToastContext';
 
 export default function Prospections() {
   const toast = useToast();
@@ -24,6 +24,30 @@ export default function Prospections() {
   const [lastPage, setLastPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+
+  // Modal Closing
+  const [showClosingModal, setShowClosingModal] = useState(false);
+  const [closingProspection, setClosingProspection] = useState<Prospection | null>(null);
+  const [closingForm, setClosingForm] = useState({
+    produit: '',
+    description: '',
+    montant: '',
+  });
+  const [savingClosing, setSavingClosing] = useState(false);
+
+  // Modal RDV
+  const [showRdvModal, setShowRdvModal] = useState(false);
+  const [rdvProspection, setRdvProspection] = useState<Prospection | null>(null);
+  const [rdvForm, setRdvForm] = useState({
+    date_rdv: '',
+    heure: '',
+    type_rdv: 'Direct',
+    lieu: '',
+    lien_rdv: '',
+    telephone: '',
+    commentaire: '',
+  });
+  const [savingRdv, setSavingRdv] = useState(false);
 
   const fetchProspections = async () => {
     try {
@@ -43,27 +67,19 @@ export default function Prospections() {
     }
   };
 
-  const [showClosingModal, setShowClosingModal] = useState(false);
-  const [closingProspection, setClosingProspection] = useState<Prospection | null>(null);
-  const [closingForm, setClosingForm] = useState({
-    produit: '',
-    description: '',
-    montant: '',
-  });
-  const [savingClosing, setSavingClosing] = useState(false);
-
   useEffect(() => {
     fetchProspections();
   }, [search, etatFilter, page]);
-;
 
-  const handlePerdu = async (id: number) => {
+  const confirmDelete = async () => {
+    if (!deleteId) return;
     try {
-      await updateProspection(id, { est_perdu: true });
-      toast.success('Prospection marquée comme perdue');
+      await deleteProspection(deleteId);
+      toast.success('Prospection supprimée');
+      setDeleteId(null);
       fetchProspections();
     } catch {
-      toast.error('Erreur');
+      toast.error('Erreur lors de la suppression');
     }
   };
 
@@ -73,7 +89,6 @@ export default function Prospections() {
       toast.error('Produit et montant sont obligatoires');
       return;
     }
-
     try {
       setSavingClosing(true);
       await createClosing({
@@ -94,15 +109,47 @@ export default function Prospections() {
     }
   };
 
-  const confirmDelete = async () => {
-    if (!deleteId) return;
+  const handleCreateRdv = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rdvProspection || !rdvForm.date_rdv) {
+      toast.error('La date est obligatoire');
+      return;
+    }
+    if (
+      (rdvForm.type_rdv === 'Direct' || rdvForm.type_rdv === 'Livraison' || rdvForm.type_rdv === 'Réunion') &&
+      !rdvForm.lieu
+    ) {
+      toast.error('Le lieu est obligatoire');
+      return;
+    }
+    if (rdvForm.type_rdv === 'Visio conférence' && !rdvForm.lien_rdv) {
+      toast.error('Le lien est obligatoire');
+      return;
+    }
+    if (rdvForm.type_rdv === 'Téléphonique' && !rdvForm.telephone) {
+      toast.error('Le numéro de téléphone est obligatoire');
+      return;
+    }
+
+    const dateTime = `${rdvForm.date_rdv} ${rdvForm.heure || '09:00'}:00`;
+
     try {
-      await deleteProspection(deleteId);
-      toast.success('Prospection supprimée');
-      setDeleteId(null);
-      fetchProspections();
+      setSavingRdv(true);
+      await createRendezVous({
+        id_client: rdvProspection.id_client,
+        date_rdv: dateTime,
+        type_rdv: rdvForm.type_rdv,
+        lieu: rdvForm.lieu || null,
+        lien_rdv: rdvForm.lien_rdv || null,
+        commentaire: rdvForm.commentaire || null,
+      });
+      toast.success('Rendez-vous créé');
+      setShowRdvModal(false);
+      setRdvProspection(null);
     } catch {
-      toast.error('Erreur lors de la suppression');
+      toast.error('Erreur lors de la création du rendez-vous');
+    } finally {
+      setSavingRdv(false);
     }
   };
 
@@ -114,12 +161,6 @@ export default function Prospections() {
       return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600">Clôturé</span>;
     }
     return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600">Non clôturé</span>;
-  };
-
-  const getPageNumbers = () => {
-    const pages = [];
-    for (let i = 1; i <= lastPage; i++) pages.push(i);
-    return pages;
   };
 
   return (
@@ -145,10 +186,7 @@ export default function Prospections() {
             type="text"
             placeholder="Rechercher..."
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
         </div>
@@ -172,10 +210,7 @@ export default function Prospections() {
           ].map((f) => (
             <button
               key={f.value}
-              onClick={() => {
-                setEtatFilter(f.value);
-                setPage(1);
-              }}
+              onClick={() => { setEtatFilter(f.value); setPage(1); }}
               className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                 etatFilter === f.value
                   ? 'bg-primary text-primary-foreground'
@@ -209,15 +244,11 @@ export default function Prospections() {
             <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
-                    Chargement...
-                  </td>
+                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">Chargement...</td>
                 </tr>
               ) : prospections.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
-                    Aucune prospection trouvée
-                  </td>
+                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">Aucune prospection trouvée</td>
                 </tr>
               ) : (
                 prospections.map((p) => (
@@ -231,26 +262,17 @@ export default function Prospections() {
                     <td className="px-3 py-2.5 max-w-[200px] truncate">
                       {p.produit_prospecte || p.offre?.denomination || '—'}
                     </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">
-                      {p.client?.telephone || '—'}
-                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">{p.client?.telephone || '—'}</td>
                     <td className="px-3 py-2.5 font-medium">
                       {p.client ? `${p.client.nom} ${p.client.prenom || ''}`.trim() : '—'}
                     </td>
+                    <td className="px-3 py-2.5">{p.client?.entreprise || '—'}</td>
+                    <td className="px-3 py-2.5">{getEtatBadge(p)}</td>
                     <td className="px-3 py-2.5">
-                      {p.client?.entreprise || '—'}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      {getEtatBadge(p)}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      {p.commercial
-                        ? `${p.commercial.nom} ${p.commercial.prenom}`
-                        : 'Admin'}
+                      {p.commercial ? `${p.commercial.nom} ${p.commercial.prenom}` : 'Admin'}
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center justify-end gap-1.5">
-                        {/* Voir messages */}
                         <button
                           onClick={() => navigate(`/prospections/${p.id_prospection}`)}
                           className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 hover:bg-blue-500/20"
@@ -259,7 +281,6 @@ export default function Prospections() {
                           <MessageSquare size={15} />
                         </button>
 
-                        {/* Clôturer */}
                         {!p.est_perdu && p.etat !== 'cloture' && (
                           <button
                             onClick={() => {
@@ -278,19 +299,28 @@ export default function Prospections() {
                           </button>
                         )}
 
-                        {/* Fixer un rendez-vous */}
-                        <button
-                          onClick={() => {
-                            // Pour l’instant on redirige vers la page RDV (on l’améliorera plus tard)
-                            navigate(`/rendez-vous?prospection=${p.id_prospection}`);
-                          }}
-                          className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
-                          title="Fixer un rendez-vous"
-                        >
-                          <CalendarDays size={15} />
-                        </button>
+                        {!p.est_perdu && p.etat !== 'cloture' && (
+                          <button
+                            onClick={() => {
+                              setRdvProspection(p);
+                              setRdvForm({
+                                date_rdv: '',
+                                heure: '',
+                                type_rdv: 'Direct',
+                                lieu: '',
+                                lien_rdv: '',
+                                telephone: p.client?.telephone || '',
+                                commentaire: '',
+                              });
+                              setShowRdvModal(true);
+                            }}
+                            className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
+                            title="Fixer un rendez-vous"
+                          >
+                            <CalendarDays size={15} />
+                          </button>
+                        )}
 
-                        {/* Supprimer */}
                         <button
                           onClick={() => setDeleteId(p.id_prospection)}
                           className="p-1.5 rounded-lg bg-red-500/10 text-red-600 hover:bg-red-500/20"
@@ -307,10 +337,9 @@ export default function Prospections() {
           </table>
         </div>
 
-        {/* Pagination */}
         {lastPage > 1 && (
           <div className="flex items-center justify-end gap-1.5 px-4 py-3 border-t border-border">
-            {getPageNumbers().map((p) => (
+            {Array.from({ length: lastPage }, (_, i) => i + 1).map((p) => (
               <button
                 key={p}
                 onClick={() => setPage(p)}
@@ -327,19 +356,29 @@ export default function Prospections() {
         )}
       </div>
 
+      {/* Modal suppression */}
+      {deleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-card border border-border rounded-xl w-full max-w-md p-6 shadow-xl text-center">
+            <div className="w-14 h-14 rounded-full bg-amber-500/15 text-amber-500 flex items-center justify-center mx-auto mb-4 text-2xl font-bold">!</div>
+            <h3 className="text-lg font-semibold mb-2">Êtes-vous sûr ?</h3>
+            <p className="text-muted-foreground mb-6">Cette prospection et ses messages seront supprimés.</p>
+            <div className="flex justify-center gap-3">
+              <button onClick={() => setDeleteId(null)} className="px-5 py-2 border border-border rounded-lg hover:bg-accent">Annuler</button>
+              <button onClick={confirmDelete} className="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Confirmer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Closing */}
       {showClosingModal && closingProspection && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-xl">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <h2 className="text-lg font-semibold">Clôture de la prospection</h2>
-              <button
-                onClick={() => setShowClosingModal(false)}
-                className="p-1.5 rounded-lg hover:bg-accent"
-              >
-                ✕
-              </button>
+              <button onClick={() => setShowClosingModal(false)} className="p-1.5 rounded-lg hover:bg-accent">✕</button>
             </div>
-
             <form onSubmit={handleClosing} className="p-6 space-y-4">
               <div>
                 <label className="text-sm font-medium">Nom du service ou produit *</label>
@@ -348,10 +387,9 @@ export default function Prospections() {
                   value={closingForm.produit}
                   onChange={(e) => setClosingForm({ ...closingForm, produit: e.target.value })}
                   className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
-                  placeholder="Rechercher un service ou produit..."
+                  placeholder="Produit / service"
                 />
               </div>
-
               <div>
                 <label className="text-sm font-medium">Description</label>
                 <textarea
@@ -362,7 +400,6 @@ export default function Prospections() {
                   placeholder="Description de l'offre"
                 />
               </div>
-
               <div>
                 <label className="text-sm font-medium">Tarif de l'offre (Ar) *</label>
                 <input
@@ -375,21 +412,10 @@ export default function Prospections() {
                   placeholder="Tarif"
                 />
               </div>
-
               <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowClosingModal(false)}
-                  className="px-4 py-2 border border-border rounded-lg hover:bg-accent"
-                >
-                  Fermer
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingClosing}
-                  className="px-5 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
-                >
-                  {savingClosing ? 'Enregistrement...' : 'Ajouter'}
+                <button type="button" onClick={() => setShowClosingModal(false)} className="px-4 py-2 border border-border rounded-lg hover:bg-accent">Fermer</button>
+                <button type="submit" disabled={savingClosing} className="px-5 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50">
+                  {savingClosing ? '...' : 'Ajouter'}
                 </button>
               </div>
             </form>
@@ -397,31 +423,101 @@ export default function Prospections() {
         </div>
       )}
 
-      {/* Modal suppression */}
-      {deleteId && (
+      {/* Modal RDV */}
+      {showRdvModal && rdvProspection && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-card border border-border rounded-xl w-full max-w-md p-6 shadow-xl text-center">
-            <div className="w-14 h-14 rounded-full bg-amber-500/15 text-amber-500 flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
-              !
+          <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-card">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <CalendarDays size={18} />
+                Fixer un rendez-vous
+              </h2>
+              <button onClick={() => setShowRdvModal(false)} className="p-1.5 rounded-lg hover:bg-accent">✕</button>
             </div>
-            <h3 className="text-lg font-semibold mb-2">Êtes-vous sûr ?</h3>
-            <p className="text-muted-foreground mb-6">
-              Cette prospection et ses messages seront supprimés.
-            </p>
-            <div className="flex justify-center gap-3">
-              <button
-                onClick={() => setDeleteId(null)}
-                className="px-5 py-2 border border-border rounded-lg hover:bg-accent"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-              >
-                Confirmer
-              </button>
-            </div>
+            <form onSubmit={handleCreateRdv} className="p-6 space-y-4">
+              <div className="text-sm text-muted-foreground">
+                Prospect :{' '}
+                <span className="font-medium text-foreground">
+                  {rdvProspection.client
+                    ? `${rdvProspection.client.nom} ${rdvProspection.client.prenom || ''}`.trim()
+                    : '—'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Date *</label>
+                  <input type="date" required value={rdvForm.date_rdv}
+                    onChange={(e) => setRdvForm({ ...rdvForm, date_rdv: e.target.value })}
+                    className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Heure</label>
+                  <input type="time" value={rdvForm.heure}
+                    onChange={(e) => setRdvForm({ ...rdvForm, heure: e.target.value })}
+                    className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Mode de rendez-vous</label>
+                <select value={rdvForm.type_rdv}
+                  onChange={(e) => setRdvForm({ ...rdvForm, type_rdv: e.target.value })}
+                  className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background">
+                  <option value="Direct">Direct</option>
+                  <option value="Téléphonique">Téléphonique</option>
+                  <option value="Visio conférence">Visio conférence</option>
+                  <option value="Livraison">Livraison</option>
+                  <option value="Réunion">Réunion</option>
+                </select>
+              </div>
+
+              {(rdvForm.type_rdv === 'Direct' || rdvForm.type_rdv === 'Livraison' || rdvForm.type_rdv === 'Réunion') && (
+                <div>
+                  <label className="text-sm font-medium">Lieu *</label>
+                  <input required value={rdvForm.lieu}
+                    onChange={(e) => setRdvForm({ ...rdvForm, lieu: e.target.value })}
+                    className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
+                    placeholder="Adresse ou lieu" />
+                </div>
+              )}
+
+              {rdvForm.type_rdv === 'Visio conférence' && (
+                <div>
+                  <label className="text-sm font-medium">Lien *</label>
+                  <input required value={rdvForm.lien_rdv}
+                    onChange={(e) => setRdvForm({ ...rdvForm, lien_rdv: e.target.value })}
+                    className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
+                    placeholder="https://..." />
+                </div>
+              )}
+
+              {rdvForm.type_rdv === 'Téléphonique' && (
+                <div>
+                  <label className="text-sm font-medium">Numéro de téléphone *</label>
+                  <input required value={rdvForm.telephone}
+                    onChange={(e) => setRdvForm({ ...rdvForm, telephone: e.target.value })}
+                    className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
+                    placeholder="034..." />
+                </div>
+              )}
+
+              <div>
+                <label className="text-sm font-medium">Commentaire</label>
+                <textarea value={rdvForm.commentaire}
+                  onChange={(e) => setRdvForm({ ...rdvForm, commentaire: e.target.value })}
+                  rows={3}
+                  className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background resize-none"
+                  placeholder="Note optionnelle..." />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setShowRdvModal(false)} className="px-4 py-2 border border-border rounded-lg hover:bg-accent">Annuler</button>
+                <button type="submit" disabled={savingRdv} className="px-5 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50">
+                  {savingRdv ? '...' : 'Ajouter'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

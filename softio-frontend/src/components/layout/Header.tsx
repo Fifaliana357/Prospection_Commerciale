@@ -6,21 +6,38 @@ import { getSessionUser, logout } from "@/lib/session"
 import { useLocation } from "react-router-dom"
 
 const titles: Record<string, string> = {
-  dashboard: "Tableau de bord", statistiques: "Statistiques", prospects: "Prospects", prospection: "Prospections",
-  "rendez-vous": "Rendez-vous", interets: "Intérêts", closing: "Closing", clients: "Clients", ventes: "Ventes",
-  facturation: "Facturation", sav: "SAV", catalogue: "Produits", stock: "Stock", commerciaux: "Commerciaux",
-  bibliotheque: "Bibliothèque", tutoriels: "Tutoriels",
+  dashboard: "Tableau de bord",
+  statistiques: "Statistiques",
+  prospects: "Prospects",
+  prospections: "Prospections",
+  "rendez-vous": "Rendez-vous",
+  interets: "Intérêts",
+  closing: "Closing",
+  clients: "Clients",
+  ventes: "Ventes",
+  facturation: "Facturation",
+  sav: "SAV",
+  catalogue: "Produits",
+  stock: "Stock",
+  commerciaux: "Commerciaux",
+  bibliotheque: "Bibliothèque",
+  tutoriels: "Tutoriels",
 }
 
 const colorOptions = [
-  { name: "Émeraude", value: "emerald", color: "#10b981" },
-  { name: "Océan", value: "ocean", color: "#3b82f6" },
-  { name: "Violet", value: "violet", color: "#a78bfa" },
-  { name: "Coucher de soleil", value: "sunset", color: "#fb923c" },
-  { name: "Ardoise", value: "slate", color: "#94a3b8" },
+  { name: "Navy", value: "navy", color: "#1e3a5f" },
+  { name: "Teal", value: "teal", color: "#0f5c56" },
+  { name: "Rose", value: "rose", color: "#9d4a6a" },
+  { name: "Violet", value: "violet", color: "#6b4f8a" },
 ] as const
 
-const notifications: { id: number; title: string; message: string; time: string; read: boolean }[] = []
+const notifications: {
+  id: number
+  title: string
+  message: string
+  time: string
+  read: boolean
+}[] = []
 
 export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const { theme, toggleTheme, colorTheme, setColorTheme } = useTheme()
@@ -66,19 +83,19 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const unreadCount = notifications.filter((n) => !n.read).length
 
   return (
-    <header className="h-16 border-b border-border bg-background/80 backdrop-blur sticky top-0 z-20 flex items-center justify-between px-3 sm:px-6">
+    <header className="h-14 sticky top-0 z-20 flex items-center justify-between px-3 sm:px-5 bg-background/90 backdrop-blur-md shadow-sm">
       <button
         onClick={onMenuClick}
         className="md:hidden p-2 rounded-lg text-muted-foreground hover:bg-accent"
         title="Ouvrir le menu"
-        aria-label="Ouvrir le menu"
       >
         <Menu size={20} />
       </button>
 
-      <h2 className="ml-2 font-display text-lg font-semibold md:ml-0">{page}</h2>
-      {/* Actions */}
-      <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+      <h2 className="ml-2 font-semibold text-base md:ml-0">{page}</h2>
+
+      <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
+        {/* Palette */}
         <div className="relative" ref={paletteRef}>
           <button
             onClick={() => {
@@ -87,44 +104,48 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
               setShowUserMenu(false)
             }}
             className="p-2 rounded-lg text-muted-foreground hover:bg-accent"
-            title="Choisir une couleur"
-            aria-label="Choisir une couleur"
-            aria-haspopup="true"
-            aria-expanded={showPalette}
+            title="Couleur du thème"
           >
             <Palette size={18} />
           </button>
 
-          {showPalette && (
-            <div className="absolute right-0 mt-2 w-56 rounded-xl border border-border bg-card p-3 shadow-xl z-50">
-              <p className="px-1 pb-2 text-xs font-semibold text-muted-foreground">Couleur du thème</p>
-              <div className="grid grid-cols-3 gap-2">
-                {colorOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => {
-                      setColorTheme(option.value)
-                      setShowPalette(false)
-                    }}
-                    title={option.name}
-                    aria-label={option.name}
-                    aria-pressed={colorTheme === option.value}
-                    className={cn(
-                      "h-9 rounded-lg transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-                      colorTheme === option.value && "ring-2 ring-primary ring-offset-2 ring-offset-card"
-                    )}
-                    style={{ backgroundColor: option.color }}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+        {showPalette && (
+          <div className="absolute right-0 mt-2 w-44 rounded-xl bg-card py-2 shadow-xl z-50 ring-1 ring-black/5 dark:ring-white/10">
+            <p className="px-3 pb-1.5 text-[11px] font-medium text-muted-foreground">
+              Couleur
+            </p>
+            {colorOptions.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => {
+                  setColorTheme(option.value)
+                  setShowPalette(false)
+                }}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors",
+                  colorTheme === option.value
+                    ? "bg-accent font-medium text-foreground"
+                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                )}
+              >
+                <span
+                  className="w-3 h-3 rounded-full shrink-0"
+                  style={{ backgroundColor: option.color }}
+                />
+                {option.name}
+                {colorTheme === option.value && (
+                  <span className="ml-auto text-xs opacity-50">✓</span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
         </div>
 
         {/* Dark / Light */}
         <button
           onClick={toggleTheme}
-          className="p-2 rounded-lg hover:bg-accent text-muted-foreground"
+          className="p-2 rounded-lg text-muted-foreground hover:bg-accent"
           title={theme === "light" ? "Mode sombre" : "Mode clair"}
         >
           {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
@@ -138,10 +159,8 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
               setShowUserMenu(false)
               setShowPalette(false)
             }}
-            className="p-2 rounded-lg hover:bg-accent text-muted-foreground relative"
+            className="p-2 rounded-lg text-muted-foreground hover:bg-accent relative"
             title="Notifications"
-            aria-label="Notifications"
-            aria-expanded={showNotifications}
           >
             <Bell size={18} />
             {unreadCount > 0 && (
@@ -150,27 +169,33 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 bg-card border border-border rounded-xl shadow-lg overflow-hidden z-50">
-              <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+            <div className="absolute right-0 mt-2 w-80 bg-card rounded-xl shadow-lg overflow-hidden z-50">
+              <div className="px-4 py-3 flex items-center justify-between">
                 <h3 className="font-semibold text-sm">Notifications</h3>
-                <span className="text-xs text-muted-foreground">{unreadCount} non lue(s)</span>
+                <span className="text-xs text-muted-foreground">
+                  {unreadCount} non lue(s)
+                </span>
               </div>
               <div className="max-h-80 overflow-y-auto">
                 {notifications.length === 0 && (
-                  <p className="px-4 py-8 text-center text-sm text-muted-foreground">Rien de nouveau pour le moment.</p>
+                  <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+                    Rien de nouveau pour le moment.
+                  </p>
                 )}
                 {notifications.map((n) => (
                   <div
                     key={n.id}
                     className={cn(
-                      "px-4 py-3 hover:bg-muted/50 transition-colors cursor-pointer border-b border-border last:border-0",
+                      "px-4 py-3 hover:bg-muted/50 transition-colors cursor-pointer",
                       !n.read && "bg-primary/5"
                     )}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="text-sm font-medium">{n.title}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{n.message}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {n.message}
+                        </p>
                       </div>
                       {!n.read && (
                         <span className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
@@ -184,7 +209,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
           )}
         </div>
 
-        {/* User menu */}
+        {/* User */}
         <div className="relative" ref={userRef}>
           <button
             onClick={() => {
@@ -192,21 +217,22 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
               setShowNotifications(false)
               setShowPalette(false)
             }}
-            className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium hover:opacity-90 transition-opacity"
-            aria-label="Menu utilisateur"
-            aria-expanded={showUserMenu}
+            className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium hover:opacity-90"
           >
             {user.initiale}
           </button>
 
           {showUserMenu && (
-            <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-xl shadow-lg overflow-hidden z-50">
-              <div className="px-4 py-3 border-b border-border">
+            <div className="absolute right-0 mt-2 w-56 bg-card rounded-xl shadow-lg overflow-hidden z-50">
+              <div className="px-4 py-3">
                 <p className="text-sm font-semibold">{user.nom}</p>
                 <p className="text-xs text-muted-foreground">{user.email}</p>
               </div>
-              <div className="border-t border-border py-1">
-                <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+              <div className="py-1">
+                <button
+                  onClick={logout}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                >
                   <LogOut size={16} />
                   Déconnexion
                 </button>

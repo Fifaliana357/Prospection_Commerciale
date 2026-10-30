@@ -242,3 +242,20 @@
 @keyframes ring-draw { from { stroke-dashoffset: var(--ring-full); } }
 .ring-draw { animation: ring-draw 1s cubic-bezier(.2,.8,.2,1) both; }
 @media (prefers-reduced-motion: reduce) { .ring-draw { animation: none; } }
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222 47% 11%;
+  /* ... */
+}
+
+.dark {
+  --background: 222 47% 7%;
+  --foreground: 210 40% 98%;
+  /* ... */
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}

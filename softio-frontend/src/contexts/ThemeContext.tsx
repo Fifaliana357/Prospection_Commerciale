@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react"
 import type { ReactNode } from "react"
 
 type Theme = "light" | "dark"
-type ColorTheme = "emerald" | "ocean" | "violet" | "sunset" | "slate"
+type ColorTheme = "navy" | "teal" | "rose" | "violet"
 
 interface ThemeContextType {
   theme: Theme
@@ -15,27 +15,54 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
 const colorThemes = {
-  emerald: {
-    light: { primary: "160 84% 39%", primaryForeground: "0 0% 100%" },
-    dark: { primary: "160 84% 45%", primaryForeground: "0 0% 100%" },
+  navy: {
+    light: { primary: "222 47% 28%", primaryForeground: "0 0% 100%" },
+    dark:  { primary: "213 42% 55%", primaryForeground: "222 47% 10%" },
   },
-  ocean: {
-    light: { primary: "221 83% 53%", primaryForeground: "0 0% 100%" },
-    dark: { primary: "217 91% 60%", primaryForeground: "0 0% 100%" },
+  teal: {
+    light: { primary: "175 55% 28%", primaryForeground: "0 0% 100%" },
+    dark:  { primary: "172 45% 42%", primaryForeground: "175 50% 8%" },
+  },
+  rose: {
+    light: { primary: "340 45% 42%", primaryForeground: "0 0% 100%" },
+    dark:  { primary: "340 40% 58%", primaryForeground: "340 30% 10%" },
   },
   violet: {
-    light: { primary: "262 83% 58%", primaryForeground: "0 0% 100%" },
-    dark: { primary: "263 70% 65%", primaryForeground: "0 0% 100%" },
-  },
-  sunset: {
-    light: { primary: "24 95% 53%", primaryForeground: "0 0% 100%" },
-    dark: { primary: "27 96% 61%", primaryForeground: "0 0% 100%" },
-  },
-  slate: {
-    light: { primary: "215 25% 27%", primaryForeground: "0 0% 100%" },
-    dark: { primary: "215 20% 65%", primaryForeground: "0 0% 10%" },
+    light: { primary: "265 40% 42%", primaryForeground: "0 0% 100%" },
+    dark:  { primary: "265 35% 58%", primaryForeground: "265 30% 10%" },
   },
 }
+
+const baseThemes = {
+  light: {
+    background: "0 0% 100%",
+    foreground: "222 47% 11%",
+    card: "0 0% 100%",
+    cardForeground: "222 47% 11%",
+    muted: "210 40% 96%",
+    mutedForeground: "215 16% 47%",
+    accent: "210 40% 96%",
+    accentForeground: "222 47% 11%",
+    border: "214 32% 91%",
+    secondary: "210 40% 96%",
+    secondaryForeground: "222 47% 11%",
+  },
+  dark: {
+    background: "222 47% 7%",
+    foreground: "210 40% 98%",
+    card: "222 47% 10%",
+    cardForeground: "210 40% 98%",
+    muted: "217 33% 14%",
+    mutedForeground: "215 20% 65%",
+    accent: "217 33% 14%",
+    accentForeground: "210 40% 98%",
+    border: "217 33% 16%",
+    secondary: "217 33% 14%",
+    secondaryForeground: "210 40% 98%",
+  },
+}
+
+const validColors: ColorTheme[] = ["navy", "teal", "rose", "violet"]
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
@@ -43,67 +70,49 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   })
 
   const [colorTheme, setColorTheme] = useState<ColorTheme>(() => {
-    return (localStorage.getItem("colorTheme") as ColorTheme) || "emerald"
+    const saved = localStorage.getItem("colorTheme") as ColorTheme
+    return validColors.includes(saved) ? saved : "navy"
   })
 
   useEffect(() => {
     const root = document.documentElement
-    root.classList.remove("light", "dark")
-    root.classList.add(theme)
+    const safeColor = validColors.includes(colorTheme) ? colorTheme : "navy"
+    const primary = colorThemes[safeColor][theme]
+    const base = baseThemes[theme]
 
-    const colors = colorThemes[colorTheme][theme]
+    root.style.setProperty("--primary", primary.primary)
+    root.style.setProperty("--primary-foreground", primary.primaryForeground)
 
-    root.style.setProperty("--primary", colors.primary)
-    root.style.setProperty("--primary-foreground", colors.primaryForeground)
+    root.style.setProperty("--background", base.background)
+    root.style.setProperty("--foreground", base.foreground)
+    root.style.setProperty("--card", base.card)
+    root.style.setProperty("--card-foreground", base.cardForeground)
+    root.style.setProperty("--muted", base.muted)
+    root.style.setProperty("--muted-foreground", base.mutedForeground)
+    root.style.setProperty("--accent", base.accent)
+    root.style.setProperty("--accent-foreground", base.accentForeground)
+    root.style.setProperty("--border", base.border)
+    root.style.setProperty("--secondary", base.secondary)
+    root.style.setProperty("--secondary-foreground", base.secondaryForeground)
 
-    if (theme === "light") {
-      root.style.setProperty("--background", "210 40% 98%")
-      root.style.setProperty("--sidebar", "0 0% 100%")
-      root.style.setProperty("--foreground", "222 47% 11%")
-      root.style.setProperty("--card", "0 0% 100%")
-      root.style.setProperty("--card-foreground", "222 47% 11%")
-      root.style.setProperty("--popover", "0 0% 100%")
-      root.style.setProperty("--popover-foreground", "222 47% 11%")
-      root.style.setProperty("--secondary", "210 40% 96%")
-      root.style.setProperty("--secondary-foreground", "222 47% 11%")
-      root.style.setProperty("--muted", "210 40% 96%")
-      root.style.setProperty("--muted-foreground", "215 16% 47%")
-      root.style.setProperty("--accent", "210 40% 96%")
-      root.style.setProperty("--accent-foreground", "222 47% 11%")
-      root.style.setProperty("--destructive", "0 84% 60%")
-      root.style.setProperty("--destructive-foreground", "0 0% 100%")
-      root.style.setProperty("--border", "214 32% 91%")
-      root.style.setProperty("--input", "214 32% 91%")
-      root.style.setProperty("--ring", colors.primary)
+    if (theme === "dark") {
+      root.classList.add("dark")
     } else {
-      root.style.setProperty("--background", "222 47% 7%")
-      root.style.setProperty("--sidebar", "222 47% 11%")
-      root.style.setProperty("--foreground", "210 40% 98%")
-      root.style.setProperty("--card", "222 47% 9%")
-      root.style.setProperty("--card-foreground", "210 40% 98%")
-      root.style.setProperty("--popover", "222 47% 9%")
-      root.style.setProperty("--popover-foreground", "210 40% 98%")
-      root.style.setProperty("--secondary", "217 33% 17%")
-      root.style.setProperty("--secondary-foreground", "210 40% 98%")
-      root.style.setProperty("--muted", "217 33% 17%")
-      root.style.setProperty("--muted-foreground", "215 20% 65%")
-      root.style.setProperty("--accent", "217 33% 17%")
-      root.style.setProperty("--accent-foreground", "210 40% 98%")
-      root.style.setProperty("--destructive", "0 62% 50%")
-      root.style.setProperty("--destructive-foreground", "0 0% 100%")
-      root.style.setProperty("--border", "217 33% 17%")
-      root.style.setProperty("--input", "217 33% 17%")
-      root.style.setProperty("--ring", colors.primary)
+      root.classList.remove("dark")
     }
 
     localStorage.setItem("theme", theme)
-    localStorage.setItem("colorTheme", colorTheme)
+    localStorage.setItem("colorTheme", safeColor)
   }, [theme, colorTheme])
 
-  const toggleTheme = () => setTheme(theme === "light" ? "dark" : "light")
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === "light" ? "dark" : "light"))
+  }
 
   return (
-    <ThemeContext.Provider value={{ theme, colorTheme, setTheme, setColorTheme, toggleTheme }}>
+    <ThemeContext.Provider
+      value={{ theme, colorTheme, setTheme, setColorTheme, toggleTheme }}
+    >
       {children}
     </ThemeContext.Provider>
   )
@@ -111,6 +120,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
 export function useTheme() {
   const context = useContext(ThemeContext)
-  if (!context) throw new Error("useTheme must be used within ThemeProvider")
+  if (!context) {
+    throw new Error("useTheme must be used within a ThemeProvider")
+  }
   return context
 }
