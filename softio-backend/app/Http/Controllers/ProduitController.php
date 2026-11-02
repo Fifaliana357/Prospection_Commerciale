@@ -4,84 +4,97 @@ namespace App\Http\Controllers;
 
 use App\Models\Produit;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 
 class ProduitController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request)
     {
-        $query = Produit::where('id_admin', $request->user()->id_admin);
+        $query = Produit::query();
 
         if ($request->filled('search')) {
-            $s = $request->string('search');
+            $s = $request->search;
             $query->where(function ($q) use ($s) {
-                $q->where('designation', 'like', "%{$s}%")
-                  ->orWhere('reference', 'like', "%{$s}%")
-                  ->orWhere('mots_cles', 'like', "%{$s}%");
+                $q->where('reference', 'like', "%{$s}%")
+                  ->orWhere('designation', 'like', "%{$s}%")
+                  ->orWhere('description', 'like', "%{$s}%");
             });
         }
 
-        $produits = $query->orderByDesc('created_at')->paginate(10);
-
-        // On pourrait ajouter une logique pour calculer le stock actuel ici
-        return response()->json($produits);
+        return response()->json(
+            $query->orderBy('designation')->paginate(10)
+        );
     }
 
-    public function store(Request $request): JsonResponse
+public function store(Request $request)
+{
+    $user = $request->user();
+
+    $validated = $request->validate([
+        'reference'     => 'required|string|max:50',
+        'designation'   => 'required|string|max:191',
+        'description'   => 'nullable|string',
+        'prix_unitaire' => 'required|numeric|min:0',
+        'photo'         => 'nullable|image|max:2048',
+    ]);
+
+    $data = [
+        'reference'     => $validated['reference'],
+        'designation'   => $validated['designation'],
+        'description'   => $validated['description'] ?? null,
+        'prix_unitaire' => $validated['prix_unitaire'],
+        'id_admin'      => $user->id_admin ?? null,
+        'actif'         => true,
+    ];
+
+    if ($request->hasFile('photo')) {
+        $data['photo'] = $request->file('photo')->store('produits', 'public');
+    }
+
+    $produit = Produit::create($data);
+
+    return response()->json(['message' => 'Produit créé', 'produit' => $produit], 201);
+}
+
+public function update(Request $request, int $id)
+{
+    $produit = Produit::findOrFail($id);
+
+    $validated = $request->validate([
+        'reference'     => 'sometimes|string|max:50',
+        'designation'   => 'sometimes|string|max:191',
+        'description'   => 'nullable|string',
+        'prix_unitaire' => 'sometimes|numeric|min:0',
+        'photo'         => 'nullable|image|max:2048',
+    ]);
+
+    $data = [];
+    if ($request->has('reference')) {
+        $data['reference'] = $validated['reference'];
+    }
+    if ($request->has('designation')) {
+        $data['designation'] = $validated['designation'];
+    }
+    if ($request->has('description')) {
+        $data['description'] = $validated['description'] ?? null;
+    }
+    if ($request->has('prix_unitaire')) {
+        $data['prix_unitaire'] = $validated['prix_unitaire'];
+    }
+
+    if ($request->hasFile('photo')) {
+        $data['photo'] = $request->file('photo')->store('produits', 'public');
+    }
+
+    $produit->update($data);
+
+    return response()->json(['message' => 'Produit modifié', 'produit' => $produit->fresh()]);
+}
+
+    public function destroy(int $id)
     {
-        $validated = $request->validate([
-            'designation'   => 'required|string|max:150',
-            'reference'     => 'nullable|string|max:100',
-            'description'   => 'nullable|string',
-            'prix_unitaire' => 'required|integer|min:0',
-            'mots_cles'     => 'nullable|string|max:255',
-            'actif'         => 'boolean',
-        ]);
-
-        $validated['id_admin'] = $request->user()->id_admin;
-        $produit = Produit::create($validated);
-
-        return response()->json([
-            'message' => 'Produit créé avec succès',
-            'produit' => $produit
-        ], 201);
+        Produit::findOrFail($id)->delete();
+        return response()->json(['message' => 'Produit supprimé']);
     }
 
-    public function show(Request $request, $id): JsonResponse
-    {
-        $produit = Produit::with('mouvementsStock')
-            ->where('id_admin', $request->user()->id_admin)
-            ->findOrFail($id);
 
-        return response()->json($produit);
-    }
-
-    public function update(Request $request, $id): JsonResponse
-    {
-        $produit = Produit::where('id_admin', $request->user()->id_admin)->findOrFail($id);
-
-        $validated = $request->validate([
-            'designation'   => 'sometimes|string|max:150',
-            'reference'     => 'nullable|string|max:100',
-            'description'   => 'nullable|string',
-            'prix_unitaire' => 'sometimes|integer|min:0',
-            'mots_cles'     => 'nullable|string|max:255',
-            'actif'         => 'boolean',
-        ]);
-
-        $produit->update($validated);
-
-        return response()->json([
-            'message' => 'Produit mis à jour avec succès',
-            'produit' => $produit->fresh()
-        ]);
-    }
-
-    public function destroy(Request $request, $id): JsonResponse
-    {
-        $produit = Produit::where('id_admin', $request->user()->id_admin)->findOrFail($id);
-        $produit->delete();
-
-        return response()->json(['message' => 'Produit supprimé avec succès']);
-    }
 }

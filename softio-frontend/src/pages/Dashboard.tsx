@@ -1,130 +1,144 @@
-import { useEffect, useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
-import { AlertTriangle, CheckCircle2, Users, Target, Trophy, ArrowUpRight, Loader2 } from "lucide-react"
-import api from "../services/api"
-import { getSessionUser } from "@/lib/session"
-
-interface Alerte { id_produit: number; designation: string; stock_actuel: number }
-interface Stats {
-  total_clients: number
-  prospections_actives: number
-  prospections_gagnees: number
-  alertes_stock: Alerte[]
-}
-
-function Ring({ value }: { value: number }) {
-  const r = 54
-  const c = 2 * Math.PI * r
-  return (
-    <svg viewBox="0 0 140 140" className="h-40 w-40 -rotate-90" role="img" aria-label={`Taux de conversion ${value} %`}>
-      <circle cx="70" cy="70" r={r} fill="none" strokeWidth="14" className="stroke-muted" />
-      <circle
-        cx="70" cy="70" r={r} fill="none" strokeWidth="14" strokeLinecap="round"
-        className="ring-draw stroke-primary"
-        strokeDasharray={c}
-        strokeDashoffset={c * (1 - value / 100)}
-        style={{ ["--ring-full" as string]: c }}
-      />
-    </svg>
-  )
-}
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Users, Target, Trophy, CalendarDays, TrendingUp, UserX, CheckCircle2
+} from 'lucide-react';
+import { getDashboard, type DashboardStats } from '../services/dashboard';
+import { useToast } from '../contexts/ToastContext';
+import { getSessionUser } from '../lib/session';
 
 export default function Dashboard() {
-  const [stats, setStats] = useState<Stats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const navigate = useNavigate()
-  const user = getSessionUser()
+  const toast = useToast();
+  const navigate = useNavigate();
+  const user = getSessionUser();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get("/dashboard/stats")
-      .then((res) => setStats(res.data))
-      .catch((err) => { if (err.response?.status === 401) navigate("/login") })
-      .finally(() => setLoading(false))
-  }, [navigate])
+    getDashboard()
+      .then(setStats)
+      .catch(() => toast.error('Erreur de chargement du dashboard'))
+      .finally(() => setLoading(false));
+  }, []);
 
-  if (loading) {
-    return (
-      <div className="flex items-center gap-2 py-20 text-muted-foreground">
-        <Loader2 className="animate-spin" size={18} /> Chargement…
-      </div>
-    )
-  }
+  const formatMoney = (n: number) =>
+    new Intl.NumberFormat('fr-FR').format(n) + ' Ar';
 
-  const actives = stats?.prospections_actives ?? 0
-  const gagnees = stats?.prospections_gagnees ?? 0
-  const total = actives + gagnees
-  const taux = total ? Math.round((gagnees / total) * 100) : 0
-  const alertes = stats?.alertes_stock ?? []
-  const date = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })
+  const today = new Date().toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+
+  const cards = stats
+    ? [
+        {
+          label: 'Prospects',
+          value: stats.prospects,
+          icon: Users,
+          color: 'text-blue-600 bg-blue-500/10',
+          path: '/prospects',
+        },
+        {
+          label: 'Prospections en cours',
+          value: stats.en_cours,
+          icon: Target,
+          color: 'text-amber-600 bg-amber-500/10',
+          path: '/prospections',
+        },
+        {
+          label: 'Clôturées',
+          value: stats.cloturees,
+          icon: CheckCircle2,
+          color: 'text-emerald-600 bg-emerald-500/10',
+          path: '/prospections',
+        },
+        {
+          label: 'Perdues',
+          value: stats.perdues,
+          icon: UserX,
+          color: 'text-red-600 bg-red-500/10',
+          path: '/prospections',
+        },
+        {
+          label: 'Closings',
+          value: stats.closings,
+          icon: Trophy,
+          color: 'text-primary bg-primary/10',
+          path: '/closing',
+        },
+        {
+          label: 'RDV aujourd\'hui',
+          value: stats.rdv_aujourdhui,
+          icon: CalendarDays,
+          color: 'text-cyan-600 bg-cyan-500/10',
+          path: '/rendez-vous',
+        },
+      ]
+    : [];
 
   return (
-    <div className="space-y-8">
-      <div>
-        <p className="text-sm capitalize text-muted-foreground">{date}</p>
-        <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">Bonjour {user.nom.split(" ")[0]}</h1>
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
+      <div className="mb-6">
+        <p className="text-sm text-muted-foreground capitalize">{today}</p>
+        <h1 className="text-2xl font-bold mt-0.5">
+          Bonjour {user?.nom?.split(' ')[0] || ''}
+        </h1>
       </div>
 
-      <section className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
-        <div className="flex flex-col items-center gap-8 rounded-2xl border border-border bg-card p-6 sm:flex-row sm:p-8">
-          <div className="relative shrink-0">
-            <Ring value={taux} />
-            <div className="absolute inset-0 grid place-items-center">
-              <span className="font-display text-4xl font-semibold">{taux}<span className="text-xl text-muted-foreground"> %</span></span>
+      {loading ? (
+        <div className="text-center py-16 text-muted-foreground">Chargement...</div>
+      ) : (
+        <>
+          {/* Cartes stats */}
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6">
+            {cards.map((c) => (
+              <button
+                key={c.label}
+                onClick={() => navigate(c.path)}
+                className="text-left rounded-xl bg-card p-4 shadow-sm hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-xs sm:text-sm text-muted-foreground">{c.label}</p>
+                    <p className="text-2xl font-bold mt-1">{c.value}</p>
+                  </div>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${c.color}`}>
+                    <c.icon size={18} />
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Conversion + montant */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="rounded-xl bg-card p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <TrendingUp size={18} className="text-primary" />
+                <h2 className="font-semibold">Taux de conversion</h2>
+              </div>
+              <p className="text-3xl font-bold">{stats?.taux_conversion ?? 0}%</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {stats?.cloturees ?? 0} gagnée(s) sur {stats?.prospections ?? 0} prospection(s)
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-card p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <Trophy size={18} className="text-primary" />
+                <h2 className="font-semibold">Montant des closings</h2>
+              </div>
+              <p className="text-3xl font-bold">
+                {formatMoney(stats?.montant_closings ?? 0)}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {stats?.closings ?? 0} closing(s) · {stats?.rdv_semaine ?? 0} RDV cette semaine
+              </p>
             </div>
           </div>
-          <div className="w-full">
-            <h2 className="font-display text-xl font-semibold">Taux de conversion</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {total ? `${gagnees} prospection${gagnees > 1 ? "s" : ""} gagnée${gagnees > 1 ? "s" : ""} sur ${total}.` : "Aucune prospection pour l'instant."}
-            </p>
-            <dl className="mt-5 grid grid-cols-2 gap-3">
-              <Link to="/prospection" className="group rounded-xl bg-muted/60 p-4 transition hover:bg-muted">
-                <dt className="flex items-center justify-between text-sm text-muted-foreground"><span className="flex items-center gap-1.5"><Target size={14} />En cours</span><ArrowUpRight size={14} className="opacity-0 transition group-hover:opacity-100" /></dt>
-                <dd className="mt-1 font-display text-3xl font-semibold">{actives}</dd>
-              </Link>
-              <Link to="/closing" className="group rounded-xl bg-primary/10 p-4 transition hover:bg-primary/15">
-                <dt className="flex items-center justify-between text-sm text-primary"><span className="flex items-center gap-1.5"><Trophy size={14} />Gagnées</span><ArrowUpRight size={14} className="opacity-0 transition group-hover:opacity-100" /></dt>
-                <dd className="mt-1 font-display text-3xl font-semibold text-primary">{gagnees}</dd>
-              </Link>
-            </dl>
-          </div>
-        </div>
-
-        <Link to="/clients" className="group flex flex-col justify-between rounded-2xl border border-border bg-card p-6 transition hover:border-primary/40 sm:p-8">
-          <div className="flex items-center justify-between">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-muted text-muted-foreground"><Users size={18} /></span>
-            <ArrowUpRight size={18} className="text-muted-foreground transition group-hover:text-primary" />
-          </div>
-          <div className="mt-8">
-            <p className="font-display text-5xl font-semibold">{stats?.total_clients ?? 0}</p>
-            <p className="mt-1 text-sm text-muted-foreground">clients dans votre portefeuille</p>
-          </div>
-        </Link>
-      </section>
-
-      <section className="rounded-2xl border border-border bg-card">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
-          <h2 className="font-display text-lg font-semibold">Stock à surveiller</h2>
-          {alertes.length > 0 && (
-            <span className="rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-medium text-destructive">{alertes.length} produit{alertes.length > 1 ? "s" : ""}</span>
-          )}
-        </div>
-        {alertes.length === 0 ? (
-          <div className="flex items-center gap-3 px-6 py-10 text-sm text-muted-foreground">
-            <CheckCircle2 className="text-primary" size={20} />
-            Tous les produits ont un stock suffisant.
-          </div>
-        ) : (
-          <ul className="divide-y divide-border">
-            {alertes.map((a) => (
-              <li key={a.id_produit} className="flex items-center justify-between gap-4 px-6 py-3.5">
-                <span className="flex items-center gap-3 text-sm font-medium"><AlertTriangle size={16} className="text-destructive" />{a.designation}</span>
-                <span className="rounded-md bg-destructive/10 px-2 py-1 text-xs font-semibold text-destructive">Reste {a.stock_actuel}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+        </>
+      )}
     </div>
-  )
+  );
 }

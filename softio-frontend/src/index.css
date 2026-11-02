@@ -259,3 +259,33 @@ body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
 }
+
+@media print {
+  aside, header, .print\:hidden {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+  body * {
+    visibility: hidden !important;
+  }
+  .document-preview-sheet,
+  .document-preview-sheet * {
+    visibility: visible !important;
+  }
+  .document-preview-sheet {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-height: initial !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+  .document-preview-sheet thead th {
+    position: static !important;
+  }
+}

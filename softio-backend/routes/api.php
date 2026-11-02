@@ -7,8 +7,10 @@ use App\Http\Controllers\ClosingController;
 use App\Http\Controllers\CommercialController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FactureController;
+use App\Http\Controllers\FacturationController;
 use App\Http\Controllers\InteretController;
 use App\Http\Controllers\ProduitController;
+use App\Http\Controllers\OffreController;
 use App\Http\Controllers\ProspectionController;
 use App\Http\Controllers\RendezVousController;
 use App\Http\Controllers\SavTicketController;
@@ -41,15 +43,23 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('prospections/{id}/messages', [ProspectionController::class, 'addMessage']);
 
     // 3. Catalogue & Stock
-    Route::apiResource('produits', ProduitController::class);
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::apiResource('produits', ProduitController::class);
+        Route::apiResource('offres', OffreController::class);
+    });
 
     Route::prefix('stock')->group(function () {
+        Route::get('/inventaire', [StockController::class, 'inventory']);
         Route::get('/mouvements', [StockController::class, 'index']);
         Route::post('/mouvements', [StockController::class, 'store']);
+        Route::put('/mouvements/{id}', [StockController::class, 'update']);
+        Route::delete('/mouvements/{id}', [StockController::class, 'destroy']);
     });
 
     // 4. Dashboard & Statistiques
-    Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/dashboard', [DashboardController::class, 'index']);
+    });
 
     // =====================================================================
     // ⚠️ ROUTES SUIVANTES : À DÉCOMMENTER AU FUR ET À MESURE
@@ -57,7 +67,18 @@ Route::middleware('auth:sanctum')->group(function () {
     // =====================================================================
 
     Route::apiResource('rendez-vous', RendezVousController::class);
+    Route::get('/ventes/catalogue', [VenteController::class, 'catalog']);
+    Route::post('/ventes/{id}/valider', [VenteController::class, 'validateDocument']);
+    Route::post('/ventes/{id}/facture', [VenteController::class, 'createInvoice']);
     Route::apiResource('ventes', VenteController::class);
+    Route::get('/facturation/catalogue', [FacturationController::class, 'catalog']);
+    Route::get('/facturation', [FacturationController::class, 'index']);
+    Route::post('/facturation', [FacturationController::class, 'store']);
+    Route::get('/facturation/{id}', [FacturationController::class, 'show']);
+    Route::put('/facturation/{id}', [FacturationController::class, 'update']);
+    Route::post('/facturation/{id}/valider', [FacturationController::class, 'validateDocument']);
+    Route::post('/facturation/{id}/envoyer', [FacturationController::class, 'sendEmail']);
+    Route::delete('/facturation/{id}', [FacturationController::class, 'destroy']);
     // Route::apiResource('factures', FactureController::class);
     Route::get('/interets', [InteretController::class, 'index']);
     Route::post('/interets', [InteretController::class, 'store']);

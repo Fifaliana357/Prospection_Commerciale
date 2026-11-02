@@ -16,10 +16,12 @@ class LigneDevis extends Model
         'id_devis',
         'id_produit',
         'id_offre',
+        'type_ligne',
         'designation',
         'description',
         'quantite',
         'prix_unitaire',
+        'remise',
         'montant',
         'ordre',
     ];
@@ -27,6 +29,7 @@ class LigneDevis extends Model
     protected $casts = [
         'quantite' => 'float',
         'prix_unitaire' => 'integer',
+        'remise' => 'integer',
         'montant' => 'integer',
         'ordre' => 'integer',
     ];

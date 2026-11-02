@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Produit extends Model
@@ -18,33 +17,17 @@ class Produit extends Model
         'description',
         'prix_unitaire',
         'mots_cles',
+        'photo',
         'actif',
     ];
 
     protected $casts = [
+        'prix_unitaire' => 'decimal:2',
         'actif' => 'boolean',
-        'prix_unitaire' => 'integer',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
     ];
-
-    public function admin(): BelongsTo
-    {
-        return $this->belongsTo(Admin::class, 'id_admin', 'id_admin');
-    }
-
-    public function interets(): HasMany
-    {
-        return $this->hasMany(Interet::class, 'id_produit', 'id_produit');
-    }
 
     public function mouvementsStock(): HasMany
     {
         return $this->hasMany(StockMouvement::class, 'id_produit', 'id_produit');
-    }
-
-    public function historiquesPrix(): HasMany
-    {
-        return $this->hasMany(HistoriquePrix::class, 'id_produit', 'id_produit');
     }
 }

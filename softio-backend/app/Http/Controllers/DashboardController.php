@@ -2,63 +2,65 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Admin;
 use App\Models\Client;
 use App\Models\Prospection;
-use App\Models\Produit;
+use App\Models\Closing;
+use App\Models\RendezVous;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
+use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
-    public function stats(Request $request): JsonResponse
+    public function index(Request $request)
     {
         $user = $request->user();
-        $isAdmin = $user instanceof Admin;
 
-        // Requêtes de base
-        $clientQuery = $isAdmin ? Client::where('id_admin', $user->id_admin) : Client::where('id_commercial', $user->id_commercial);
-        $prospectionQuery = $isAdmin ? Prospection::where('id_admin', $user->id_admin) : Prospection::where('id_commercial', $user->id_commercial);
+        $prospectsQuery = Client::query();
+        $prospectionsQuery = Prospection::query();
+        $closingsQuery = Closing::query();
+        $rdvQuery = RendezVous::query();
 
-        // Statistiques
-        $totalClients = $clientQuery->count();
-        $totalProspections = $prospectionQuery->count();
-        
-        // Prospections en cours (non perdues)
-        $prospectionsActives = (clone $prospectionQuery)->where('est_perdu', false)->count();
-        
-        // Prospections gagnées (Exemple : etat = 'gagne' ou 'closing')
-        $prospectionsGagnees = (clone $prospectionQuery)->where('etat', 'gagne')->count();
-
-        // Produits
-        $totalProduits = $isAdmin ? Produit::where('id_admin', $user->id_admin)->count() : 0;
-
-        // Alertes de stock (uniquement pour l'admin)
-        $alertesStock = [];
-        if ($isAdmin) {
-            $produits = Produit::where('id_admin', $user->id_admin)->get();
-            foreach ($produits as $produit) {
-                $entrees = $produit->mouvementsStock()->where('type_mouvement', 'entree')->sum('quantite');
-                $sorties = $produit->mouvementsStock()->where('type_mouvement', 'sortie')->sum('quantite');
-                $stockActuel = $entrees - $sorties;
-
-                if ($stockActuel <= 5) {
-                    $alertesStock[] = [
-                        'id_produit' => $produit->id_produit,
-                        'designation' => $produit->designation,
-                        'stock_actuel' => $stockActuel
-                    ];
-                }
-            }
+        // Filtre admin / commercial si besoin
+        if ($user instanceof \App\Models\Admin) {
+            // optionnel : $prospectionsQuery->where('id_admin', $user->id_admin);
+        } elseif ($user instanceof \App\Models\Commercial) {
+            $prospectionsQuery->where('id_commercial', $user->id_commercial);
+            $closingsQuery->where('id_commercial', $user->id_commercial);
+            $rdvQuery->where('id_commercial', $user->id_commercial);
         }
 
+        $totalProspects = (clone $prospectsQuery)->count();
+        $totalProspections = (clone $prospectionsQuery)->count();
+        $enCours = (clone $prospectionsQuery)
+            ->where('etat', '!=', 'cloture')
+            ->where('est_perdu', false)
+            ->count();
+        $cloturees = (clone $prospectionsQuery)->where('etat', 'cloture')->count();
+        $perdues = (clone $prospectionsQuery)->where('est_perdu', true)->count();
+        $totalClosings = (clone $closingsQuery)->count();
+        $montantClosings = (clone $closingsQuery)->sum('montant');
+
+        $today = Carbon::today();
+        $rdvAujourdhui = (clone $rdvQuery)->whereDate('date_rdv', $today)->count();
+        $rdvSemaine = (clone $rdvQuery)
+            ->whereBetween('date_rdv', [$today->copy()->startOfWeek(), $today->copy()->endOfWeek()])
+            ->count();
+
+        $tauxConversion = $totalProspections > 0
+            ? round(($cloturees / $totalProspections) * 100, 1)
+            : 0;
+
         return response()->json([
-            'total_clients' => $totalClients,
-            'total_prospections' => $totalProspections,
-            'prospections_actives' => $prospectionsActives,
-            'prospections_gagnees' => $prospectionsGagnees,
-            'total_produits' => $totalProduits,
-            'alertes_stock' => array_slice($alertesStock, 0, 5),
+            'prospects'        => $totalProspects,
+            'prospections'     => $totalProspections,
+            'en_cours'         => $enCours,
+            'cloturees'        => $cloturees,
+            'perdues'          => $perdues,
+            'closings'         => $totalClosings,
+            'montant_closings' => (float) $montantClosings,
+            'rdv_aujourdhui'   => $rdvAujourdhui,
+            'rdv_semaine'      => $rdvSemaine,
+            'taux_conversion'  => $tauxConversion,
         ]);
     }
 }

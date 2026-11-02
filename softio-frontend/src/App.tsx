@@ -8,6 +8,7 @@ import Closing from "./pages/Closing"
 import RendezVous from "./pages/RendezVous"
 import Ventes from "./pages/Ventes"
 import Facturation from "./pages/Facturation"
+import FacturationApercu from "./pages/FacturationApercu"
 import SAV from "./pages/SAV"
 import Stock from "./pages/Stock"
 import Commerciaux from "./pages/Commerciaux"
@@ -18,13 +19,9 @@ import Prospects from "./pages/Prospects"
 import Prospection from "./pages/Prospection"
 import ProspectionDetail from "./pages/ProspectionDetail"
 import ProspectionCreate from "./pages/ProspectionCreate"
+import Catalogue from './pages/Catalogue';
+import CatalogueImpression from "./pages/CatalogueImpression"
 
-const Bientot = () => (
-  <div className="rounded-2xl border border-dashed border-border p-12 text-center">
-    <h1 className="font-display text-2xl font-semibold">Page en cours de refonte</h1>
-    <p className="mt-2 text-sm text-muted-foreground">Cette page sera reliée à l'API dans la prochaine étape.</p>
-  </div>
-)
 
 const PrivateRoute = () => {
   const token = localStorage.getItem("@Softio:token")
@@ -49,13 +46,16 @@ function App() {
         <Route path="/clients" element={<Clients />} />
         <Route path="/ventes" element={<Ventes />} />
         <Route path="/facturation" element={<Facturation />} />
+        <Route path="/facturation/:id/apercu" element={<FacturationApercu />} />
         <Route path="/sav" element={<SAV />} />
-        <Route path="/catalogue" element={<Bientot />} />
+      
         <Route path="/produits" element={<Navigate to="/catalogue" replace />} />
         <Route path="/stock" element={<Stock />} />
         <Route path="/commerciaux" element={<Commerciaux />} />
         <Route path="/bibliotheque" element={<Bibliotheque />} />
         <Route path="/tutoriels" element={<Tutoriels />} />
+        <Route path="/catalogue" element={<Catalogue />} />
+        <Route path="/catalogue/impression" element={<CatalogueImpression />} />
       </Route>
 
       <Route path="/" element={<Navigate to="/dashboard" />} />

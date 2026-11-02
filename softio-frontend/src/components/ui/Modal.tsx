@@ -34,7 +34,13 @@ interface RecordFormModalProps {
 
 const emptyValues: Record<string, string> = {}
 
-export default function Modal({ open, onClose, title, children, size = "md", closing }: ModalProps) {
+export default function Modal(props: ModalProps) {
+  if (!props.open) return null
+
+  return <ModalContent {...props} />
+}
+
+function ModalContent({ open, onClose, title, children, size = "md", closing }: ModalProps) {
   const [internalClosing, setInternalClosing] = useState(false)
   const closeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const titleId = useId()
@@ -73,8 +79,6 @@ export default function Modal({ open, onClose, title, children, size = "md", clo
   useEffect(() => () => {
     if (closeTimeout.current) clearTimeout(closeTimeout.current)
   }, [])
-
-  if (!open) return null
 
   const sizes = {
     sm: "max-w-md",
