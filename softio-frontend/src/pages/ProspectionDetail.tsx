@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, CheckCircle2, XCircle, Trash2, Send, MessageSquare,
   Star, CalendarDays, RotateCcw, History
@@ -20,6 +20,7 @@ import { useToast } from '../contexts/ToastContext';
 export default function ProspectionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const toast = useToast();
 
   const [prospection, setProspection] = useState<Prospection | null>(null);
@@ -59,6 +60,7 @@ export default function ProspectionDetail() {
 
   // Score history
   const [showScore, setShowScore] = useState(false);
+  const [focusedMessageId, setFocusedMessageId] = useState<number | null>(null);
 
   const fetchData = async () => {
     if (!id) return;
@@ -75,6 +77,30 @@ export default function ProspectionDetail() {
   };
 
   useEffect(() => { fetchData(); }, [id]);
+
+  useEffect(() => {
+    if (!prospection) return;
+
+    const targetId = Number(searchParams.get('messageId'));
+    const targetSubject = searchParams.get('messageSubject')?.trim().toLocaleLowerCase();
+    const targetBody = searchParams.get('messageBody')?.trim().toLocaleLowerCase();
+    const target = targetId
+      ? prospection.propositions?.find((message) => message.id_proposition === targetId)
+      : targetSubject || targetBody
+        ? prospection.propositions?.find((message) =>
+            (targetSubject && message.objet?.trim().toLocaleLowerCase() === targetSubject) ||
+            (targetBody && message.message.toLocaleLowerCase().includes(targetBody)))
+        : undefined;
+
+    if (!target) return;
+    setFocusedMessageId(target.id_proposition);
+    window.setTimeout(() => {
+      document.getElementById(`proposition-${target.id_proposition}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }, 0);
+  }, [prospection, searchParams]);
 
   const handleAddMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -364,8 +390,10 @@ export default function ProspectionDetail() {
           </div>
         ) : (
           messages.map((msg: Proposition) => (
-            <div key={msg.id_proposition}
-              className={`border border-border rounded-xl p-3.5 ${msg.type === 'sortant' ? 'bg-primary/5' : 'bg-amber-500/5'}`}>
+            <div
+              key={msg.id_proposition}
+              id={`proposition-${msg.id_proposition}`}
+              className={`border border-border rounded-xl p-3.5 transition-colors ${msg.type === 'sortant' ? 'bg-primary/5' : 'bg-amber-500/5'} ${focusedMessageId === msg.id_proposition ? 'ring-2 ring-primary shadow-lg' : ''}`}>
               <div className="flex items-start justify-between gap-2 mb-1.5">
                 <div className="flex items-center gap-2">
                   <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${

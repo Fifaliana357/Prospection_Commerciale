@@ -37,6 +37,11 @@ export const getRendezVous = async (params?: {
   return response.data;
 };
 
+export const getRendezVousById = async (id: number): Promise<RendezVous> => {
+  const response = await api.get<{ rendez_vous: RendezVous }>(`/rendez-vous/${id}`);
+  return response.data.rendez_vous;
+};
+
 export const createRendezVous = async (data: any) => {
   const response = await api.post('/rendez-vous', data);
   return response.data;

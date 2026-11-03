@@ -1,9 +1,17 @@
-import { useState, useRef, useEffect } from "react"
-import { Menu, Moon, Sun, Bell, LogOut, Palette } from "lucide-react"
+import { useState, useRef, useEffect, useCallback } from "react"
+import {
+  Menu, Moon, Sun, Bell, LogOut, Palette, CheckCheck, UserRound, Building2, Wallet,
+} from "lucide-react"
 import { useTheme } from "@/contexts/ThemeContext"
 import { cn } from "@/lib/utils"
 import { getSessionUser, logout } from "@/lib/session"
-import { useLocation } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
+import {
+  getNotifications,
+  getUnreadCount,
+  markRead,
+  type Notif,
+} from "@/services/notifications"
 
 const titles: Record<string, string> = {
   dashboard: "Tableau de bord",
@@ -22,6 +30,10 @@ const titles: Record<string, string> = {
   commerciaux: "Commerciaux",
   bibliotheque: "Bibliothèque",
   tutoriels: "Tutoriels",
+  notifications: "Notifications",
+  profil: "Profil",
+  entreprise: "Mon entreprise",
+  comptabilite: "Comptabilité",
 }
 
 const colorOptions = [
@@ -31,25 +43,50 @@ const colorOptions = [
   { name: "Violet", value: "violet", color: "#6b4f8a" },
 ] as const
 
-const notifications: {
-  id: number
-  title: string
-  message: string
-  time: string
-  read: boolean
-}[] = []
-
 export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const { theme, toggleTheme, colorTheme, setColorTheme } = useTheme()
-  const user = getSessionUser()
+  const [user, setUser] = useState(getSessionUser)
+  const navigate = useNavigate()
   const page = titles[useLocation().pathname.split("/")[1]] ?? ""
   const [showPalette, setShowPalette] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [notifications, setNotifications] = useState<Notif[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [notificationError, setNotificationError] = useState(false)
 
   const paletteRef = useRef<HTMLDivElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
   const userRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const updateUser = () => setUser(getSessionUser())
+    window.addEventListener("softio:profile-updated", updateUser)
+    return () => window.removeEventListener("softio:profile-updated", updateUser)
+  }, [])
+
+  const refreshNotifications = useCallback(async () => {
+    try {
+      const [result, count] = await Promise.all([
+        getNotifications({ page: 1 }),
+        getUnreadCount(),
+      ])
+      setNotifications((result.data || []).slice(0, 5))
+      setUnreadCount(count)
+      setNotificationError(false)
+    } catch {
+      setNotificationError(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    const initialRefresh = window.setTimeout(refreshNotifications, 0)
+    const interval = window.setInterval(refreshNotifications, 30000)
+    return () => {
+      window.clearTimeout(initialRefresh)
+      window.clearInterval(interval)
+    }
+  }, [refreshNotifications])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -80,7 +117,25 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
     }
   }, [])
 
-  const unreadCount = notifications.filter((n) => !n.read).length
+  const openNotification = (notification: Notif) => {
+    setShowNotifications(false)
+    if (!notification.lu) {
+      setNotifications((current) => current.map((item) =>
+        item.id_notification === notification.id_notification ? { ...item, lu: true } : item
+      ))
+      setUnreadCount((count) => Math.max(0, count - 1))
+      markRead(notification.id_notification).catch(() => refreshNotifications())
+    }
+
+    if (notification.type === "message" && notification.id_prospection) {
+      const params = new URLSearchParams()
+      if (notification.sous_titre) params.set("messageSubject", notification.sous_titre)
+      if (notification.contenu) params.set("messageBody", notification.contenu.slice(0, 200))
+      navigate(`/prospections/${notification.id_prospection}${params.size ? `?${params}` : ""}`)
+    } else if (notification.type === "rdv" && notification.id_rdv) {
+      navigate(`/rendez-vous?rdv=${notification.id_rdv}`)
+    }
+  }
 
   return (
     <header className="h-14 sticky top-0 z-20 flex items-center justify-between px-3 sm:px-5 bg-background/90 backdrop-blur-md shadow-sm">
@@ -158,13 +213,16 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
               setShowNotifications(!showNotifications)
               setShowUserMenu(false)
               setShowPalette(false)
+              refreshNotifications()
             }}
             className="p-2 rounded-lg text-muted-foreground hover:bg-accent relative"
             title="Notifications"
           >
-            <Bell size={18} />
+            <Bell size={20} />
             {unreadCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full" />
+              <span className="absolute -top-2 -right-2 min-w-6 h-6 px-1 rounded-full border-2 border-background bg-red-600 text-white text-xs font-bold shadow-sm flex items-center justify-center">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
             )}
           </button>
 
@@ -177,34 +235,47 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
                 </span>
               </div>
               <div className="max-h-80 overflow-y-auto">
-                {notifications.length === 0 && (
+                {notificationError && (
+                  <p className="px-4 py-4 text-center text-sm text-destructive">
+                    Impossible de charger les notifications.
+                  </p>
+                )}
+                {!notificationError && notifications.length === 0 && (
                   <p className="px-4 py-8 text-center text-sm text-muted-foreground">
                     Rien de nouveau pour le moment.
                   </p>
                 )}
                 {notifications.map((n) => (
                   <div
-                    key={n.id}
+                    key={n.id_notification}
                     className={cn(
                       "px-4 py-3 hover:bg-muted/50 transition-colors cursor-pointer",
-                      !n.read && "bg-primary/5"
+                      !n.lu && "bg-primary/5"
                     )}
+                    onClick={() => openNotification(n)}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <p className="text-sm font-medium">{n.title}</p>
+                        <p className="text-sm font-medium">{n.titre}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {n.message}
+                          {n.sous_titre || n.contenu || (n.type === "rdv" ? "Rendez-vous" : "Message")}
                         </p>
                       </div>
-                      {!n.read && (
-                        <span className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
-                      )}
+                      {n.lu && <CheckCheck size={16} className="text-emerald-600 shrink-0" />}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">{n.time}</p>
                   </div>
                 ))}
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNotifications(false)
+                  navigate("/notifications")
+                }}
+                className="w-full border-t border-border px-4 py-3 text-left text-sm font-medium text-primary hover:bg-accent"
+              >
+                Voir toutes les notifications
+              </button>
             </div>
           )}
         </div>
@@ -229,6 +300,37 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
                 <p className="text-xs text-muted-foreground">{user.email}</p>
               </div>
               <div className="py-1">
+                <button
+                  onClick={() => {
+                    setShowUserMenu(false)
+                    navigate("/profil")
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <UserRound size={16} /> Profil
+                </button>
+                {user.role === "admin" && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false)
+                        navigate("/entreprise")
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                    >
+                      <Building2 size={16} /> Mon entreprise
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false)
+                        navigate("/comptabilite")
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                    >
+                      <Wallet size={16} /> Comptabilité
+                    </button>
+                  </>
+                )}
                 <button
                   onClick={logout}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Search, Plus, Pencil, Trash2, CalendarDays, Check
 } from 'lucide-react';
@@ -7,6 +8,7 @@ import {
   createRendezVous,
   updateRendezVous,
   deleteRendezVous,
+  getRendezVousById,
   type RendezVous
 } from '../services/rendezvous';
 import { getClients, type Client } from '../services/clients';
@@ -14,6 +16,8 @@ import { useToast } from '../contexts/ToastContext';
 
 export default function RendezVousPage() {
   const toast = useToast();
+  const toastRef = useRef(toast);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [rdvs, setRdvs] = useState<RendezVous[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -29,6 +33,7 @@ export default function RendezVousPage() {
   const [editing, setEditing] = useState<RendezVous | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [notificationRdv, setNotificationRdv] = useState<RendezVous | null>(null);
 
   // Recherche prospect
   const [prospectSearch, setProspectSearch] = useState('');
@@ -75,8 +80,46 @@ export default function RendezVousPage() {
   };
 
   useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
+
+  useEffect(() => {
     fetchRdvs();
   }, [search, filtre, page]);
+
+  useEffect(() => {
+    const id = Number(searchParams.get('rdv'));
+    if (!Number.isInteger(id) || id < 1) return;
+
+    let active = true;
+    getRendezVousById(id)
+      .then((rdv) => {
+        if (active) setNotificationRdv(rdv);
+      })
+      .catch(() => {
+        if (active) {
+          toastRef.current.error('Impossible de charger le rendez-vous demandé');
+          setSearchParams((current) => {
+            const next = new URLSearchParams(current);
+            next.delete('rdv');
+            return next;
+          }, { replace: true });
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [searchParams, setSearchParams]);
+
+  const closeNotificationRdv = () => {
+    setNotificationRdv(null);
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete('rdv');
+      return next;
+    }, { replace: true });
+  };
 
   useEffect(() => {
     getClients({ page: 1 })
@@ -354,6 +397,38 @@ export default function RendezVousPage() {
       </div>
 
       {/* ==================== MODAL ==================== */}
+      {notificationRdv && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onMouseDown={closeNotificationRdv}>
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="notification-rdv-title"
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-border bg-card shadow-xl"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border px-6 py-4">
+              <h2 id="notification-rdv-title" className="flex items-center gap-2 text-lg font-semibold">
+                <CalendarDays size={18} /> Rendez-vous {notificationRdv.numero_rdv || ''}
+              </h2>
+              <button type="button" onClick={closeNotificationRdv} className="rounded-lg p-1.5 hover:bg-accent" aria-label="Fermer">✕</button>
+            </div>
+            <div className="space-y-4 p-6 text-sm">
+              <div><p className="text-muted-foreground">Client</p><p className="font-medium">
+                {notificationRdv.client?.entreprise || [notificationRdv.client?.nom, notificationRdv.client?.prenom].filter(Boolean).join(' ') || '—'}
+              </p></div>
+              <div><p className="text-muted-foreground">Date et heure</p><p className="font-medium">{formatDate(notificationRdv.date_rdv)}</p></div>
+              <div><p className="text-muted-foreground">Type</p><p className="font-medium">{notificationRdv.type_rdv || 'Direct'}</p></div>
+              {notificationRdv.lieu && <div><p className="text-muted-foreground">Lieu</p><p className="font-medium">{notificationRdv.lieu}</p></div>}
+              {notificationRdv.lien_rdv && <div><p className="text-muted-foreground">Lien</p><a href={notificationRdv.lien_rdv.startsWith('http') ? notificationRdv.lien_rdv : `https://${notificationRdv.lien_rdv}`} target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline">{notificationRdv.lien_rdv}</a></div>}
+              {notificationRdv.commentaire && <div><p className="text-muted-foreground">Commentaire</p><p className="whitespace-pre-wrap font-medium">{notificationRdv.commentaire}</p></div>}
+            </div>
+            <div className="flex justify-end border-t border-border px-6 py-4">
+              <button type="button" onClick={closeNotificationRdv} className="rounded-lg border border-border px-4 py-2 hover:bg-accent">Fermer</button>
+            </div>
+          </section>
+        </div>
+      )}
+
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-card border border-border rounded-xl w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">

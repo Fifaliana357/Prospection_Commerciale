@@ -26,6 +26,7 @@ class Entreprise extends Model
         'cachet',
         'cachet_width',
         'cachet_height',
+        'signature',
         'par_defaut',
     ];
 

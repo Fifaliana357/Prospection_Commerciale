@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Notification;
 use App\Models\RendezVous;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
@@ -63,6 +64,23 @@ class RendezVousController extends Controller
         return response()->json($rdvs);
     }
 
+    public function show(Request $request, int $id)
+    {
+        $user = $request->user();
+        $query = RendezVous::with([
+            'client:id_client,nom,prenom,telephone,email,entreprise',
+            'commercial:id_commercial,nom,prenom',
+        ])->where('id_admin', $user->id_admin);
+
+        if (! $user instanceof \App\Models\Admin) {
+            $query->where('id_commercial', $user->id_commercial);
+        }
+
+        return response()->json([
+            'rendez_vous' => $query->findOrFail($id),
+        ]);
+    }
+
     public function store(Request $request)
     {
         $user = $request->user();
@@ -90,9 +108,26 @@ class RendezVousController extends Controller
             'numero_rdv'    => 'RDV-' . date('ymd') . '-' . rand(100, 999),
         ]);
 
+        $rdv->load('client');
+        $client = $rdv->client;
+        $nomClient = $client->entreprise ?: trim($client->prenom . ' ' . $client->nom);
+
+        Notification::create([
+            'id_admin'      => $rdv->id_admin,
+            'id_commercial' => $rdv->id_commercial,
+            'type'          => 'rdv',
+            'titre'         => 'Nouveau rendez-vous avec ' . $nomClient,
+            'sous_titre'    => $rdv->date_rdv->format('d/m/Y \à H:i'),
+            'contenu'       => $rdv->commentaire ?: $rdv->lieu,
+            'id_client'     => $client->id_client,
+            'nom_client'    => $nomClient,
+            'id_rdv'        => $rdv->id_rendez_vous,
+            'lu'            => false,
+        ]);
+
         return response()->json([
             'message' => 'Rendez-vous créé',
-            'rendez_vous' => $rdv->load('client')
+            'rendez_vous' => $rdv
         ], 201);
     }
 

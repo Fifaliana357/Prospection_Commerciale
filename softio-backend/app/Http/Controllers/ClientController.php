@@ -3,11 +3,64 @@
 namespace App\Http\Controllers;
 
 use App\Models\Client;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class ClientController extends Controller
 {
+    public function buyers(Request $request)
+    {
+        $user = $request->user();
+        $purchaseQuery = fn () => DB::table('vente')
+            ->whereIn('vente.statut', ['validee', 'payee', 'impayee'])
+            ->where('vente.id_admin', $user->id_admin)
+            ->when(! $user instanceof \App\Models\Admin, fn ($query) => $query
+                ->where('vente.id_commercial', $user->id_commercial))
+            ->whereColumn('vente.id_client', 'client.id_client');
+
+        $query = Client::query()
+            ->select([
+                'client.id_client',
+                'client.matricule',
+                'client.type',
+                'client.nom',
+                'client.prenom',
+                'client.telephone',
+                'client.email',
+                'client.entreprise',
+            ])
+            ->selectSub($purchaseQuery()->selectRaw('COUNT(*)'), 'nombre_achats')
+            ->selectSub($purchaseQuery()->selectRaw('SUM(COALESCE(vente.montant_ttc, vente.montant_total))'), 'total_achete')
+            ->selectSub($purchaseQuery()->selectRaw('MAX(COALESCE(vente.date_vente, vente.created_at))'), 'dernier_achat');
+
+        if ($user instanceof \App\Models\Admin) {
+            $query->where('client.id_admin', $user->id_admin);
+        } else {
+            $query->where('client.id_commercial', $user->id_commercial);
+        }
+
+        $query->whereExists($purchaseQuery()->selectRaw('1'));
+
+        if ($request->filled('search')) {
+            $search = trim((string) $request->query('search'));
+            $query->where(function (Builder $builder) use ($search) {
+                $builder->where('client.matricule', 'like', "%{$search}%")
+                    ->orWhere('client.nom', 'like', "%{$search}%")
+                    ->orWhere('client.prenom', 'like', "%{$search}%")
+                    ->orWhere('client.telephone', 'like', "%{$search}%")
+                    ->orWhere('client.email', 'like', "%{$search}%")
+                    ->orWhere('client.entreprise', 'like', "%{$search}%");
+            });
+        }
+
+        $perPage = min(max($request->integer('per_page', 10), 1), 100);
+        return response()->json($query
+            ->orderByDesc('dernier_achat')
+            ->orderByDesc('client.id_client')
+            ->paginate($perPage));
+    }
+
     /**
      * Liste des clients
      */

@@ -5,13 +5,19 @@ export interface SessionUser {
   role: "admin" | "commercial"
 }
 
-export function getSessionUser(): SessionUser {
-  let raw: any = {}
+function storedUser(): Record<string, unknown> {
   try {
-    raw = JSON.parse(localStorage.getItem("@Softio:user") || "{}")
+    const parsed: unknown = JSON.parse(localStorage.getItem("@Softio:user") || "{}")
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {}
   } catch {
-    raw = {}
+    return {}
   }
+}
+
+export function getSessionUser(): SessionUser {
+  const raw = storedUser()
   const nom: string =
     [raw.prenom, raw.nom].filter(Boolean).join(" ") || raw.name || raw.email || "Utilisateur"
   const type = localStorage.getItem("@Softio:type")
@@ -21,6 +27,12 @@ export function getSessionUser(): SessionUser {
     initiale: nom.trim().charAt(0).toUpperCase() || "U",
     role: type === "commercial" ? "commercial" : "admin",
   }
+}
+
+export function updateSessionProfile(profile: { nom: string; prenom: string; email: string }) {
+  const current = storedUser()
+  localStorage.setItem("@Softio:user", JSON.stringify({ ...current, ...profile }))
+  window.dispatchEvent(new Event("softio:profile-updated"))
 }
 
 export function logout() {

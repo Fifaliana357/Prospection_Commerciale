@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Prospection;
 use App\Models\Proposition;
 use App\Models\Client;
+use App\Models\Notification;
 use Illuminate\Http\Request;
 
 class ProspectionController extends Controller
@@ -182,6 +183,24 @@ class ProspectionController extends Controller
             'note'             => $validated['note'] ?? null,
             'lu'               => true,
         ]);
+
+        if ($validated['type'] === 'entrant') {
+            $client = $prospection->client;
+            $nomClient = $client->entreprise ?: trim($client->prenom . ' ' . $client->nom);
+
+            Notification::create([
+                'id_admin'       => $prospection->id_admin,
+                'id_commercial'  => $prospection->id_commercial,
+                'type'           => 'message',
+                'titre'          => 'Nouveau message de ' . $nomClient,
+                'sous_titre'     => $validated['objet'] ?? 'Réponse',
+                'contenu'        => $validated['message'],
+                'id_prospection' => $prospection->id_prospection,
+                'id_client'      => $client->id_client,
+                'nom_client'     => $nomClient,
+                'lu'             => false,
+            ]);
+        }
 
         return response()->json([
             'message' => 'Message ajouté',

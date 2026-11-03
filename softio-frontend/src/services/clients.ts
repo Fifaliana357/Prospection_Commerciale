@@ -34,6 +34,21 @@ export interface ClientsResponse {
   total: number;
 }
 
+export interface BuyerClient extends Client {
+  telephone?: string;
+  nombre_achats: number;
+  total_achete: number | null;
+  dernier_achat: string | null;
+}
+
+export const getBuyerClients = async (params?: {
+  search?: string;
+  page?: number;
+}) => {
+  const response = await api.get<ClientsResponse & { data: BuyerClient[] }>('/clients/acheteurs', { params });
+  return response.data;
+};
+
 export const getClients = async (params?: {
   search?: string;
   type?: string;

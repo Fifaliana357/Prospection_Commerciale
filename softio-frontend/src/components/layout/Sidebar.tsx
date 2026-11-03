@@ -16,7 +16,6 @@ const groups: Group[] = [
     title: "Pilotage",
     items: [
       { name: "Tableau de bord", path: "/dashboard", icon: LayoutDashboard },
-      { name: "Statistiques", path: "/statistiques", icon: BarChart3 },
     ],
   },
   {
@@ -116,7 +115,7 @@ export default function Sidebar({
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-5">
+        <nav className="sidebar-navigation flex-1 overflow-y-auto px-2 py-4 space-y-5">
           {groups.map((group) => {
             const items = group.items.filter(
               (i) => !i.adminOnly || user.role === "admin"
@@ -173,7 +172,7 @@ export default function Sidebar({
           })}
         </nav>
 
-        {/* User */}
+        {/* User 
         <div className="shrink-0 p-3 shadow-[0_-1px_0_0_hsl(var(--border))]">
           <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
@@ -197,7 +196,7 @@ export default function Sidebar({
               </>
             )}
           </div>
-        </div>
+        </div>*/}
       </aside>
     </>
   )

@@ -21,6 +21,12 @@ import ProspectionDetail from "./pages/ProspectionDetail"
 import ProspectionCreate from "./pages/ProspectionCreate"
 import Catalogue from './pages/Catalogue';
 import CatalogueImpression from "./pages/CatalogueImpression"
+import Notifications from './pages/Notifications'
+import Profil from './pages/Profil'
+import Entreprise from './pages/Entreprise'
+import Comptabilite from './pages/Comptabilite'
+
+
 
 
 const PrivateRoute = () => {
@@ -35,6 +41,10 @@ function App() {
 
       <Route element={<PrivateRoute />}>
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/notifications" element={<Notifications />} />
+        <Route path="/profil" element={<Profil />} />
+        <Route path="/entreprise" element={<Entreprise />} />
+        <Route path="/comptabilite" element={<Comptabilite />} />
         <Route path="/statistiques" element={<Statistiques />} />
         <Route path="/prospects" element={<Prospects />} />
         <Route path="/prospections" element={<Prospection />} />

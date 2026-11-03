@@ -110,18 +110,18 @@
     scrollbar-width: thin;
   }
   .sidebar-navigation {
-    scrollbar-color: hsl(var(--muted-foreground) / 0.45) hsl(var(--sidebar));
+    scrollbar-color: hsl(var(--muted-foreground) / 0.45) hsl(var(--card));
     scrollbar-width: thin;
   }
   .sidebar-navigation::-webkit-scrollbar {
     width: 8px;
   }
   .sidebar-navigation::-webkit-scrollbar-track {
-    background-color: hsl(var(--sidebar));
+    background-color: hsl(var(--card));
   }
   .sidebar-navigation::-webkit-scrollbar-thumb {
     background-color: hsl(var(--muted-foreground) / 0.45);
-    border: 2px solid hsl(var(--sidebar));
+    border: 2px solid hsl(var(--card));
     border-radius: 999px;
   }
   [class~="bg-card"][class~="border"][class~="border-border"][class~="rounded-xl"] {
@@ -284,6 +284,12 @@ body {
     margin: 0 !important;
     padding: 0 !important;
     box-shadow: none !important;
+  }
+  .document-preview-sheet.ticket-preview-sheet {
+    width: 80mm !important;
+    max-width: 80mm !important;
+    min-height: 0 !important;
+    padding: 0 !important;
   }
   .document-preview-sheet thead th {
     position: static !important;

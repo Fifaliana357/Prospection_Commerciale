@@ -3,8 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Laravel\Sanctum\HasApiTokens;
 
 class Commercial extends Authenticatable
@@ -22,7 +20,6 @@ class Commercial extends Authenticatable
         'telephone',
         'password',
         'theme_preference',
-        'pass_token',
         'is_first_login',
         'signature',
         'signature_width',
@@ -30,42 +27,15 @@ class Commercial extends Authenticatable
         'actif',
     ];
 
-    protected $hidden = [
-        'password',
-        'pass_token',
-    ];
+    protected $hidden = ['password', 'pass_token'];
 
     protected $casts = [
-        'is_first_login' => 'boolean',
         'actif' => 'boolean',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
+        'is_first_login' => 'boolean',
     ];
 
-    // ===== Relations =====
-
-    public function admin(): BelongsTo
+    public function admin()
     {
         return $this->belongsTo(Admin::class, 'id_admin', 'id_admin');
-    }
-
-    public function clients(): HasMany
-    {
-        return $this->hasMany(Client::class, 'id_commercial', 'id_commercial');
-    }
-
-    public function prospections(): HasMany
-    {
-        return $this->hasMany(Prospection::class, 'id_commercial', 'id_commercial');
-    }
-
-    public function propositions(): HasMany
-    {
-        return $this->hasMany(Proposition::class, 'id_commercial', 'id_commercial');
-    }
-
-    public function rendezVous(): HasMany
-    {
-        return $this->hasMany(RendezVous::class, 'id_commercial', 'id_commercial');
     }
 }

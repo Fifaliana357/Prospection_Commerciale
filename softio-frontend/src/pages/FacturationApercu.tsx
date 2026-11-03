@@ -7,11 +7,13 @@ import {
 } from "lucide-react"
 import { useToast } from "@/contexts/ToastContext"
 import { getSessionUser } from "@/lib/session"
+import Barcode from "@/components/Barcode"
 import {
   getFacturationDocument,
   type DocumentType,
   type FacturationDocument,
 } from "@/services/facturation"
+import { getCompanySettings } from "@/services/account"
 
 type PaperFormat = "A4" | "A5" | "Ticket"
 
@@ -21,6 +23,9 @@ interface PreviewSettings {
   companyEmail: string
   companyPhone: string
   companyAddress: string
+  companyNif: string
+  companyStat: string
+  companyRcs: string
   footer: string
   accent: string
   logo: string
@@ -52,7 +57,10 @@ function defaultSettings(): PreviewSettings {
     companyEmail: user.email,
     companyPhone: "",
     companyAddress: "",
-    footer: "Merci pour votre confiance.",
+    companyNif: "",
+    companyStat: "",
+    companyRcs: "",
+    footer: "Merci de votre confiance !",
     accent: palette[0].value,
     logo: "",
     logoWidth: 140,
@@ -91,6 +99,9 @@ function isPreviewSettings(value: unknown): value is PreviewSettings {
     && typeof settings.companyEmail === "string"
     && typeof settings.companyPhone === "string"
     && typeof settings.companyAddress === "string"
+    && (typeof settings.companyNif === "string" || settings.companyNif === undefined)
+    && (typeof settings.companyStat === "string" || settings.companyStat === undefined)
+    && (typeof settings.companyRcs === "string" || settings.companyRcs === undefined)
     && typeof settings.footer === "string"
     && typeof settings.accent === "string"
     && typeof settings.logo === "string"
@@ -159,6 +170,31 @@ export default function FacturationApercu() {
   useEffect(() => {
     if (initialSettings.error) toastRef.current.error(initialSettings.error)
   }, [initialSettings.error])
+
+  useEffect(() => {
+    let active = true
+    void Promise.resolve().then(async () => {
+      try {
+        const company = await getCompanySettings()
+        if (!active) return
+        setSettings((current) => ({
+          ...current,
+          companyName: company.nom_entreprise || current.companyName,
+          companyEmail: company.email || current.companyEmail,
+          companyPhone: company.telephone || current.companyPhone,
+          companyAddress: company.adresse || current.companyAddress,
+          companyNif: company.nif || current.companyNif,
+          companyStat: company.stat || current.companyStat,
+          companyRcs: company.rcs || current.companyRcs,
+          logo: company.logo_url || current.logo,
+          signature: company.signature_url || current.signature,
+        }))
+      } catch {
+        if (active) toastRef.current.error("Impossible de charger les informations de l’entreprise.")
+      }
+    })
+    return () => { active = false }
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -245,10 +281,17 @@ export default function FacturationApercu() {
   }
 
   const format = settings.paperFormat
-  const paperWidth = format === "A4" ? "794px" : format === "A5" ? "559px" : "360px"
-  const paperPadding = format === "Ticket" ? "24px" : format === "A5" ? "34px" : "52px"
-  const pageSize = format === "Ticket" ? "80mm auto" : format
-  const companyLines = [settings.companyEmail, settings.companyPhone, settings.companyAddress].filter(Boolean)
+  const paperWidth = format === "A4" ? "794px" : format === "A5" ? "559px" : "302px"
+  const paperPadding = format === "Ticket" ? "18px" : format === "A5" ? "34px" : "52px"
+  const pageSize = format === "Ticket" ? "auto" : format
+  const companyLines = [
+    settings.companyEmail,
+    settings.companyPhone,
+    settings.companyAddress,
+    settings.companyNif && `NIF : ${settings.companyNif}`,
+    settings.companyStat && `STAT : ${settings.companyStat}`,
+    settings.companyRcs && `RCS : ${settings.companyRcs}`,
+  ].filter(Boolean)
 
   return (
     <div className="space-y-5">
@@ -363,6 +406,16 @@ export default function FacturationApercu() {
                 <span>Adresse</span>
                 <textarea value={settings.companyAddress} onChange={(event) => setSettings({ ...settings, companyAddress: event.target.value })} className="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm" rows={2} />
               </label>
+              {([
+                ["companyNif", "NIF"],
+                ["companyStat", "STAT"],
+                ["companyRcs", "RCS"],
+              ] as const).map(([field, label]) => (
+                <label key={field} className="block space-y-1 text-xs font-medium">
+                  <span>{label}</span>
+                  <input value={settings[field]} onChange={(event) => setSettings({ ...settings, [field]: event.target.value })} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+                </label>
+              ))}
             </div>
 
             <div className="space-y-3 border-t border-border pt-3">
@@ -415,57 +468,94 @@ export default function FacturationApercu() {
 
           <section className="min-w-0 overflow-auto rounded-xl bg-slate-200/70 p-3 sm:p-6 dark:bg-slate-900/50">
             <div
-              className="document-preview-sheet mx-auto min-h-[900px] bg-white text-slate-800 shadow-xl"
+              className={`document-preview-sheet mx-auto bg-white text-slate-800 shadow-xl ${format === "Ticket" ? "ticket-preview-sheet" : "min-h-[900px]"}`}
               style={{ width: paperWidth, maxWidth: "100%", padding: paperPadding }}
             >
-              <header className="flex items-start justify-between gap-4 border-b-2 pb-5" style={{ borderColor: settings.accent }}>
-                <div className="min-w-0">
-                  {settings.logo ? (
-                    <img
-                      src={settings.logo}
-                      alt="Logo"
-                      onPointerDown={(event) => startImageDrag("logo", event)}
-                      onPointerMove={moveImage}
-                      onPointerUp={() => { dragRef.current = null }}
-                      style={{ width: `${settings.logoWidth}px`, transform: `translate(${settings.logoX}px, ${settings.logoY}px)`, touchAction: "none" }}
-                      className="mb-2 max-h-20 max-w-full cursor-move object-contain object-left"
-                    />
-                  ) : (
-                    <div className="mb-2 break-words text-xl font-bold tracking-wide" style={{ color: settings.accent }}>{settings.companyName || "Votre entreprise"}</div>
-                  )}
-                  {companyLines.map((line) => <p key={line} className="break-words text-xs leading-5 text-slate-500">{line}</p>)}
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{document.statut === "brouillon" ? "Brouillon" : "Document validé"}</p>
-                  <h2 className="mt-2 text-xl font-bold uppercase" style={{ color: settings.accent }}>{documentTypeLabel(document.type)}</h2>
-                  <p className="mt-1 text-sm font-semibold">N° {document.numero}</p>
-                  <p className="mt-1 text-xs text-slate-500">Date : {formatDate(document.date_devis)}</p>
-                </div>
+              <header
+                className={format === "Ticket"
+                  ? "border-b border-dashed pb-3 text-center"
+                  : "flex items-start justify-between gap-4 border-b-2 pb-5"}
+                style={{ borderColor: settings.accent }}
+              >
+                {format === "Ticket" ? (
+                  <>
+                    {settings.logo ? (
+                      <img src={settings.logo} alt="Logo" className="mx-auto mb-2 max-h-12 max-w-full object-contain" />
+                    ) : (
+                      <div className="mb-1 break-words text-lg font-bold" style={{ color: settings.accent }}>
+                        {settings.companyName || "Votre entreprise"}
+                      </div>
+                    )}
+                    {settings.logo && <p className="font-bold" style={{ color: settings.accent }}>{settings.companyName}</p>}
+                    {companyLines.map((line) => <p key={line} className="break-words text-[10px] leading-4 text-slate-600">{line}</p>)}
+                    <p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      {documentTypeLabel(document.type)}{document.statut === "brouillon" ? " · Brouillon" : ""}
+                    </p>
+                    <p className="text-xs font-semibold">N° {document.numero}</p>
+                    <p className="text-[10px] text-slate-600">Date : {formatDate(document.date_devis)}</p>
+                    <p className="mt-1 text-[10px] font-medium">{clientLabel(document)}</p>
+                    {document.intitule && <p className="text-[10px] text-slate-600">{document.intitule}</p>}
+                  </>
+                ) : (
+                  <>
+                    <div className="min-w-0">
+                      {settings.logo ? (
+                        <img
+                          src={settings.logo}
+                          alt="Logo"
+                          onPointerDown={(event) => startImageDrag("logo", event)}
+                          onPointerMove={moveImage}
+                          onPointerUp={() => { dragRef.current = null }}
+                          style={{ width: `${settings.logoWidth}px`, transform: `translate(${settings.logoX}px, ${settings.logoY}px)`, touchAction: "none" }}
+                          className="mb-2 max-h-20 max-w-full cursor-move object-contain object-left"
+                        />
+                      ) : (
+                        <div className="mb-2 break-words text-xl font-bold tracking-wide" style={{ color: settings.accent }}>{settings.companyName || "Votre entreprise"}</div>
+                      )}
+                      {companyLines.map((line) => <p key={line} className="break-words text-xs leading-5 text-slate-500">{line}</p>)}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{document.statut === "brouillon" ? "Brouillon" : "Document validé"}</p>
+                      <h2 className="mt-2 text-xl font-bold uppercase" style={{ color: settings.accent }}>{documentTypeLabel(document.type)}</h2>
+                      <p className="mt-1 text-sm font-semibold">N° {document.numero}</p>
+                      <p className="mt-1 text-xs text-slate-500">Date : {formatDate(document.date_devis)}</p>
+                    </div>
+                  </>
+                )}
               </header>
 
-              <div className="my-8 grid gap-5 sm:grid-cols-2">
-                <div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Adressé à</p>
-                  <p className="font-semibold">{clientLabel(document)}</p>
-                  {document.client.email && <p className="mt-1 break-all text-sm text-slate-600">{document.client.email}</p>}
-                  {document.client.telephone && <p className="mt-1 text-sm text-slate-600">{document.client.telephone}</p>}
-                </div>
-                {document.intitule && (
-                  <div className="sm:text-right">
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Objet</p>
-                    <p className="font-medium">{document.intitule}</p>
+              {format !== "Ticket" && (
+                <div className="my-8 grid gap-5 sm:grid-cols-2">
+                  <div>
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Adressé à</p>
+                    <p className="font-semibold">{clientLabel(document)}</p>
+                    {document.client.email && <p className="mt-1 break-all text-sm text-slate-600">{document.client.email}</p>}
+                    {document.client.telephone && <p className="mt-1 text-sm text-slate-600">{document.client.telephone}</p>}
                   </div>
-                )}
-              </div>
+                  {document.intitule && (
+                    <div className="sm:text-right">
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Objet</p>
+                      <p className="font-medium">{document.intitule}</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {format === "Ticket" ? (
-                <div className="space-y-3 border-y border-dashed py-4">
+                <div className="border-y border-dashed py-3 text-[10px]">
+                  <div className="mb-2 flex justify-between gap-2 border-b border-slate-300 pb-1 font-bold uppercase">
+                    <span>Désignation</span><span>Montant</span>
+                  </div>
                   {(document.lignes ?? []).map((line) => (
-                    <div key={line.id_ligne_devis} className="border-b border-slate-100 pb-2 text-sm">
-                      <p className="font-semibold">{line.designation}</p>
-                      <div className="mt-1 flex justify-between gap-2 text-xs text-slate-600">
-                        <span>{line.quantite} × {formatAmount(line.prix_unitaire)}</span><strong>{formatAmount(line.montant)}</strong>
+                    <div key={line.id_ligne_devis} className="flex justify-between gap-2 border-b border-slate-100 py-2 last:border-0">
+                      <div className="min-w-0">
+                        <p className="break-words font-semibold">{line.designation}</p>
+                        <p className="mt-0.5 text-[9px] text-slate-600">
+                          {line.quantite} × {formatAmount(line.prix_unitaire)}
+                          {line.remise > 0 ? ` · remise ${formatAmount(line.remise)}` : ""}
+                        </p>
                       </div>
+                      <strong className="shrink-0 whitespace-nowrap">{formatAmount(line.montant)}</strong>
                     </div>
                   ))}
                 </div>
@@ -498,7 +588,21 @@ export default function FacturationApercu() {
                 </div>
               )}
 
-              <div className="ml-auto mt-6 w-full max-w-[290px] space-y-2 text-sm">
+              <div className={`ml-auto mt-6 w-full ${format === "Ticket" ? "max-w-none space-y-1 text-xs" : "max-w-[290px] space-y-2 text-sm"}`}>
+                {format === "Ticket" ? (
+                  <>
+                    {settings.showDiscount && document.remise_globale > 0 && (
+                      <div className="flex justify-between gap-2 text-slate-600"><span>Remise</span><span>− {formatAmount(document.remise_globale)}</span></div>
+                    )}
+                    {document.inclure_tva && (
+                      <div className="flex justify-between gap-2 text-slate-600"><span>TVA ({document.taux_tva} %)</span><span>{formatAmount(document.montant_ttc - document.montant_ht)}</span></div>
+                    )}
+                    <div className="flex justify-between gap-2 border-t border-slate-800 pt-2 font-bold">
+                      <span>Total</span><span>{formatAmount(document.montant_ttc)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
                 <div className="flex justify-between gap-4 text-slate-600"><span>Sous-total</span><span>{formatAmount(subtotal)}</span></div>
                 {settings.showDiscount && document.remise_globale > 0 && (
                   <div className="flex justify-between gap-4 text-slate-600"><span>Remise globale</span><span>− {formatAmount(document.remise_globale)}</span></div>
@@ -510,13 +614,24 @@ export default function FacturationApercu() {
                 <div className="flex justify-between gap-4 border-t-2 pt-3 text-base font-bold" style={{ borderColor: settings.accent, color: settings.accent }}>
                   <span>Total TTC</span><span>{formatAmount(document.montant_ttc)}</span>
                 </div>
+                  </>
+                )}
               </div>
 
-              {document.remarque && <div className="mt-8 border-t border-slate-200 pt-4 text-sm"><p className="mb-1 font-semibold">Remarque</p><p className="whitespace-pre-wrap text-slate-600">{document.remarque}</p></div>}
+              {document.remarque && (
+                <div className={`${format === "Ticket" ? "mt-3 text-[10px]" : "mt-8 border-t border-slate-200 pt-4 text-sm"}`}>
+                  <p className="mb-1 font-semibold">Remarque</p>
+                  <p className="whitespace-pre-wrap text-slate-600">{document.remarque}</p>
+                </div>
+              )}
 
-              <footer className="mt-14 flex items-end justify-between gap-4 border-t border-slate-200 pt-4 text-xs text-slate-500">
+              <footer className={format === "Ticket"
+                ? "mt-4 space-y-2 text-center text-[10px] text-slate-600"
+                : "mt-14 flex items-end justify-between gap-4 border-t border-slate-200 pt-4 text-xs text-slate-500"}
+              >
+                {format === "Ticket" && <Barcode value={document.numero || String(document.id_devis)} height={32} />}
                 <p>{settings.footer}</p>
-                {settings.signature && (
+                {format !== "Ticket" && settings.signature && (
                   <div className="text-center">
                     <img
                       src={settings.signature}
