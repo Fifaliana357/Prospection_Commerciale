@@ -19,6 +19,7 @@ import {
   type AccountingOperation,
 } from '../services/account';
 import { createInvoiceFromSale } from '../services/ventes';
+import { formatMGA } from '../lib/utils';
 
 type Tab = 'recettes' | 'depenses' | 'versements';
 const today = new Date();
@@ -31,7 +32,7 @@ function errorMessage(error: unknown, fallback: string) {
 }
 
 function money(value: number | string | null | undefined) {
-  return `${new Intl.NumberFormat('fr-FR').format(Number(value || 0))} Ar`;
+  return formatMGA(value);
 }
 
 function formatDate(value: string | null | undefined) {
@@ -333,7 +334,7 @@ export default function Comptabilite() {
       <Modal open={formOpen} onClose={() => !saving && setFormOpen(false)} title={tab === 'depenses' ? 'Ajouter une dépense' : 'Ajouter un versement'} size="sm">
         <form onSubmit={saveOperation} className="space-y-4">
           <label className="block space-y-1.5 text-sm font-medium">
-            <span>Montant (Ar)</span>
+            <span>Montant (MGA)</span>
             <input type="number" min="0.01" step="0.01" required value={montant} onChange={(event) => setMontant(event.target.value)} className={fieldClass} />
           </label>
           <label className="block space-y-1.5 text-sm font-medium">

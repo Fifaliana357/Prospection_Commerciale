@@ -12,6 +12,7 @@ import TablePagination from "@/components/ui/TablePagination"
 import TableSummary from "@/components/ui/TableSummary"
 import PageHeader from "@/components/ui/PageHeader"
 import { useToast } from "@/contexts/ToastContext"
+import { formatMGA } from "@/lib/utils"
 import type { Client } from "@/services/clients"
 import type { Offre, Produit } from "@/services/catalogue"
 import {
@@ -54,7 +55,7 @@ const today = () => {
 }
 
 function formatAmount(value: number) {
-  return `${new Intl.NumberFormat("fr-FR").format(value)} Ar`
+  return formatMGA(value)
 }
 
 function formatDate(value?: string | null) {
@@ -286,7 +287,7 @@ function SaleEditor({
           </label>
 
           <label className="space-y-1.5 text-sm font-medium">
-            <span>Prix unitaire (Ar)</span>
+            <span>Prix unitaire (MGA)</span>
             <input readOnly value={selectedItemId ? formatAmount(unitPrice) : ""} className={`${inputClass} bg-muted/40`} />
           </label>
           <div className="space-y-1.5 text-sm font-medium">
@@ -299,7 +300,7 @@ function SaleEditor({
           </div>
 
           <label className="space-y-1.5 text-sm font-medium">
-            <span>Remise (Ar)</span>
+            <span>Remise (MGA)</span>
             <input type="number" min={0} max={lineGross} value={discount} onChange={(event) => setDiscount(event.target.value)} className={inputClass} />
           </label>
           <label className="space-y-1.5 text-sm font-medium">

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import {
-  Search, Plus, Pencil, Trash2, Download, Upload, User, X, Check, FileSpreadsheet
+  Search, Plus, Pencil, Trash2, Download, Upload, User, X, Check, FileSpreadsheet,
+  AtSign, Building2, Link2, MapPin, Phone, UserRound,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { getClients, createClient, updateClient, deleteClient, type Client } from '../services/clients';
@@ -10,6 +11,9 @@ import TableSummary from '../components/ui/TableSummary';
 import PageHeader from '../components/ui/PageHeader';
 import { ModalPortal } from '../components/ui/Modal';
 import Select from '../components/ui/Select';
+
+const prospectInputClass = "mt-1 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm shadow-sm transition focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10";
+const fieldHintClass = "mt-1.5 block min-w-0 break-words text-xs font-normal leading-relaxed text-muted-foreground";
 
 export default function Prospects() {
   const toast = useToast();
@@ -28,6 +32,7 @@ export default function Prospects() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [entryMode, setEntryMode] = useState<'manual' | 'excel'>('manual');
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Import Excel
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -130,10 +135,7 @@ export default function Prospects() {
 
     try {
       setSaving(true);
-      const payload = {
-        ...form,
-        matricule: editingClient?.matricule || `P-${Date.now().toString().slice(-4)}`,
-      };
+      const payload = { ...form };
 
       if (editingClient) {
         await updateClient(editingClient.id_client, payload);
@@ -152,14 +154,17 @@ export default function Prospects() {
   };
 
   const confirmDelete = async () => {
-    if (!deleteId) return;
+    if (!deleteId || deleting) return;
     try {
+      setDeleting(true);
       await deleteClient(deleteId);
       toast.success('Prospect supprimé');
       setDeleteId(null);
       fetchClients();
     } catch {
       toast.error('Erreur lors de la suppression');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -217,7 +222,6 @@ export default function Prospects() {
       for (const row of rows) {
         try {
           await createClient({
-            matricule: row.Matricule || `P-${Date.now().toString().slice(-4)}`,
             type: (row.Type || 'particulier').toLowerCase().includes('entreprise') ? 'entreprise' : 'particulier',
             nom: row.Nom || row.nom || 'Sans nom',
             prenom: row.Prénom || row.Prenom || row.prenom || '',
@@ -325,6 +329,7 @@ export default function Prospects() {
                 <th className="px-2 py-2.5 text-left font-medium">Contact</th>
                 <th className="px-2 py-2.5 text-left font-medium">Nom</th>
                 <th className="px-2 py-2.5 text-left font-medium">Prénom</th>
+                <th className="px-2 py-2.5 text-left font-medium">Profession</th>
                 <th className="px-2 py-2.5 text-left font-medium">Email</th>
                 <th className="px-2 py-2.5 text-left font-medium">Facebook</th>
                 <th className="px-2 py-2.5 text-left font-medium">LinkedIn</th>
@@ -339,13 +344,13 @@ export default function Prospects() {
             <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={13} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={15} className="px-4 py-12 text-center text-muted-foreground">
                     Chargement...
                   </td>
                 </tr>
               ) : clients.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={15} className="px-4 py-12 text-center text-muted-foreground">
                     Aucun prospect trouvé
                   </td>
                 </tr>
@@ -369,6 +374,7 @@ export default function Prospects() {
                         ? '—'
                         : (client.prenom || '—')}
                     </td>
+                    <td className="px-2 py-2.5">{client.profession || '—'}</td>
                     <td className="px-2 py-2.5">{client.email || '—'}</td>
                     <td className="px-2 py-2.5 max-w-[140px] truncate">{client.facebook || '—'}</td>
                     <td className="px-2 py-2.5 max-w-[140px] truncate">{client.linkedin || '—'}</td>
@@ -421,41 +427,56 @@ export default function Prospects() {
       {/* ==================== MODAL CRÉATION / ÉDITION ==================== */}
       {showModal && (
         <ModalPortal onClose={() => setShowModal(false)}>
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-card border border-border rounded-xl w-full max-w-3xl max-h-[92vh] overflow-y-auto shadow-xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-card z-10">
-              <h2 className="text-lg font-semibold">
-                {editingClient ? 'Modifier le prospect' : 'Nouveau prospect'}
-              </h2>
-              <button onClick={() => setShowModal(false)} className="p-1.5 rounded-lg hover:bg-accent">
-                <X size={20} />
+        <div className="animate-modal-overlay-enter fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/55 p-2 backdrop-blur-sm sm:p-3">
+          <div role="dialog" aria-modal="true" aria-labelledby="prospect-modal-title" className="animate-modal-dialog-enter my-auto flex max-h-[calc(100dvh-1rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+            <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-border bg-card px-5 py-4 sm:px-7">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                  {editingClient ? <Pencil size={19} /> : <UserRound size={20} />}
+                </span>
+                <div className="min-w-0">
+                  <h2 id="prospect-modal-title" className="truncate text-lg font-semibold tracking-tight">
+                    {editingClient ? 'Modifier le prospect' : 'Nouveau prospect'}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">Renseignez les informations de contact et de profil.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground transition duration-200 hover:rotate-90 hover:bg-accent hover:text-foreground"
+                aria-label="Fermer la fenêtre"
+              >
+                <X size={19} />
               </button>
             </div>
 
             {!editingClient && (
-              <div className="px-6 pt-4">
-                <label className="text-sm font-medium text-muted-foreground">Mode d'entrée des données</label>
-                <div className="mt-1.5 flex gap-2">
+              <div className="border-b border-border/70 px-5 py-3 sm:px-7">
+                <label className="text-sm font-medium text-muted-foreground">Mode d’entrée des données</label>
+                <div className="mt-1.5 flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => { setEntryMode('manual'); setSelectedFile(null); }}
-                    className={`px-4 py-2 rounded-lg text-sm border transition-colors ${
+                    className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-colors ${
                       entryMode === 'manual'
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border hover:bg-accent'
+                        ? 'border-primary/30 bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                     }`}
                   >
+                    <UserRound size={15} />
                     Saisir manuellement
                   </button>
                   <button
                     type="button"
                     onClick={() => setEntryMode('excel')}
-                    className={`px-4 py-2 rounded-lg text-sm border transition-colors ${
+                    className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-colors ${
                       entryMode === 'excel'
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border hover:bg-accent'
+                        ? 'border-primary/30 bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                     }`}
                   >
+                    <FileSpreadsheet size={15} />
                     Importer un fichier Excel
                   </button>
                 </div>
@@ -511,10 +532,13 @@ export default function Prospects() {
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <form onSubmit={handleSubmit} className="min-h-0 space-y-4 overflow-y-auto p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:p-5">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3 [&>div]:min-w-0">
                   <div>
-                    <label className="text-sm font-medium">Type</label>
+                    <label className="flex items-center gap-1.5 text-sm font-medium">
+                      {form.type === 'entreprise' ? <Building2 size={15} className="text-primary" /> : <UserRound size={15} className="text-primary" />}
+                      Type
+                    </label>
                     <Select
                       value={form.type}
                       onChange={(type) => setForm({ ...form, type: type as typeof form.type })}
@@ -528,88 +552,101 @@ export default function Prospects() {
 
                   {form.type === 'entreprise' ? (
                     <div className="md:col-span-2">
-                      <label className="text-sm font-medium">Raison sociale *</label>
+                      <label className="flex items-center gap-1.5 text-sm font-medium"><Building2 size={15} className="text-primary" /> Raison sociale *</label>
                       <input
                         required
                         value={form.entreprise}
                         onChange={(e) => setForm({ ...form, entreprise: e.target.value, nom: e.target.value })}
-                        className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        autoComplete="organization"
+                        className={prospectInputClass}
                       />
                     </div>
                   ) : (
                     <>
                       <div>
-                        <label className="text-sm font-medium">Nom *</label>
+                        <label className="flex items-center gap-1.5 text-sm font-medium"><UserRound size={15} className="text-primary" /> Nom *</label>
                         <input
                           required
                           value={form.nom}
                           onChange={(e) => setForm({ ...form, nom: e.target.value })}
-                          className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          autoComplete="family-name"
+                          className={prospectInputClass}
                         />
                       </div>
                       <div>
-                        <label className="text-sm font-medium">Prénom</label>
+                        <label className="flex items-center gap-1.5 text-sm font-medium"><UserRound size={15} className="text-primary" /> Prénom</label>
                         <input
                           value={form.prenom}
                           onChange={(e) => setForm({ ...form, prenom: e.target.value })}
-                          className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          autoComplete="given-name"
+                          className={prospectInputClass}
                         />
                       </div>
                     </>
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3 [&>div]:min-w-0">
                   <div>
-                    <label className="text-sm font-medium">Email</label>
+                    <label className="flex items-center gap-1.5 text-sm font-medium"><AtSign size={15} className="text-primary" /> Email</label>
                     <input
                       type="email"
                       value={form.email}
                       onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
+                      autoComplete="email"
+                      aria-describedby="prospect-email-hint"
+                      className={prospectInputClass}
                     />
+                    <span id="prospect-email-hint" className={fieldHintClass}>Format attendu : nom@domaine.com. Exemple : prenom.nom@gmail.com ou contact@entreprise.mg.</span>
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Contact</label>
+                    <label className="flex items-center gap-1.5 text-sm font-medium"><Phone size={15} className="text-primary" /> Contact</label>
                     <input
                       value={form.telephone}
                       onChange={(e) => setForm({ ...form, telephone: e.target.value })}
-                      className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
+                      autoComplete="tel"
+                      className={prospectInputClass}
                     />
+                    <span className={fieldHintClass}>Exemple : 034 00 000 00 ou +261 34 00 000 00.</span>
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Pays</label>
+                    <label className="flex items-center gap-1.5 text-sm font-medium"><MapPin size={15} className="text-primary" /> Pays</label>
                     <input
                       value={form.pays}
                       onChange={(e) => setForm({ ...form, pays: e.target.value })}
-                      className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
+                      autoComplete="country-name"
+                      className={prospectInputClass}
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 [&>div]:min-w-0">
                   <div>
-                    <label className="text-sm font-medium">Facebook</label>
+                    <label className="flex items-center gap-1.5 text-sm font-medium"><Link2 size={15} className="text-primary" /> Lien Facebook</label>
                     <input
                       value={form.facebook}
                       onChange={(e) => setForm({ ...form, facebook: e.target.value })}
-                      className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
+                      aria-describedby="prospect-facebook-hint"
+                      className={prospectInputClass}
                     />
+                    <span id="prospect-facebook-hint" className={fieldHintClass}>Lien du profil ou de la page, par exemple https://www.facebook.com/nom.du.profil.</span>
                   </div>
                   <div>
-                    <label className="text-sm font-medium">LinkedIn</label>
+                    <label className="flex items-center gap-1.5 text-sm font-medium"><Link2 size={15} className="text-primary" /> Lien LinkedIn</label>
                     <input
                       value={form.linkedin}
                       onChange={(e) => setForm({ ...form, linkedin: e.target.value })}
-                      className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
+                      aria-describedby="prospect-linkedin-hint"
+                      className={prospectInputClass}
                     />
+                    <span id="prospect-linkedin-hint" className={fieldHintClass}>Exemple : https://www.linkedin.com/in/nom-du-profil ou /company/nom.</span>
                   </div>
                 </div>
 
                 {form.type === 'entreprise' && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3 [&>div]:min-w-0">
                     <div>
-                      <label className="text-sm font-medium">Classification</label>
+                      <label className="flex items-center gap-1.5 text-sm font-medium"><Building2 size={15} className="text-primary" /> Classification</label>
                       <Select
                         value={form.classification}
                         onChange={(classification) => setForm({ ...form, classification })}
@@ -624,57 +661,58 @@ export default function Prospects() {
                       />
                     </div>
                     <div>
-                      <label className="text-sm font-medium">Site web</label>
+                      <label className="flex items-center gap-1.5 text-sm font-medium"><Link2 size={15} className="text-primary" /> Site web</label>
                       <input
                         value={form.site_web}
                         onChange={(e) => setForm({ ...form, site_web: e.target.value })}
-                        className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
+                        className={prospectInputClass}
                       />
+                      <span className={fieldHintClass}>Exemple : https://www.entreprise.mg</span>
                     </div>
                     <div>
-                      <label className="text-sm font-medium">Domaine</label>
+                      <label className="flex items-center gap-1.5 text-sm font-medium"><Building2 size={15} className="text-primary" /> Domaine</label>
                       <input
                         value={form.domaine}
                         onChange={(e) => setForm({ ...form, domaine: e.target.value })}
-                        className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
+                        className={prospectInputClass}
                       />
                     </div>
                   </div>
                 )}
 
                 {form.type === 'particulier' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 [&>div]:min-w-0">
                     <div>
-                      <label className="text-sm font-medium">Profession</label>
+                      <label className="flex items-center gap-1.5 text-sm font-medium"><UserRound size={15} className="text-primary" /> Profession</label>
                       <input
                         value={form.profession}
                         onChange={(e) => setForm({ ...form, profession: e.target.value })}
-                        className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
+                        className={prospectInputClass}
                       />
                     </div>
                     <div>
-                      <label className="text-sm font-medium">Domaine</label>
+                      <label className="flex items-center gap-1.5 text-sm font-medium"><Building2 size={15} className="text-primary" /> Domaine</label>
                       <input
                         value={form.domaine}
                         onChange={(e) => setForm({ ...form, domaine: e.target.value })}
-                        className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
+                        className={prospectInputClass}
                       />
                     </div>
                   </div>
                 )}
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                <div className="mt-2 flex flex-col-reverse justify-end gap-2 border-t border-border pt-6 sm:flex-row sm:gap-3">
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="px-4 py-2 border border-border rounded-lg hover:bg-accent"
+                    className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-accent"
                   >
                     Annuler
                   </button>
                   <button
                     type="submit"
                     disabled={saving}
-                    className="inline-flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 disabled:opacity-50"
                   >
                     <Check size={16} />
                     {saving ? 'Enregistrement...' : 'Sauvegarder'}
@@ -708,9 +746,10 @@ export default function Prospects() {
               </button>
               <button
                 onClick={confirmDelete}
-                className="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                disabled={deleting}
+                className="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Confirmer
+                {deleting ? 'Suppression...' : 'Confirmer'}
               </button>
             </div>
           </div>

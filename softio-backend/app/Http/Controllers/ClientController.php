@@ -109,7 +109,6 @@ class ClientController extends Controller
         $user = $request->user();
 
         $validated = $request->validate([
-            'matricule'       => 'required|string|max:100',
             'type'           => 'required|in:particulier,entreprise,autre',
             'nom'            => 'required|string|max:100',
             'prenom'         => 'nullable|string|max:100',
@@ -135,7 +134,16 @@ class ClientController extends Controller
             $validated['id_commercial'] = $user->id_commercial;
         }
 
-        $client = Client::create($validated);
+        $client = DB::transaction(function () use ($validated) {
+            $client = Client::create([
+                ...$validated,
+                'matricule' => 'P-EN-COURS',
+            ]);
+            $client->matricule = 'P-' . str_pad((string) $client->id_client, 4, '0', STR_PAD_LEFT);
+            $client->save();
+
+            return $client;
+        });
 
         return response()->json([
             'message' => 'Client créé avec succès',
@@ -191,7 +199,6 @@ class ClientController extends Controller
         }
 
         $validated = $request->validate([
-            'matricule'       => 'sometimes|string|max:100',
             'type'           => 'sometimes|in:particulier,entreprise,autre',
             'nom'            => 'sometimes|string|max:100',
             'prenom'         => 'nullable|string|max:100',

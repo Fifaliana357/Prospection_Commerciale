@@ -31,6 +31,7 @@ export default function DatePicker({
   required = false,
   disabled = false,
   className,
+  calendarClassName,
   placeholder = "jj/mm/aaaa",
   ariaLabel = "Choisir une date",
 }: {
@@ -41,6 +42,7 @@ export default function DatePicker({
   required?: boolean
   disabled?: boolean
   className?: string
+  calendarClassName?: string
   placeholder?: string
   ariaLabel?: string
 }) {
@@ -160,7 +162,10 @@ export default function DatePicker({
         <div
           role="dialog"
           aria-label="Calendrier"
-          className="animate-modal-dialog-enter absolute left-0 top-[calc(100%+8px)] z-[120] w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-primary/15 bg-card p-4 text-foreground shadow-[0_20px_55px_rgba(15,35,40,0.2)]"
+          className={cn(
+            "animate-modal-dialog-enter absolute left-0 top-[calc(100%+8px)] z-[120] w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-primary/15 bg-card p-4 text-foreground shadow-[0_20px_55px_rgba(15,35,40,0.2)]",
+            calendarClassName,
+          )}
         >
           <div className="mb-3 flex items-center justify-between">
             <button

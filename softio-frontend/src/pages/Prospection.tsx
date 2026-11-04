@@ -385,7 +385,7 @@ export default function Prospections() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">Tarif de l'offre (Ar) *</label>
+                <label className="text-sm font-medium">Tarif de l'offre (MGA) *</label>
                 <input
                   required
                   type="number"

@@ -16,6 +16,7 @@ import TableSummary from '../components/ui/TableSummary';
 import PageHeader from '../components/ui/PageHeader';
 import { ModalPortal } from '../components/ui/Modal';
 import { useToast } from '../contexts/ToastContext';
+import { formatMGA } from '../lib/utils';
 
 type Tab = 'produit' | 'service';
 
@@ -240,8 +241,7 @@ export default function Catalogue() {
     saveAs(new Blob([buf], { type: 'application/octet-stream' }), 'Produits.xlsx');
   };
 
-  const formatMoney = (n: number) =>
-    new Intl.NumberFormat('fr-FR').format(n) + ' Ar';
+  const formatMoney = (n: number) => formatMGA(n);
 
   return (
     <div className="p-4 sm:p-6 max-w-[1400px] mx-auto">
@@ -485,7 +485,7 @@ export default function Catalogue() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">Prix unitaire (Ar) *</label>
+                <label className="text-sm font-medium">Prix unitaire (MGA) *</label>
                 <input
                   required
                   type="number"
@@ -623,7 +623,7 @@ export default function Catalogue() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">Tarif (Ar) *</label>
+                <label className="text-sm font-medium">Tarif (MGA) *</label>
                 <input
                   required
                   type="number"

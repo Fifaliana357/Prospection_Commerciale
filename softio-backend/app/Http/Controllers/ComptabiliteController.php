@@ -31,7 +31,7 @@ class ComptabiliteController extends Controller
             fwrite($output, "\xEF\xBB\xBF");
 
             if ($type === 'recettes') {
-                fputcsv($output, ['Date', 'Numéro de vente', 'Client', 'Montant (Ar)'], ';');
+                fputcsv($output, ['Date', 'Numéro de vente', 'Client', 'Montant (MGA)'], ';');
                 $this->salesQuery($admin, $request)
                     ->with('client:id_client,nom,prenom,entreprise')
                     ->orderBy('id_vente')
@@ -45,7 +45,7 @@ class ComptabiliteController extends Controller
                         ], ';');
                     });
             } else {
-                fputcsv($output, ['Date et heure', 'Motif', 'Montant (Ar)', 'Pièce jointe'], ';');
+                fputcsv($output, ['Date et heure', 'Motif', 'Montant (MGA)', 'Pièce jointe'], ';');
                 $this->operationsQuery($admin, $request, false)
                     ->where('type', $type)
                     ->orderBy('id_operation')

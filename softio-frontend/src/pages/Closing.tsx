@@ -10,6 +10,7 @@ import TablePagination from '../components/ui/TablePagination';
 import TableSummary from '../components/ui/TableSummary';
 import PageHeader from '../components/ui/PageHeader';
 import { ModalPortal } from '../components/ui/Modal';
+import { formatMGA } from '../lib/utils';
 
 export default function ClosingPage() {
   const toast = useToast();
@@ -56,7 +57,7 @@ export default function ClosingPage() {
   };
 
   const formatMontant = (value: number) => {
-    return new Intl.NumberFormat('fr-FR').format(value) + ' Ar';
+    return formatMGA(value);
   };
 
   const getClientName = (c: Closing) => {

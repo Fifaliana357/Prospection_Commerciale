@@ -70,7 +70,7 @@
         <thead>
             <tr>
                 <th>Désignation</th>
-                <th class="right">PU (en Ar)</th>
+                <th class="right">PU (en MGA)</th>
                 <th class="center">Quantité</th>
                 <th class="right">Montant</th>
             </tr>
@@ -79,24 +79,24 @@
             @foreach ($document->lignes as $line)
                 <tr>
                     <td>{{ $line->designation }}</td>
-                    <td class="right">{{ number_format($line->prix_unitaire, 0, ',', ' ') }} Ar</td>
+                    <td class="right">{{ number_format($line->prix_unitaire, 0, ',', ' ') }} MGA</td>
                     <td class="center">{{ rtrim(rtrim(number_format((float) $line->quantite, 2, ',', ' '), '0'), ',') }}</td>
-                    <td class="right">{{ number_format($line->montant, 0, ',', ' ') }} Ar</td>
+                    <td class="right">{{ number_format($line->montant, 0, ',', ' ') }} MGA</td>
                 </tr>
             @endforeach
         </tbody>
     </table>
 
     <table class="totals">
-        <tr><td>Total des lignes</td><td class="right">{{ number_format($lineSubtotal, 0, ',', ' ') }} Ar</td></tr>
+        <tr><td>Total des lignes</td><td class="right">{{ number_format($lineSubtotal, 0, ',', ' ') }} MGA</td></tr>
         @if ($document->remise_globale > 0)
-            <tr><td>Remise globale</td><td class="right">− {{ number_format($document->remise_globale, 0, ',', ' ') }} Ar</td></tr>
+            <tr><td>Remise globale</td><td class="right">− {{ number_format($document->remise_globale, 0, ',', ' ') }} MGA</td></tr>
         @endif
-        <tr><td>Total HT</td><td class="right">{{ number_format($document->montant_ht, 0, ',', ' ') }} Ar</td></tr>
+        <tr><td>Total HT</td><td class="right">{{ number_format($document->montant_ht, 0, ',', ' ') }} MGA</td></tr>
         @if ($document->inclure_tva)
-            <tr><td>TVA ({{ number_format($document->taux_tva, 2, ',', ' ') }} %)</td><td class="right">{{ number_format($vatAmount, 0, ',', ' ') }} Ar</td></tr>
+            <tr><td>TVA ({{ number_format($document->taux_tva, 2, ',', ' ') }} %)</td><td class="right">{{ number_format($vatAmount, 0, ',', ' ') }} MGA</td></tr>
         @endif
-        <tr class="grand-total"><td>Total TTC</td><td class="right">{{ number_format($document->montant_ttc, 0, ',', ' ') }} Ar</td></tr>
+        <tr class="grand-total"><td>Total TTC</td><td class="right">{{ number_format($document->montant_ttc, 0, ',', ' ') }} MGA</td></tr>
     </table>
 
     @if ($document->remarque)

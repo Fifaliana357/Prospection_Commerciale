@@ -5,6 +5,7 @@ import TableSummary from "@/components/ui/TableSummary"
 import PageHeader from "@/components/ui/PageHeader"
 import { useToast } from "@/contexts/ToastContext"
 import { getBuyerClients, type BuyerClient } from "@/services/clients"
+import { formatMGA } from "@/lib/utils"
 
 const inputClass = "w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
 
@@ -27,7 +28,7 @@ function getErrorMessage(error: unknown, fallback: string) {
 }
 
 function formatAmount(value: number | null) {
-  return new Intl.NumberFormat("fr-FR").format(value ?? 0)
+  return formatMGA(value)
 }
 
 function formatDate(value: string | null) {

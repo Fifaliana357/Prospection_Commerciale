@@ -11,11 +11,12 @@ import PageHeader from "@/components/ui/PageHeader"
 import TableSummary from "@/components/ui/TableSummary"
 import DatePicker from "@/components/ui/DatePicker"
 import Select from "@/components/ui/Select"
+import { formatMGA } from "@/lib/utils"
 
 type DashboardTab = "ventes" | "scoring" | "etoiles"
 type Period = "day" | "week" | "month"
 type SalesType = "all" | "produit" | "service"
-type CommercialOption = { id_commercial: number; nom: string; prenom?: string | null }
+type CommercialOption = { id_commercial: number | null; nom: string; prenom?: string | null }
 type TrendPoint = { periode: string; total: number }
 type ProductRank = { designation: string; total: number; qte: number }
 type ClientRank = { id_client: number; nom_client: string; total: number; nb_ventes: number }
@@ -54,12 +55,18 @@ const cardClass = "rounded-xl border border-border bg-card p-4 shadow-sm"
 const buttonClass = "inline-flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
 
 function currentYearRange() {
-  const year = new Date().getFullYear()
-  return { from: `${year}-01-01`, to: `${year}-12-31` }
+  const today = new Date()
+  const year = today.getFullYear()
+  const to = `${year}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`
+  return { from: `${year}-01-01`, to }
 }
 
 function money(value: number) {
-  return `${new Intl.NumberFormat("fr-FR").format(Number(value) || 0)} Ar`
+  return formatMGA(value)
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(value)
 }
 
 function getErrorMessage(error: unknown) {
@@ -93,43 +100,180 @@ function periodLabel(value: string, period: Period) {
   return match ? `Sem. ${match[2]}, ${match[1]}` : value
 }
 
+function periodTooltipLabel(value: string, period: Period) {
+  if (period === "week") {
+    const match = value.match(/^(\d{4})(\d{2})$/)
+    if (match) {
+      const year = Number(match[1])
+      const week = Number(match[2])
+      const januaryFourth = new Date(Date.UTC(year, 0, 4))
+      const weekday = (januaryFourth.getUTCDay() + 6) % 7
+      const monday = new Date(Date.UTC(year, 0, 4 - weekday + (week - 1) * 7))
+      const sunday = new Date(monday)
+      sunday.setUTCDate(monday.getUTCDate() + 6)
+      const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        timeZone: "UTC",
+      })
+      return `Semaine du ${dateFormatter.format(monday).slice(0, 5)} au ${dateFormatter.format(sunday).slice(0, 5)}`
+    }
+  }
+  if (period === "day") {
+    return new Date(`${value}T00:00:00`).toLocaleDateString("fr-FR", { dateStyle: "long" })
+  }
+  return periodLabel(value, period)
+}
+
 function EvolutionChart({ data, period }: { data: TrendPoint[]; period: Period }) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null)
+  const [chartWidth, setChartWidth] = useState(960)
+  const chartContainerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const container = chartContainerRef.current
+    if (!container) return
+
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setChartWidth(Math.max(320, entry.contentRect.width))
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [])
+
   if (!data.length) {
     return <p className="flex h-64 items-center justify-center text-sm text-muted-foreground">Aucune vente sur cette période</p>
   }
 
-  const width = 900
-  const height = 260
-  const padX = 28
-  const padY = 20
-  const max = Math.max(...data.map((point) => Number(point.total) || 0), 1)
-  const labelStride = Math.ceil(data.length / 12)
+  const width = chartWidth
+  const height = 280
+  const padLeft = 76
+  const padRight = 8
+  const padTop = 20
+  const padBottom = 34
+  const chartHeight = height - padTop - padBottom
+  const maxValue = Math.max(...data.map((point) => Number(point.total) || 0), 0)
+  const rawStep = Math.max(maxValue, 1) / 5
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep))
+  const normalizedStep = rawStep / magnitude
+  const stepFactor = [1, 2, 2.5, 5, 10].find((factor) => factor >= normalizedStep) ?? 10
+  const step = stepFactor * magnitude
+  const chartMax = step * 5
+  const labelStride = Math.ceil(data.length / (chartWidth < 640 ? 5 : 12))
   const points = data.map((point, index) => ({
-    x: data.length === 1 ? width / 2 : padX + index * (width - padX * 2) / (data.length - 1),
-    y: height - padY - (Number(point.total) || 0) / max * (height - padY * 2),
+    x: data.length === 1 ? (padLeft + width - padRight) / 2 : padLeft + index * (width - padLeft - padRight) / (data.length - 1),
+    y: height - padBottom - (Number(point.total) || 0) / chartMax * chartHeight,
   }))
-  const line = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ")
-  const area = `${line} L ${points[points.length - 1].x} ${height - padY} L ${points[0].x} ${height - padY} Z`
+  const line = points.reduce((path, point, index) => {
+    if (index === 0) return `M ${point.x} ${point.y}`
+    const previous = points[index - 1]
+    const beforePrevious = points[index - 2] ?? previous
+    const next = points[index + 1] ?? point
+    const controlOneX = previous.x + (point.x - beforePrevious.x) / 6
+    const controlOneY = Math.max(
+      Math.min(previous.y, point.y),
+      Math.min(Math.max(previous.y, point.y), previous.y + (point.y - beforePrevious.y) / 6),
+    )
+    const controlTwoX = point.x - (next.x - previous.x) / 6
+    const controlTwoY = Math.max(
+      Math.min(previous.y, point.y),
+      Math.min(Math.max(previous.y, point.y), point.y - (next.y - previous.y) / 6),
+    )
+    return `${path} C ${controlOneX} ${controlOneY}, ${controlTwoX} ${controlTwoY}, ${point.x} ${point.y}`
+  }, "")
+  const baseline = height - padBottom
+  const area = `${line} L ${points[points.length - 1].x} ${baseline} L ${points[0].x} ${baseline} Z`
+  const activePoint = activeIndex === null ? null : points[activeIndex] ?? null
+  const activeLabel = activeIndex === null ? "" : periodTooltipLabel(data[activeIndex].periode, period)
+  const activeAmount = activeIndex === null ? "" : money(Number(data[activeIndex].total) || 0)
+  const tooltipWidth = Math.min(240, Math.max(96, Math.max(activeLabel.length * 5.8, activeAmount.length * 5.8) + 28))
+  const tooltipHeight = 48
+  const tooltipX = activePoint
+    ? Math.max(padLeft, Math.min(width - tooltipWidth - 8, activePoint.x - tooltipWidth / 2))
+    : 0
+  const tooltipBelow = Boolean(activePoint && activePoint.y - tooltipHeight - 10 < padTop)
+  const tooltipY = activePoint
+    ? tooltipBelow ? activePoint.y + 14 : activePoint.y - tooltipHeight - 10
+    : 0
 
   return (
-    <div className="overflow-x-auto">
-      <svg viewBox={`0 0 ${width} ${height + 30}`} className="h-64 min-w-[700px] w-full" role="img" aria-label="Évolution du chiffre d’affaires">
-        {[0, 0.25, 0.5, 0.75, 1].map((fraction) => {
-          const y = padY + fraction * (height - padY * 2)
-          return <line key={fraction} x1={padX} x2={width - padX} y1={y} y2={y} stroke="hsl(var(--border))" strokeDasharray="3 5" />
+    <div ref={chartContainerRef} className="w-full">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-72 w-full" role="group" aria-label="Évolution du chiffre d’affaires">
+        {Array.from({ length: 6 }, (_, index) => {
+          const y = padTop + index * chartHeight / 5
+          const value = step * (5 - index)
+          return (
+            <g key={value}>
+              <line x1={padLeft} x2={width - padRight} y1={y} y2={y} stroke="hsl(var(--border))" />
+              <text x={padLeft - 8} y={y + 4} textAnchor="end" fill="hsl(var(--muted-foreground))" fontSize="11">
+                {formatNumber(value)}
+              </text>
+            </g>
+          )
         })}
         <path d={area} fill="hsl(var(--primary) / 0.12)" />
         <path d={line} fill="none" stroke="hsl(var(--primary))" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
         {points.map((point, index) => (
           <g key={`${data[index].periode}-${index}`}>
             <circle cx={point.x} cy={point.y} r="4" fill="hsl(var(--primary))" stroke="hsl(var(--card))" strokeWidth="2" />
+            <circle
+              cx={point.x}
+              cy={point.y}
+              r="12"
+              fill="transparent"
+              role="button"
+              tabIndex={0}
+              aria-label={`${periodTooltipLabel(data[index].periode, period)} : ${money(Number(data[index].total) || 0)}`}
+              pointerEvents="none"
+              onFocus={() => setActiveIndex(index)}
+              onBlur={() => setActiveIndex(null)}
+            />
             {(index % labelStride === 0 || index === data.length - 1) && (
-              <text x={point.x} y={height + 16} textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize="11">
+              <text x={point.x} y={height - 7} textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize="11">
                 {periodLabel(data[index].periode, period)}
               </text>
             )}
           </g>
         ))}
+        <rect
+          x={padLeft}
+          y={padTop}
+          width={width - padLeft - padRight}
+          height={chartHeight}
+          fill="transparent"
+          onMouseMove={(event) => {
+            const bounds = event.currentTarget.ownerSVGElement?.getBoundingClientRect()
+            if (!bounds) return
+            if (data.length === 1) {
+              setActiveIndex(0)
+              return
+            }
+            const svgX = (event.clientX - bounds.left) / bounds.width * width
+            const nearestIndex = Math.round((svgX - padLeft) / (width - padLeft - padRight) * (data.length - 1))
+            setActiveIndex(Math.max(0, Math.min(data.length - 1, nearestIndex)))
+          }}
+          onMouseLeave={() => setActiveIndex(null)}
+        />
+        {activePoint && (
+          <g pointerEvents="none">
+            <path
+              d={tooltipBelow
+                ? `M ${activePoint.x - 6} ${tooltipY} L ${activePoint.x} ${tooltipY - 6} L ${activePoint.x + 6} ${tooltipY} Z`
+                : `M ${activePoint.x - 6} ${tooltipY + tooltipHeight} L ${activePoint.x} ${tooltipY + tooltipHeight + 6} L ${activePoint.x + 6} ${tooltipY + tooltipHeight} Z`}
+              fill="hsl(var(--primary))"
+            />
+            <rect x={tooltipX} y={tooltipY} width={tooltipWidth} height={tooltipHeight} rx="8" fill="hsl(var(--primary))" />
+            <text x={tooltipX + 10} y={tooltipY + 17} fill="hsl(var(--primary-foreground))" fontSize="10" fontWeight="600">
+              {activeLabel}
+            </text>
+            <circle cx={tooltipX + 14} cy={tooltipY + 35} r="4" fill="hsl(var(--primary-foreground))" />
+            <text x={tooltipX + 24} y={tooltipY + 39} fill="hsl(var(--primary-foreground))" fontSize="10">
+              {activeAmount}
+            </text>
+            <circle cx={activePoint.x} cy={activePoint.y} r="5" fill="hsl(var(--primary))" stroke="hsl(var(--card))" strokeWidth="2" />
+          </g>
+        )}
       </svg>
     </div>
   )
@@ -276,15 +420,15 @@ export default function Dashboard() {
           <div className="flex flex-wrap items-end gap-2">
             <label className="space-y-1 text-xs text-muted-foreground">
               <span className="flex items-center gap-1"><CalendarDays size={13} /> Du</span>
-              <DatePicker value={dateFrom} max={dateTo} onChange={setDateFrom} ariaLabel="Date de début" />
+              <DatePicker value={dateFrom} max={dateTo} onChange={setDateFrom} ariaLabel="Date de début" className="h-10 w-[9.5rem] px-3 pr-10" calendarClassName="w-[min(18rem,calc(100vw-2rem))] p-3" />
             </label>
             <label className="space-y-1 text-xs text-muted-foreground">
               <span>Au</span>
-              <DatePicker value={dateTo} min={dateFrom} onChange={setDateTo} ariaLabel="Date de fin" />
+              <DatePicker value={dateTo} min={dateFrom} onChange={setDateTo} ariaLabel="Date de fin" className="h-10 w-[9.5rem] px-3 pr-10" calendarClassName="w-[min(18rem,calc(100vw-2rem))] p-3" />
             </label>
             <label className="space-y-1 text-xs text-muted-foreground">
               <span className="flex items-center gap-1"><Filter size={13} /> Type</span>
-              <Select value={type} onChange={(value) => setType(value as SalesType)} options={[
+              <Select value={type} onChange={(value) => setType(value as SalesType)} className="h-10 min-h-10 min-w-[8.5rem] px-3 py-1" options={[
                 { value: "all", label: "Tous" },
                 { value: "produit", label: "Produits" },
                 { value: "service", label: "Services" },
@@ -292,11 +436,13 @@ export default function Dashboard() {
             </label>
             <label className="space-y-1 text-xs text-muted-foreground">
               <span>Responsable</span>
-              <Select value={commercialId} onChange={setCommercialId} className="min-w-36" options={[
+              <Select value={commercialId} onChange={setCommercialId} className="h-10 min-h-10 min-w-[10rem] px-3 py-1" options={[
                 { value: "", label: "Tous" },
                 ...(stats?.responsables ?? []).map((responsable) => ({
-                  value: String(responsable.id_commercial),
-                  label: [responsable.prenom, responsable.nom].filter(Boolean).join(" "),
+                  value: responsable.id_commercial === null ? "admin" : String(responsable.id_commercial),
+                  label: responsable.id_commercial === null
+                    ? "Admin"
+                    : [responsable.prenom, responsable.nom].filter(Boolean).join(" "),
                 })),
               ]} />
             </label>

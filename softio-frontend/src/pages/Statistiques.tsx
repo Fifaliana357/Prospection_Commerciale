@@ -2,7 +2,7 @@ import { TrendingUp, Users, ShoppingCart, Handshake } from "lucide-react"
 import PageHeader from "@/components/ui/PageHeader"
 
 const kpis = [
-  { title: "Chiffre d'affaires", value: "42.8M MGA", change: "+18.7%", icon: TrendingUp, color: "bg-emerald-500/10 text-emerald-600" },
+  { title: "Chiffre d'affaires", value: "42 800 000 MGA", change: "+18.7%", icon: TrendingUp, color: "bg-emerald-500/10 text-emerald-600" },
   { title: "Prospects convertis", value: "86", change: "+12%", icon: Users, color: "bg-blue-500/10 text-blue-600" },
   { title: "Ventes réalisées", value: "124", change: "+9.3%", icon: ShoppingCart, color: "bg-violet-500/10 text-violet-600" },
   { title: "Taux de closing", value: "34%", change: "+4.1%", icon: Handshake, color: "bg-orange-500/10 text-orange-600" },

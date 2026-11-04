@@ -11,6 +11,7 @@ import TablePagination from "@/components/ui/TablePagination"
 import TableSummary from "@/components/ui/TableSummary"
 import PageHeader from "@/components/ui/PageHeader"
 import { useToast } from "@/contexts/ToastContext"
+import { formatMGA } from "@/lib/utils"
 import type { Client } from "@/services/clients"
 import type { Offre, Produit } from "@/services/catalogue"
 import {
@@ -48,7 +49,7 @@ const buttonClass = "inline-flex items-center justify-center gap-2 rounded-lg px
 const today = () => new Date().toISOString().slice(0, 10)
 
 function formatAmount(value: number) {
-  return `${new Intl.NumberFormat("fr-FR").format(value)} MGA`
+  return formatMGA(value)
 }
 
 function formatDate(value: string) {

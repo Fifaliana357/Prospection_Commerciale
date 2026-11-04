@@ -464,7 +464,7 @@ export default function ProspectionDetail() {
                   rows={2} className="mt-1 w-full px-3 py-2 border border-border rounded-lg bg-background text-sm resize-none" />
               </div>
               <div>
-                <label className="text-sm font-medium">Tarif (Ar) *</label>
+                <label className="text-sm font-medium">Tarif (MGA) *</label>
                 <input required type="number" min="0" value={closingForm.montant}
                   onChange={(e) => setClosingForm({ ...closingForm, montant: e.target.value })}
                   className="mt-1 w-full px-3 py-2 border border-border rounded-lg bg-background text-sm" />

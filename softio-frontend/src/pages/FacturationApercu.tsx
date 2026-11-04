@@ -19,6 +19,7 @@ import {
   type FacturationDocument,
 } from "@/services/facturation"
 import { getCompanySettings } from "@/services/account"
+import { formatMGA } from "@/lib/utils"
 
 type PaperFormat = "A4" | "A5" | "Ticket"
 type IssuerDetails = Pick<PreviewSettings, "companyName" | "companyEmail" | "companyPhone" | "companyAddress" | "companyNif" | "companyStat" | "companyRcs">
@@ -102,7 +103,7 @@ function readRecipientOverrides(key: string): { values: RecipientDetails | null;
 }
 
 function formatAmount(value: number) {
-  return `${new Intl.NumberFormat("fr-FR").format(value)} MGA`
+  return formatMGA(value)
 }
 
 function formatPaperAmount(value: number) {
@@ -529,7 +530,7 @@ export default function FacturationApercu() {
 
             <div>
               <label htmlFor="global-discount" className="mb-1.5 block text-sm font-medium">
-                Remise globale <span className="text-xs font-normal text-muted-foreground">(sur le total, en Ar)</span>
+                Remise globale <span className="text-xs font-normal text-muted-foreground">(sur le total, en MGA)</span>
               </label>
               <div className="flex overflow-hidden rounded-xl border border-border">
                 <input
@@ -724,9 +725,9 @@ export default function FacturationApercu() {
                     <thead>
                       <tr>
                         <th className="normal-case border border-slate-900 px-2 py-2 text-left font-semibold sm:px-3">Désignation</th>
-                        <th className="normal-case border border-slate-900 px-2 py-2 text-right font-semibold sm:px-3">PU (en Ar)</th>
+                        <th className="normal-case border border-slate-900 px-2 py-2 text-right font-semibold sm:px-3">PU (en MGA)</th>
                         <th className="normal-case border border-slate-900 px-2 py-2 text-center font-semibold sm:px-3">Quantité</th>
-                        <th className="normal-case border border-slate-900 px-2 py-2 text-right font-semibold sm:px-3">Montant (en Ar)</th>
+                        <th className="normal-case border border-slate-900 px-2 py-2 text-right font-semibold sm:px-3">Montant (en MGA)</th>
                       </tr>
                     </thead>
                     <tbody>

@@ -10,6 +10,7 @@ import TablePagination from "@/components/ui/TablePagination"
 import TableSummary from "@/components/ui/TableSummary"
 import PageHeader from "@/components/ui/PageHeader"
 import { useToast } from "@/contexts/ToastContext"
+import { formatMGA } from "@/lib/utils"
 import {
   createStockMovement,
   deleteStockMovement,
@@ -27,7 +28,7 @@ const inputClass = "w-full rounded-lg border border-border bg-background px-3 py
 const buttonClass = "inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
 
 function formatAmount(value: number) {
-  return `${new Intl.NumberFormat("fr-FR").format(value)} Ar`
+  return formatMGA(value)
 }
 
 function formatDate(value: string) {

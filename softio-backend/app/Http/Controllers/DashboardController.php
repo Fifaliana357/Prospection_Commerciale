@@ -25,7 +25,7 @@ class DashboardController extends Controller
             'date_from' => 'nullable|date',
             'date_to' => 'nullable|date|after_or_equal:date_from',
             'type' => 'nullable|in:all,produit,service',
-            'commercial_id' => 'nullable|integer',
+            'commercial_id' => 'nullable|regex:/^(admin|[0-9]+)$/',
             'period' => 'nullable|in:day,week,month',
             'interest_search' => 'nullable|string|max:191',
         ]);
@@ -33,9 +33,18 @@ class DashboardController extends Controller
         $user = $request->user();
         $adminId = $user->id_admin;
         $dateFrom = $validated['date_from'] ?? now()->startOfYear()->toDateString();
-        $dateTo = $validated['date_to'] ?? now()->endOfYear()->toDateString();
+        $dateTo = $validated['date_to'] ?? now()->toDateString();
         $type = ($validated['type'] ?? 'all') !== 'all' ? $validated['type'] : null;
-        $commercialId = $user instanceof Admin ? ($validated['commercial_id'] ?? null) : $user->id_commercial;
+        $commercialFilter = $validated['commercial_id'] ?? null;
+        if ($commercialFilter === 'admin' && ! $user instanceof Admin) {
+            throw ValidationException::withMessages([
+                'commercial_id' => 'Le responsable sélectionné est invalide.',
+            ]);
+        }
+        $adminSales = $user instanceof Admin && $commercialFilter === 'admin';
+        $commercialId = $user instanceof Admin
+            ? ($commercialFilter !== null && ! $adminSales ? (int) $commercialFilter : null)
+            : $user->id_commercial;
 
         if ($commercialId !== null && ! Commercial::query()
             ->where('id_admin', $adminId)
@@ -50,6 +59,7 @@ class DashboardController extends Controller
             ->where('id_admin', $adminId)
             ->when($commercialId !== null, fn (Builder $builder) => $builder
                 ->where('id_commercial', $commercialId))
+            ->when($adminSales, fn (Builder $builder) => $builder->whereNull('id_commercial'))
             ->when(! $user instanceof Admin && $commercialId === null, fn (Builder $builder) => $builder
                 ->where('id_commercial', $user->id_commercial));
 
@@ -57,6 +67,7 @@ class DashboardController extends Controller
             ->where('vente.id_admin', $adminId)
             ->when($commercialId !== null, fn (Builder $query) => $query
                 ->where('vente.id_commercial', $commercialId))
+            ->when($adminSales, fn (Builder $query) => $query->whereNull('vente.id_commercial'))
             ->when(! $user instanceof Admin && $commercialId === null, fn (Builder $query) => $query
                 ->where('vente.id_commercial', $user->id_commercial))
             ->when($type !== null, fn (Builder $query) => $query->whereHas('lignes', fn (Builder $lines) => $lines
@@ -72,6 +83,7 @@ class DashboardController extends Controller
             ->join('vente', 'vente.id_vente', '=', 'ligne_vente.id_vente')
             ->where('vente.id_admin', $adminId)
             ->when($commercialId !== null, fn ($query) => $query->where('vente.id_commercial', $commercialId))
+            ->when($adminSales, fn ($query) => $query->whereNull('vente.id_commercial'))
             ->when(! $user instanceof Admin && $commercialId === null, fn ($query) => $query
                 ->where('vente.id_commercial', $user->id_commercial))
             ->where(fn ($query) => $query
@@ -189,6 +201,7 @@ class DashboardController extends Controller
             ->get();
 
         $baseClients = Client::query()->where('id_admin', $adminId)
+            ->when($adminSales, fn (Builder $query) => $query->whereNull('id_commercial'))
             ->when(! $user instanceof Admin, fn (Builder $query) => $query
                 ->where('id_commercial', $user->id_commercial));
         $prospects = (clone $baseClients)->count();
@@ -219,6 +232,7 @@ class DashboardController extends Controller
                 ->where('vente.id_admin', $adminId)
                 ->when($commercialId !== null, fn (Builder $query) => $query
                     ->where('vente.id_commercial', $commercialId))
+                ->when($adminSales, fn (Builder $query) => $query->whereNull('vente.id_commercial'))
                 ->when(! $user instanceof Admin && $commercialId === null, fn (Builder $query) => $query
                     ->where('vente.id_commercial', $user->id_commercial)))
             ->count();
@@ -229,6 +243,7 @@ class DashboardController extends Controller
                 ->join('prospection', 'prospection.id_prospection', '=', 'proposition.id_prospection')
                 ->where('prospection.id_admin', $adminId)
                 ->when($commercialId !== null, fn ($query) => $query->where('prospection.id_commercial', $commercialId))
+                ->when($adminSales, fn ($query) => $query->whereNull('prospection.id_commercial'))
                 ->when(! $user instanceof Admin && $commercialId === null, fn ($query) => $query
                     ->where('prospection.id_commercial', $user->id_commercial))
                 ->whereBetween(DB::raw('DATE(proposition.date_proposition)'), [$dateFrom, $dateTo])
@@ -246,6 +261,7 @@ class DashboardController extends Controller
             $interestQuery = DB::table('interet')
                 ->join('client', 'client.id_client', '=', 'interet.id_client')
                 ->where('client.id_admin', $adminId)
+                ->when($adminSales, fn ($query) => $query->whereNull('client.id_commercial'))
                 ->when(! $user instanceof Admin, fn ($query) => $query
                     ->where('client.id_commercial', $user->id_commercial))
                 ->whereBetween(DB::raw('DATE(interet.created_at)'), [$dateFrom, $dateTo])
@@ -264,21 +280,35 @@ class DashboardController extends Controller
                 ->get();
         }
 
-        $responsables = $user instanceof Admin
-            ? Commercial::query()->where('id_admin', $adminId)->where('actif', true)
-                ->orderBy('nom')->get(['id_commercial', 'nom', 'prenom'])
-            : collect([[
+        if ($user instanceof Admin) {
+            $commercialIdsWithSales = Vente::query()
+                ->where('id_admin', $adminId)
+                ->whereNotNull('id_commercial')
+                ->distinct()
+                ->pluck('id_commercial');
+            $responsables = collect([[
+                'id_commercial' => null,
+                'nom' => 'Admin',
+                'prenom' => null,
+            ]])->concat(Commercial::query()
+                ->where('id_admin', $adminId)
+                ->whereIn('id_commercial', $commercialIdsWithSales)
+                ->orderBy('nom')
+                ->get(['id_commercial', 'nom', 'prenom']));
+        } else {
+            $responsables = collect([[
                 'id_commercial' => $user->id_commercial,
                 'nom' => $user->nom,
                 'prenom' => $user->prenom,
             ]]);
+        }
 
         return response()->json([
             'filters' => [
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
                 'type' => $type ?? 'all',
-                'commercial_id' => $commercialId,
+                'commercial_id' => $adminSales ? 'admin' : $commercialId,
                 'period' => $period,
             ],
             'responsables' => $responsables,
