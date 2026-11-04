@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  Search, Plus, Pencil, Trash2, CalendarDays, Check
+  Search, Plus, Pencil, Trash2, CalendarDays, Check, List
 } from 'lucide-react';
 import {
   getRendezVous,
@@ -13,6 +13,15 @@ import {
 } from '../services/rendezvous';
 import { getClients, type Client } from '../services/clients';
 import { useToast } from '../contexts/ToastContext';
+import TablePagination from '../components/ui/TablePagination';
+import TableSummary from '../components/ui/TableSummary';
+import PageHeader from '../components/ui/PageHeader';
+import Modal from '../components/ui/Modal';
+import RendezVousCalendar from '../components/ui/RendezVousCalendar';
+import DatePicker from '../components/ui/DatePicker';
+import TimePicker from '../components/ui/TimePicker';
+import Select from '../components/ui/Select';
+import { formatLocalDateTime, getLocalDateInputValue, parseLocalDateTime } from '../lib/date';
 
 export default function RendezVousPage() {
   const toast = useToast();
@@ -27,6 +36,8 @@ export default function RendezVousPage() {
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [view, setView] = useState<'calendar' | 'list'>('calendar');
+  const [calendarDate, setCalendarDate] = useState(() => new Date());
 
   // Modal
   const [showModal, setShowModal] = useState(false);
@@ -64,11 +75,26 @@ export default function RendezVousPage() {
   const fetchRdvs = async () => {
     try {
       setLoading(true);
-      const res = await getRendezVous({
-        search: search || undefined,
-        filtre: filtre || undefined,
-        page,
-      });
+      const start = new Date(calendarDate);
+      start.setHours(0, 0, 0, 0);
+      start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      const formatLocalDate = (date: Date) => (
+        `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+      );
+      const res = await getRendezVous(view === 'calendar'
+        ? {
+            search: search || undefined,
+            date_debut: formatLocalDate(start),
+            date_fin: formatLocalDate(end),
+            per_page: 100,
+          }
+        : {
+            search: search || undefined,
+            filtre: filtre || undefined,
+            page,
+          });
       setRdvs(res.data);
       setLastPage(res.last_page);
       setTotal(res.total);
@@ -85,7 +111,7 @@ export default function RendezVousPage() {
 
   useEffect(() => {
     fetchRdvs();
-  }, [search, filtre, page]);
+  }, [search, filtre, page, view, calendarDate]);
 
   useEffect(() => {
     const id = Number(searchParams.get('rdv'));
@@ -94,7 +120,10 @@ export default function RendezVousPage() {
     let active = true;
     getRendezVousById(id)
       .then((rdv) => {
-        if (active) setNotificationRdv(rdv);
+        if (active) {
+          setNotificationRdv(rdv);
+          setCalendarDate(parseLocalDateTime(rdv.date_rdv));
+        }
       })
       .catch(() => {
         if (active) {
@@ -146,12 +175,12 @@ export default function RendezVousPage() {
   };
 
   const openEdit = (rdv: RendezVous) => {
-    const date = new Date(rdv.date_rdv);
+    const date = parseLocalDateTime(rdv.date_rdv);
     setEditing(rdv);
     setForm({
       id_client: String(rdv.id_client),
-      date_rdv: date.toISOString().slice(0, 10),
-      heure: date.toTimeString().slice(0, 5),
+      date_rdv: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
+      heure: `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`,
       lieu: rdv.lieu || '',
       type_rdv: rdv.type_rdv || 'Direct',
       lien_rdv: rdv.lien_rdv || '',
@@ -223,8 +252,7 @@ export default function RendezVousPage() {
   };
 
   const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleString('fr-FR', {
+    return formatLocalDateTime(dateStr, {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -234,24 +262,15 @@ export default function RendezVousPage() {
   };
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto">
-      {/* Header */}
-      <div className="mb-5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-            <CalendarDays size={20} />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold">Rendez-vous</h1>
-            <p className="text-sm text-muted-foreground">
-              Gérez vos rendez-vous avec vos prospects
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="mx-auto max-w-[1600px] space-y-5">
+      <PageHeader
+        title="Rendez-vous"
+        description="Planifiez et suivez vos rendez-vous avec vos prospects."
+        icon={<CalendarDays size={23} />}
+      />
 
       {/* Search + Bouton */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+      <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
           <input
@@ -274,7 +293,16 @@ export default function RendezVousPage() {
         </button>
       </div>
 
-      {/* Filtres */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex rounded-xl border border-border bg-card p-1">
+          <button type="button" onClick={() => setView('calendar')} className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${view === 'calendar' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}>
+            <CalendarDays size={16} /> Calendrier
+          </button>
+          <button type="button" onClick={() => setView('list')} className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${view === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}>
+            <List size={16} /> Liste
+          </button>
+        </div>
+        {view === 'list' && (
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex flex-wrap gap-2">
           {[
@@ -299,11 +327,21 @@ export default function RendezVousPage() {
               {f.label}
             </button>
           ))}
+          <TableSummary total={total} label="rendez-vous" />
         </div>
-        <span className="text-sm text-muted-foreground">{total} rendez-vous</span>
+      </div>
+        )}
       </div>
 
-      {/* Table */}
+      {view === 'calendar' ? (
+        <RendezVousCalendar
+          items={rdvs}
+          loading={loading}
+          date={calendarDate}
+          onDateChange={setCalendarDate}
+          onSelect={setNotificationRdv}
+        />
+      ) : (
       <div className="bg-muted/40 border border-border rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -323,13 +361,13 @@ export default function RendezVousPage() {
             <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
                     Chargement...
                   </td>
                 </tr>
               ) : rdvs.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
                     Aucun rendez-vous
                   </td>
                 </tr>
@@ -376,7 +414,7 @@ export default function RendezVousPage() {
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => openEdit(rdv)}
-                          className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 hover:bg-blue-500/20"
+                          className="p-1.5 rounded-lg bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
                         >
                           <Pencil size={15} />
                         </button>
@@ -394,25 +432,13 @@ export default function RendezVousPage() {
             </tbody>
           </table>
         </div>
+        <TablePagination page={page} lastPage={lastPage} onChange={setPage} />
       </div>
+      )}
 
-      {/* ==================== MODAL ==================== */}
-      {notificationRdv && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onMouseDown={closeNotificationRdv}>
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="notification-rdv-title"
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-border bg-card shadow-xl"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-border px-6 py-4">
-              <h2 id="notification-rdv-title" className="flex items-center gap-2 text-lg font-semibold">
-                <CalendarDays size={18} /> Rendez-vous {notificationRdv.numero_rdv || ''}
-              </h2>
-              <button type="button" onClick={closeNotificationRdv} className="rounded-lg p-1.5 hover:bg-accent" aria-label="Fermer">✕</button>
-            </div>
-            <div className="space-y-4 p-6 text-sm">
+      <Modal open={notificationRdv !== null} onClose={closeNotificationRdv} title={`Rendez-vous ${notificationRdv?.numero_rdv || ''}`} size="md">
+        {notificationRdv && (
+          <div className="space-y-4 text-sm">
               <div><p className="text-muted-foreground">Client</p><p className="font-medium">
                 {notificationRdv.client?.entreprise || [notificationRdv.client?.nom, notificationRdv.client?.prenom].filter(Boolean).join(' ') || '—'}
               </p></div>
@@ -421,31 +447,12 @@ export default function RendezVousPage() {
               {notificationRdv.lieu && <div><p className="text-muted-foreground">Lieu</p><p className="font-medium">{notificationRdv.lieu}</p></div>}
               {notificationRdv.lien_rdv && <div><p className="text-muted-foreground">Lien</p><a href={notificationRdv.lien_rdv.startsWith('http') ? notificationRdv.lien_rdv : `https://${notificationRdv.lien_rdv}`} target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline">{notificationRdv.lien_rdv}</a></div>}
               {notificationRdv.commentaire && <div><p className="text-muted-foreground">Commentaire</p><p className="whitespace-pre-wrap font-medium">{notificationRdv.commentaire}</p></div>}
-            </div>
-            <div className="flex justify-end border-t border-border px-6 py-4">
-              <button type="button" onClick={closeNotificationRdv} className="rounded-lg border border-border px-4 py-2 hover:bg-accent">Fermer</button>
-            </div>
-          </section>
-        </div>
-      )}
+          </div>
+        )}
+      </Modal>
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-card border border-border rounded-xl w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-card z-10">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <CalendarDays size={18} />
-                {editing ? 'Modifier le rendez-vous' : 'Nouveau rendez-vous'}
-              </h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="p-1.5 rounded-lg hover:bg-accent"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+      <Modal open={showModal} onClose={() => setShowModal(false)} title={editing ? 'Modifier le rendez-vous' : 'Nouveau rendez-vous'} size="lg">
+            <form onSubmit={handleSubmit} className="space-y-4">
               {/* Prospect + Nom */}
               {/* Prospect uniquement en création */}
               {!editing && (
@@ -512,25 +519,22 @@ export default function RendezVousPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">Date *</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     required
                     value={form.date_rdv}
-                    onChange={(e) =>
-                      setForm({ ...form, date_rdv: e.target.value })
-                    }
-                    className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
+                    min={editing ? undefined : getLocalDateInputValue()}
+                    onChange={(date_rdv) => setForm({ ...form, date_rdv })}
+                    ariaLabel="Date du rendez-vous"
+                    className="mt-1"
                   />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Heure</label>
-                  <input
-                    type="time"
+                  <TimePicker
                     value={form.heure}
-                    onChange={(e) =>
-                      setForm({ ...form, heure: e.target.value })
-                    }
-                    className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
+                    onChange={(heure) => setForm({ ...form, heure })}
+                    ariaLabel="Heure du rendez-vous"
+                    className="mt-1"
                   />
                 </div>
               </div>
@@ -538,19 +542,18 @@ export default function RendezVousPage() {
               {/* Mode */}
               <div>
                 <label className="text-sm font-medium">Mode de rendez-vous</label>
-                <select
+                <Select
                   value={form.type_rdv}
-                  onChange={(e) =>
-                    setForm({ ...form, type_rdv: e.target.value })
-                  }
-                  className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
-                >
-                  <option value="Direct">Direct</option>
-                  <option value="Téléphonique">Téléphonique</option>
-                  <option value="Visio conférence">Visio conférence</option>
-                  <option value="Livraison">Livraison</option>
-                  <option value="Réunion">Réunion</option>
-                </select>
+                  onChange={(type_rdv) => setForm({ ...form, type_rdv })}
+                  className="mt-1"
+                  options={[
+                    { value: "Direct", label: "Direct" },
+                    { value: "Téléphonique", label: "Téléphonique" },
+                    { value: "Visio conférence", label: "Visio conférence" },
+                    { value: "Livraison", label: "Livraison" },
+                    { value: "Réunion", label: "Réunion" },
+                  ]}
+                />
               </div>
 
               {/* Champs conditionnels */}
@@ -628,14 +631,11 @@ export default function RendezVousPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Modal suppression */}
-      {deleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-card border border-border rounded-xl w-full max-w-md p-6 shadow-xl text-center">
+      <Modal open={deleteId !== null} onClose={() => setDeleteId(null)} title="Supprimer le rendez-vous" size="sm">
+          <div className="text-center">
             <div className="w-14 h-14 rounded-full bg-amber-500/15 text-amber-500 flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
               !
             </div>
@@ -658,8 +658,7 @@ export default function RendezVousPage() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 }

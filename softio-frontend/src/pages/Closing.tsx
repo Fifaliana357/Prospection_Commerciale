@@ -6,6 +6,10 @@ import {
   type Closing
 } from '../services/closings';
 import { useToast } from '../contexts/ToastContext';
+import TablePagination from '../components/ui/TablePagination';
+import TableSummary from '../components/ui/TableSummary';
+import PageHeader from '../components/ui/PageHeader';
+import { ModalPortal } from '../components/ui/Modal';
 
 export default function ClosingPage() {
   const toast = useToast();
@@ -75,20 +79,7 @@ export default function ClosingPage() {
 
   return (
     <div className="p-6 max-w-[1600px] mx-auto">
-      {/* Header */}
-      <div className="mb-5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-            <Trophy size={20} />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold">Closing</h1>
-            <p className="text-sm text-muted-foreground">
-              Gérez vos offres clôturées
-            </p>
-          </div>
-        </div>
-      </div>
+      <PageHeader title="Closing" description="Gérez vos offres clôturées." icon={<Trophy size={23} />} />
 
       {/* Search */}
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -105,9 +96,7 @@ export default function ClosingPage() {
             className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
         </div>
-        <span className="text-sm text-muted-foreground self-center whitespace-nowrap">
-          {total} élément{total > 1 ? 's' : ''}
-        </span>
+        <TableSummary total={total} label="closings" />
       </div>
 
       {/* Table */}
@@ -170,27 +159,12 @@ export default function ClosingPage() {
         </div>
 
         {/* Pagination */}
-        {lastPage > 1 && (
-          <div className="flex items-center justify-end gap-1.5 px-4 py-3 border-t border-border">
-            {Array.from({ length: lastPage }, (_, i) => i + 1).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPage(p)}
-                className={`min-w-[36px] h-9 rounded-lg text-sm font-medium ${
-                  page === p
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-secondary text-secondary-foreground hover:bg-accent'
-                }`}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-        )}
+        <TablePagination page={page} lastPage={lastPage} onChange={setPage} />
       </div>
 
       {/* Modal suppression */}
       {deleteId && (
+        <ModalPortal onClose={() => setDeleteId(null)}>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-card border border-border rounded-xl w-full max-w-md p-6 shadow-xl text-center">
             <div className="w-14 h-14 rounded-full bg-amber-500/15 text-amber-500 flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
@@ -216,6 +190,7 @@ export default function ClosingPage() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   );

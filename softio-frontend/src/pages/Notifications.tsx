@@ -6,6 +6,7 @@ import {
 } from '../services/notifications';
 import { useToast } from '../contexts/ToastContext';
 import Modal from '../components/ui/Modal';
+import PageHeader from '../components/ui/PageHeader';
 
 type Filtre = 'toutes' | 'non_lues' | 'message' | 'rdv';
 
@@ -115,30 +116,17 @@ export default function Notifications() {
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-        <div className="flex items-center gap-3">
-          <div className="relative w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-            <Bell size={20} />
-            {counts.non_lues > 0 && (
-              <span className="absolute -top-2 -right-2 min-w-6 h-6 px-1 rounded-full border-2 border-background bg-red-600 text-white text-xs flex items-center justify-center font-bold shadow-sm">
-                {counts.non_lues}
-              </span>
-            )}
-          </div>
-          <div>
-            <h1 className="text-xl font-bold">Notifications</h1>
-            <p className="text-sm text-muted-foreground">
-              Suivez les messages de vos prospects et vos rendez-vous
-            </p>
-          </div>
-        </div>
-        <button
+      <PageHeader
+        title="Notifications"
+        description="Suivez les messages de vos prospects et vos rendez-vous."
+        icon={<Bell size={23} />}
+        action={<button
           onClick={onMarkAll}
           className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm"
         >
           <Check size={16} /> Tout marquer comme lu
-        </button>
-      </div>
+        </button>}
+      />
 
       <div className="relative mb-4">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />

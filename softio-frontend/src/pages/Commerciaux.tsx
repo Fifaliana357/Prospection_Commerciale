@@ -8,6 +8,10 @@ import {
   type Commercial,
 } from '../services/commerciaux';
 import { useToast } from '../contexts/ToastContext';
+import TablePagination from '../components/ui/TablePagination';
+import TableSummary from '../components/ui/TableSummary';
+import PageHeader from '../components/ui/PageHeader';
+import { ModalPortal } from '../components/ui/Modal';
 
 export default function Commerciaux() {
   const toast = useToast();
@@ -120,15 +124,7 @@ export default function Commerciaux() {
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
-      <div className="mb-5 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-          <UserCog size={20} />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold">Commerciaux</h1>
-          <p className="text-sm text-muted-foreground">Gérez les commerciaux de votre équipe</p>
-        </div>
-      </div>
+      <PageHeader title="Commerciaux" description="Gérez les commerciaux de votre équipe." icon={<UserCog size={23} />} />
 
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-1">
@@ -140,6 +136,7 @@ export default function Commerciaux() {
             className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-card shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
+        <TableSummary total={total} label="commerciaux" />
         <button
           onClick={openCreate}
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90"
@@ -194,20 +191,12 @@ export default function Commerciaux() {
             </tbody>
           </table>
         </div>
-        {lastPage > 1 && (
-          <div className="flex justify-end gap-1.5 px-4 py-3">
-            {Array.from({ length: lastPage }, (_, i) => i + 1).map((p) => (
-              <button key={p} onClick={() => setPage(p)}
-                className={`min-w-[36px] h-9 rounded-lg text-sm ${page === p ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-accent'}`}>
-                {p}
-              </button>
-            ))}
-          </div>
-        )}
+        <TablePagination page={page} lastPage={lastPage} onChange={setPage} />
         <div className="px-4 py-2 text-xs text-muted-foreground">{total} commercial(aux)</div>
       </div>
 
       {showModal && (
+        <ModalPortal onClose={() => setShowModal(false)}>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-card rounded-xl w-full max-w-lg shadow-xl">
             <div className="flex items-center justify-between px-5 py-4 shadow-sm">
@@ -252,9 +241,11 @@ export default function Commerciaux() {
             </form>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {deleteId && (
+        <ModalPortal onClose={() => setDeleteId(null)}>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-card rounded-xl w-full max-w-sm p-6 shadow-xl text-center">
             <h3 className="font-semibold mb-2">Êtes-vous sûr ?</h3>
@@ -265,6 +256,7 @@ export default function Commerciaux() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   );

@@ -10,20 +10,20 @@ class AdminSeeder extends Seeder
 {
     public function run(): void
     {
-        // updateOrCreate cherche par 'email'. S'il trouve, il met à jour. Sinon, il crée.
-        Admin::updateOrCreate(
-            ['email' => 'admin@test.com'], // Clé unique de recherche
+        Admin::firstOrCreate(
+            ['email' => 'admin@test.com'],
             [
                 'nom' => 'Admin',
                 'prenom' => 'Principal',
                 'telephone' => '0340000000',
                 'entreprise' => 'Prospect',
-                'password' => Hash::make('password'), // Attention: ça réinitialisera le mdp à chaque seed
+                'password' => Hash::make('password'),
                 'est_verifie' => true,
+                'email_verification_required' => false,
                 'theme_preference' => 'dark',
                 'is_first_login' => false,
                 'est_admin_site' => true,
-            ]
+            ],
         );
     }
 }

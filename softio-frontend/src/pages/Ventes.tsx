@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
-  BriefcaseBusiness, CalendarDays, Check, ChevronLeft, ChevronRight,
+  BriefcaseBusiness, CalendarDays, Check,
   ClipboardList, Eye, FileText, Minus, Package, Plus, Search, ShoppingCart,
   Trash2, X,
 } from "lucide-react"
 import Modal from "@/components/ui/Modal"
+import DatePicker from "@/components/ui/DatePicker"
+import Select from "@/components/ui/Select"
+import TablePagination from "@/components/ui/TablePagination"
+import TableSummary from "@/components/ui/TableSummary"
+import PageHeader from "@/components/ui/PageHeader"
 import { useToast } from "@/contexts/ToastContext"
 import type { Client } from "@/services/clients"
 import type { Offre, Produit } from "@/services/catalogue"
@@ -228,16 +233,17 @@ function SaleEditor({
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="space-y-1.5 text-sm font-medium">
           <span>Client / prospect</span>
-          <select required value={clientId} onChange={(event) => setClientId(event.target.value)} className={inputClass}>
-            <option value="">Sélectionner un client</option>
-            {clients.map((client) => (
-              <option key={client.id_client} value={client.id_client}>{clientLabel(client)}</option>
-            ))}
-          </select>
+          <Select
+            required
+            value={clientId}
+            onChange={setClientId}
+            placeholder="Sélectionner un client"
+            options={clients.map((client) => ({ value: String(client.id_client), label: clientLabel(client) }))}
+          />
         </label>
         <label className="space-y-1.5 text-sm font-medium">
           <span>Date de vente</span>
-          <input required type="date" value={date} onChange={(event) => setDate(event.target.value)} className={inputClass} />
+          <DatePicker required value={date} onChange={setDate} ariaLabel="Date de vente" />
         </label>
         <label className="space-y-1.5 text-sm font-medium sm:col-span-2">
           <span>Intitulé (facultatif)</span>
@@ -249,10 +255,10 @@ function SaleEditor({
         <div className="grid gap-4 border-b border-border p-4 sm:grid-cols-2">
           <label className="space-y-1.5 text-sm font-medium">
             <span>Type</span>
-            <select value={lineType} onChange={(event) => changeLineType(event.target.value as SaleLineType)} className={inputClass}>
-              <option value="produit">Produit</option>
-              <option value="service">Service</option>
-            </select>
+            <Select value={lineType} onChange={(value) => changeLineType(value as SaleLineType)} options={[
+              { value: "produit", label: "Produit" },
+              { value: "service", label: "Service" },
+            ]} />
           </label>
           <label className="space-y-1.5 text-sm font-medium">
             <span>{lineType === "produit" ? "Référence / produit" : "Service"}</span>
@@ -314,29 +320,29 @@ function SaleEditor({
         </div>
       </section>
 
-      <div className="overflow-x-auto rounded-xl border border-border">
-        <table className="w-full min-w-[720px] text-sm">
+      <div className="overflow-hidden rounded-xl border border-border">
+        <table className="w-full min-w-0 table-fixed text-xs sm:text-sm">
           <thead className="bg-primary text-primary-foreground">
             <tr>
-              <th className="px-3 py-3 text-left">Référence / type</th>
-              <th className="px-3 py-3 text-left">Désignation</th>
-              <th className="px-3 py-3 text-right">Prix</th>
-              <th className="px-3 py-3 text-center">Quantité</th>
-              <th className="px-3 py-3 text-right">Remise</th>
-              <th className="px-3 py-3 text-right">Montant</th>
-              <th className="px-3 py-3 text-center">Action</th>
+              <th className="break-words px-1.5 py-2 text-left sm:px-2">Référence / type</th>
+              <th className="break-words px-1.5 py-2 text-left sm:px-2">Désignation</th>
+              <th className="break-words px-1.5 py-2 text-right sm:px-2">Prix</th>
+              <th className="break-words px-1.5 py-2 text-center sm:px-2">Quantité</th>
+              <th className="break-words px-1.5 py-2 text-right sm:px-2">Remise</th>
+              <th className="break-words px-1.5 py-2 text-right sm:px-2">Montant</th>
+              <th className="break-words px-1.5 py-2 text-center sm:px-2">Action</th>
             </tr>
           </thead>
           <tbody>
             {basket.length ? basket.map((line) => (
               <tr key={line.key} className="border-b border-border last:border-0">
-                <td className="px-3 py-3">{line.reference || (line.type_ligne === "produit" ? "Produit" : "Service")}</td>
-                <td className="px-3 py-3 font-medium">{line.designation}</td>
-                <td className="whitespace-nowrap px-3 py-3 text-right">{formatAmount(line.prix_unitaire)}</td>
-                <td className="px-3 py-3 text-center">{line.quantite}</td>
-                <td className="whitespace-nowrap px-3 py-3 text-right">{formatAmount(line.remise)}</td>
-                <td className="whitespace-nowrap px-3 py-3 text-right font-semibold">{formatAmount(line.montant)}</td>
-                <td className="px-3 py-3 text-center">
+                <td className="break-words px-1.5 py-2 sm:px-2">{line.reference || (line.type_ligne === "produit" ? "Produit" : "Service")}</td>
+                <td className="break-words px-1.5 py-2 font-medium sm:px-2">{line.designation}</td>
+                <td className="break-words px-1.5 py-2 text-right sm:px-2">{formatAmount(line.prix_unitaire)}</td>
+                <td className="px-1.5 py-2 text-center sm:px-2">{line.quantite}</td>
+                <td className="break-words px-1.5 py-2 text-right sm:px-2">{formatAmount(line.remise)}</td>
+                <td className="break-words px-1.5 py-2 text-right font-semibold sm:px-2">{formatAmount(line.montant)}</td>
+                <td className="px-1.5 py-2 text-center sm:px-2">
                   <button type="button" onClick={() => removeLine(line.key)} title="Retirer la ligne" aria-label={`Retirer ${line.designation}`} className="rounded-full p-2 text-destructive hover:bg-destructive/10"><Trash2 size={15} /></button>
                 </td>
               </tr>
@@ -361,14 +367,13 @@ function SaleEditor({
         )}
         <label className="space-y-1.5 text-sm font-medium">
           <span>Méthode de paiement (facultatif)</span>
-          <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} className={inputClass}>
-            <option value="">Non renseignée</option>
-            <option value="Espèces">Espèces</option>
-            <option value="Virement">Virement</option>
-            <option value="Mobile money">Mobile money</option>
-            <option value="Chèque">Chèque</option>
-            <option value="Autre">Autre</option>
-          </select>
+          <Select value={paymentMethod} onChange={setPaymentMethod} options={[
+            { value: "", label: "Non renseignée" },
+            { value: "Espèces", label: "Espèces" },
+            { value: "Virement", label: "Virement" },
+            { value: "Mobile money", label: "Mobile money" },
+            { value: "Chèque", label: "Chèque" },
+          ]} />
         </label>
         <label className="space-y-1.5 text-sm font-medium">
           <span>Modalités de paiement</span>
@@ -396,17 +401,6 @@ function SaleEditor({
           </button>
         </div>
       </div>
-    </div>
-  )
-}
-
-function Pagination({ page, lastPage, onChange }: { page: number; lastPage: number; onChange: (page: number) => void }) {
-  if (lastPage <= 1) return null
-  return (
-    <div className="flex items-center justify-end gap-2 border-t border-border px-4 py-3">
-      <button type="button" disabled={page <= 1} onClick={() => onChange(page - 1)} className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-accent disabled:opacity-40" aria-label="Page précédente"><ChevronLeft size={16} /></button>
-      <span className="px-2 text-sm text-muted-foreground">Page {page} sur {lastPage}</span>
-      <button type="button" disabled={page >= lastPage} onClick={() => onChange(page + 1)} className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-accent disabled:opacity-40" aria-label="Page suivante"><ChevronRight size={16} /></button>
     </div>
   )
 }
@@ -642,22 +636,16 @@ export default function Ventes() {
 
   return (
     <div className="space-y-4">
-      <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-primary/10 bg-gradient-to-r from-primary/5 via-card to-primary/10 p-5 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-400 text-amber-950 shadow-sm">
-            {view === "enregistrement" ? <ShoppingCart size={21} /> : <ClipboardList size={21} />}
-          </div>
-          <div>
-            <h1 className="font-display text-xl font-bold">{pageTitle}</h1>
-            <p className="mt-1 text-xs text-muted-foreground">{pageSubtitle}</p>
-          </div>
-        </div>
-        {view !== "enregistrement" && (
+      <PageHeader
+        title={pageTitle}
+        description={pageSubtitle}
+        icon={view === "enregistrement" ? <ShoppingCart size={23} /> : <ClipboardList size={23} />}
+        action={view !== "enregistrement" ? (
           <button type="button" onClick={openNewSale} disabled={loadingCatalog} className={`${buttonClass} bg-primary text-primary-foreground hover:opacity-90`}>
             <Plus size={17} /> Nouvelle vente
           </button>
-        )}
-      </section>
+        ) : undefined}
+      />
 
       <nav className="flex gap-1 border-b border-border" aria-label="Navigation des ventes">
         {tabs.map((tab) => (
@@ -720,6 +708,7 @@ export default function Ventes() {
                   <X size={13} /> Effacer dates
                 </button>
               )}
+              <TableSummary total={totalSales} label="ventes" />
             </div>
           </div>
 
@@ -783,13 +772,13 @@ export default function Ventes() {
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground">
               <span>{visibleTotal} vente(s)</span>
-              <Pagination page={page} lastPage={lastPage} onChange={(value) => { setPage(value); setLoadingList(true) }} />
+              <TablePagination page={page} lastPage={lastPage} onChange={(value) => { setPage(value); setLoadingList(true) }} />
             </div>
           </section>
         </>
       )}
 
-      <Modal open={mode === "editor"} onClose={closeModal} title={editingId ? "Modifier le brouillon de vente" : "Nouvelle vente"} size="lg">
+      <Modal open={mode === "editor"} onClose={closeModal} title={editingId ? "Modifier le brouillon de vente" : "Nouvelle vente"} size="2xl">
         {loadingCatalog ? (
           <p className="py-12 text-center text-muted-foreground">Chargement du catalogue...</p>
         ) : clients.length === 0 ? (
@@ -811,7 +800,7 @@ export default function Ventes() {
         )}
       </Modal>
 
-      <Modal open={mode === "detail"} onClose={closeModal} title={selectedSale ? `Détail de la vente ${selectedSale.numero ?? selectedSale.id_vente}` : "Détail de la vente"} size="lg">
+      <Modal open={mode === "detail"} onClose={closeModal} title={selectedSale ? `Détail de la vente ${selectedSale.numero ?? selectedSale.id_vente}` : "Détail de la vente"} size="2xl">
         {loadingDetail || !selectedSale ? (
           <p className="py-12 text-center text-muted-foreground">Chargement...</p>
         ) : (
@@ -827,8 +816,8 @@ export default function Ventes() {
                 <div><p className="text-xs text-muted-foreground">Total</p><p className="font-bold text-primary">{formatAmount(Number(selectedSale.montant_ttc ?? selectedSale.montant_total))}</p></div>
               </div>
             </div>
-            <div className="overflow-x-auto rounded-xl border border-border">
-              <table className="w-full min-w-[620px] text-sm">
+            <div className="overflow-hidden rounded-xl border border-border">
+              <table className="w-full min-w-0 table-fixed text-xs sm:text-sm">
                 <thead className="bg-primary text-primary-foreground">
                   <tr><th className="px-3 py-2.5 text-left">Référence</th><th className="px-3 py-2.5 text-left">Désignation</th><th className="px-3 py-2.5 text-right">Prix unitaire</th><th className="px-3 py-2.5 text-center">Quantité</th><th className="px-3 py-2.5 text-right">Montant</th></tr>
                 </thead>
@@ -886,8 +875,8 @@ export default function Ventes() {
       <Modal open={mode === "dates"} onClose={closeModal} title="Filtrer par dates" size="sm">
         <form onSubmit={applyDates} className="space-y-5">
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-1.5 text-sm font-medium"><span>Du</span><input type="date" value={draftDateFrom} onChange={(event) => setDraftDateFrom(event.target.value)} className={inputClass} /></label>
-            <label className="space-y-1.5 text-sm font-medium"><span>Au</span><input type="date" value={draftDateTo} onChange={(event) => setDraftDateTo(event.target.value)} className={inputClass} /></label>
+            <label className="space-y-1.5 text-sm font-medium"><span>Du</span><DatePicker value={draftDateFrom} onChange={setDraftDateFrom} /></label>
+            <label className="space-y-1.5 text-sm font-medium"><span>Au</span><DatePicker value={draftDateTo} onChange={setDraftDateTo} /></label>
           </div>
           <div className="flex justify-between gap-2 border-t border-border pt-4">
             <button type="button" onClick={() => { setDraftDateFrom(""); setDraftDateTo(""); setDateFrom(""); setDateTo(""); setPage(1); setLoadingList(true); setMode(null) }} className={`${buttonClass} text-muted-foreground hover:bg-accent`}><X size={15} /> Effacer</button>

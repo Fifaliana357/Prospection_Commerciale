@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState } from "react"
 import {
-  Archive, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardList,
+  Archive, CalendarDays, Check, ClipboardList,
   Minus, Pencil, Plus, Search, Trash2, X,
 } from "lucide-react"
 import Modal from "@/components/ui/Modal"
+import DatePicker from "@/components/ui/DatePicker"
+import Select from "@/components/ui/Select"
+import TablePagination from "@/components/ui/TablePagination"
+import TableSummary from "@/components/ui/TableSummary"
+import PageHeader from "@/components/ui/PageHeader"
 import { useToast } from "@/contexts/ToastContext"
 import {
   createStockMovement,
@@ -53,44 +58,6 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
-function Pagination({
-  page,
-  lastPage,
-  onChange,
-}: {
-  page: number
-  lastPage: number
-  onChange: (page: number) => void
-}) {
-  if (lastPage <= 1) return null
-
-  return (
-    <div className="flex items-center justify-end gap-2 border-t border-border px-4 py-3">
-      <button
-        type="button"
-        disabled={page <= 1}
-        onClick={() => onChange(page - 1)}
-        className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-accent disabled:opacity-40"
-        aria-label="Page précédente"
-      >
-        <ChevronLeft size={16} />
-      </button>
-      <span className="px-2 text-sm text-muted-foreground">
-        Page {page} sur {lastPage}
-      </span>
-      <button
-        type="button"
-        disabled={page >= lastPage}
-        onClick={() => onChange(page + 1)}
-        className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-accent disabled:opacity-40"
-        aria-label="Page suivante"
-      >
-        <ChevronRight size={16} />
-      </button>
-    </div>
-  )
-}
-
 export default function Stock() {
   const toast = useToast()
   const toastRef = useRef(toast)
@@ -99,6 +66,7 @@ export default function Stock() {
   const [products, setProducts] = useState<InventoryProduct[]>([])
   const [inventory, setInventory] = useState<InventoryProduct[]>([])
   const [movements, setMovements] = useState<StockMovement[]>([])
+  const [movementTotal, setMovementTotal] = useState(0)
   const [summary, setSummary] = useState({ total_value: 0, products_count: 0 })
   const [loadingInventory, setLoadingInventory] = useState(true)
   const [loadingMovements, setLoadingMovements] = useState(true)
@@ -154,6 +122,7 @@ export default function Stock() {
         if (!active) return
         setMovements(response.data)
         setMovementLastPage(response.last_page)
+        setMovementTotal(response.total)
       })
       .catch((error: unknown) => {
         if (active) toastRef.current.error(getErrorMessage(error, "Erreur de chargement des approvisionnements"))
@@ -280,23 +249,13 @@ export default function Stock() {
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-5">
-      <header className="rounded-2xl border border-primary/10 bg-gradient-to-r from-primary/10 via-card to-primary/5 p-5 shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="grid h-12 w-12 place-items-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-            <Archive size={22} />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">
-              {tab === "approvisionnement" ? "Approvisionnement" : "Inventaire"}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {tab === "approvisionnement"
-                ? "Gérez les entrées de stock et le suivi de chaque lot."
-                : "Vue d’ensemble des quantités et de la valeur du stock disponible."}
-            </p>
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        title={tab === "approvisionnement" ? "Approvisionnement" : "Inventaire"}
+        description={tab === "approvisionnement"
+          ? "Gérez les entrées de stock et le suivi de chaque lot."
+          : "Vue d’ensemble des quantités et de la valeur du stock disponible."}
+        icon={<Archive size={23} />}
+      />
 
       <nav className="flex w-fit items-center gap-1 border-b border-border" aria-label="Gestion du stock">
         <button
@@ -344,6 +303,7 @@ export default function Stock() {
             <button type="button" onClick={openCreateModal} className={`${buttonClass} bg-primary text-primary-foreground hover:opacity-90`}>
               <Plus size={17} /> Approvisionner
             </button>
+            <TableSummary total={movementTotal} label="approvisionnements" />
           </div>
 
           <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -408,7 +368,7 @@ export default function Stock() {
                 </tbody>
               </table>
             </div>
-            <Pagination page={movementPage} lastPage={movementLastPage} onChange={(page) => {
+            <TablePagination page={movementPage} lastPage={movementLastPage} onChange={(page) => {
               setLoadingMovements(true)
               setMovementPage(page)
             }} />
@@ -424,21 +384,24 @@ export default function Stock() {
             </div>
           </div>
 
-          <label className="relative block">
-            <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="search"
-              value={inventorySearch}
-              onChange={(event) => {
-                setInventorySearch(event.target.value)
-                setInventoryPage(1)
-                setLoadingInventory(true)
-              }}
-              placeholder="Référence ou désignation..."
-              className={`${inputClass} pl-10`}
-              aria-label="Rechercher dans l’inventaire"
-            />
-          </label>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <label className="relative block flex-1">
+              <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="search"
+                value={inventorySearch}
+                onChange={(event) => {
+                  setInventorySearch(event.target.value)
+                  setInventoryPage(1)
+                  setLoadingInventory(true)
+                }}
+                placeholder="Référence ou désignation..."
+                className={`${inputClass} pl-10`}
+                aria-label="Rechercher dans l’inventaire"
+              />
+            </label>
+            <TableSummary total={summary.products_count} label="produits en stock" />
+          </div>
 
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="overflow-x-auto">
@@ -485,7 +448,7 @@ export default function Stock() {
                 </tbody>
               </table>
             </div>
-            <Pagination page={inventoryPage} lastPage={inventoryLastPage} onChange={(page) => {
+            <TablePagination page={inventoryPage} lastPage={inventoryLastPage} onChange={(page) => {
               setLoadingInventory(true)
               setInventoryPage(page)
             }} />
@@ -497,14 +460,16 @@ export default function Stock() {
         <form onSubmit={saveSupply} className="space-y-5">
           <label className="block space-y-1.5 text-sm font-medium">
             <span>Référence / produit</span>
-            <select required value={productId} onChange={(event) => setProductId(event.target.value)} className={inputClass}>
-              <option value="" disabled>Sélectionner un produit</option>
-              {products.map((product) => (
-                <option key={product.id_produit} value={product.id_produit}>
-                  {product.reference || "Sans référence"} — {product.designation}
-                </option>
-              ))}
-            </select>
+            <Select
+              required
+              value={productId}
+              onChange={setProductId}
+              placeholder="Sélectionner un produit"
+              options={products.map((product) => ({
+                value: String(product.id_produit),
+                label: `${product.reference || "Sans référence"} — ${product.designation}`,
+              }))}
+            />
           </label>
           <div className="rounded-lg bg-muted/50 px-3 py-3 text-sm text-muted-foreground">
             <span className="font-medium text-foreground">Désignation : </span>
@@ -525,7 +490,7 @@ export default function Stock() {
             </label>
             <label className="block space-y-1.5 text-sm font-medium">
               <span>Date d’approvisionnement</span>
-              <input type="date" required value={date} onChange={(event) => setDate(event.target.value)} className={inputClass} />
+              <DatePicker required value={date} onChange={setDate} ariaLabel="Date d’approvisionnement" />
             </label>
           </div>
           <div className="flex justify-end gap-2 border-t border-border pt-4">
@@ -611,11 +576,11 @@ export default function Stock() {
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block space-y-1.5 text-sm font-medium">
               <span>Du</span>
-              <input type="date" value={draftDateFrom} onChange={(event) => setDraftDateFrom(event.target.value)} className={inputClass} />
+              <DatePicker value={draftDateFrom} onChange={setDraftDateFrom} ariaLabel="Date de début" />
             </label>
             <label className="block space-y-1.5 text-sm font-medium">
               <span>Au</span>
-              <input type="date" value={draftDateTo} onChange={(event) => setDraftDateTo(event.target.value)} className={inputClass} />
+              <DatePicker value={draftDateTo} onChange={setDraftDateTo} ariaLabel="Date de fin" />
             </label>
           </div>
           <div className="flex justify-between gap-2 border-t border-border pt-4">

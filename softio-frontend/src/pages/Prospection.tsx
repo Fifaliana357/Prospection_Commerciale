@@ -11,6 +11,14 @@ import {
 import { createClosing } from '../services/closings';
 import { createRendezVous } from '../services/rendezvous';
 import { useToast } from '../contexts/ToastContext';
+import TablePagination from '../components/ui/TablePagination';
+import TableSummary from '../components/ui/TableSummary';
+import PageHeader from '../components/ui/PageHeader';
+import { ModalPortal } from '../components/ui/Modal';
+import DatePicker from '../components/ui/DatePicker';
+import TimePicker from '../components/ui/TimePicker';
+import Select from '../components/ui/Select';
+import { getLocalDateInputValue } from '../lib/date';
 
 export default function Prospections() {
   const toast = useToast();
@@ -165,18 +173,7 @@ export default function Prospections() {
 
   return (
     <div className="p-6 max-w-[1600px] mx-auto">
-      {/* Header */}
-      <div className="mb-5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-            <Target size={20} />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Prospections</h1>
-            <p className="text-sm text-muted-foreground">Gérez vos actions de prospection</p>
-          </div>
-        </div>
-      </div>
+      <PageHeader title="Prospections" description="Gérez vos actions de prospection." icon={<Target size={23} />} />
 
       {/* Search + Actions */}
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -221,7 +218,7 @@ export default function Prospections() {
             </button>
           ))}
         </div>
-        <span className="text-sm text-muted-foreground">{total} élément{total > 1 ? 's' : ''}</span>
+        <TableSummary total={total} label="prospections" />
       </div>
 
       {/* Table */}
@@ -337,27 +334,12 @@ export default function Prospections() {
           </table>
         </div>
 
-        {lastPage > 1 && (
-          <div className="flex items-center justify-end gap-1.5 px-4 py-3 border-t border-border">
-            {Array.from({ length: lastPage }, (_, i) => i + 1).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPage(p)}
-                className={`min-w-[36px] h-9 rounded-lg text-sm font-medium ${
-                  page === p
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-secondary text-secondary-foreground hover:bg-accent'
-                }`}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-        )}
+        <TablePagination page={page} lastPage={lastPage} onChange={setPage} />
       </div>
 
       {/* Modal suppression */}
       {deleteId && (
+        <ModalPortal onClose={() => setDeleteId(null)}>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-card border border-border rounded-xl w-full max-w-md p-6 shadow-xl text-center">
             <div className="w-14 h-14 rounded-full bg-amber-500/15 text-amber-500 flex items-center justify-center mx-auto mb-4 text-2xl font-bold">!</div>
@@ -369,10 +351,12 @@ export default function Prospections() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* Modal Closing */}
       {showClosingModal && closingProspection && (
+        <ModalPortal onClose={() => setShowClosingModal(false)}>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-xl">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
@@ -421,10 +405,12 @@ export default function Prospections() {
             </form>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* Modal RDV */}
       {showRdvModal && rdvProspection && (
+        <ModalPortal onClose={() => setShowRdvModal(false)}>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-card">
@@ -447,29 +433,40 @@ export default function Prospections() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">Date *</label>
-                  <input type="date" required value={rdvForm.date_rdv}
-                    onChange={(e) => setRdvForm({ ...rdvForm, date_rdv: e.target.value })}
-                    className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background" />
+                  <DatePicker
+                    required
+                    value={rdvForm.date_rdv}
+                    min={getLocalDateInputValue()}
+                    onChange={(date_rdv) => setRdvForm({ ...rdvForm, date_rdv })}
+                    ariaLabel="Date du rendez-vous"
+                    className="mt-1"
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Heure</label>
-                  <input type="time" value={rdvForm.heure}
-                    onChange={(e) => setRdvForm({ ...rdvForm, heure: e.target.value })}
-                    className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background" />
+                  <TimePicker
+                    value={rdvForm.heure}
+                    onChange={(heure) => setRdvForm({ ...rdvForm, heure })}
+                    ariaLabel="Heure du rendez-vous"
+                    className="mt-1"
+                  />
                 </div>
               </div>
 
               <div>
                 <label className="text-sm font-medium">Mode de rendez-vous</label>
-                <select value={rdvForm.type_rdv}
-                  onChange={(e) => setRdvForm({ ...rdvForm, type_rdv: e.target.value })}
-                  className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background">
-                  <option value="Direct">Direct</option>
-                  <option value="Téléphonique">Téléphonique</option>
-                  <option value="Visio conférence">Visio conférence</option>
-                  <option value="Livraison">Livraison</option>
-                  <option value="Réunion">Réunion</option>
-                </select>
+                <Select
+                  value={rdvForm.type_rdv}
+                  onChange={(type_rdv) => setRdvForm({ ...rdvForm, type_rdv })}
+                  className="mt-1"
+                  options={[
+                    { value: "Direct", label: "Direct" },
+                    { value: "Téléphonique", label: "Téléphonique" },
+                    { value: "Visio conférence", label: "Visio conférence" },
+                    { value: "Livraison", label: "Livraison" },
+                    { value: "Réunion", label: "Réunion" },
+                  ]}
+                />
               </div>
 
               {(rdvForm.type_rdv === 'Direct' || rdvForm.type_rdv === 'Livraison' || rdvForm.type_rdv === 'Réunion') && (
@@ -520,6 +517,7 @@ export default function Prospections() {
             </form>
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   );

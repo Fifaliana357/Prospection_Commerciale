@@ -72,4 +72,9 @@ class Vente extends Model
     {
         return $this->hasMany(LigneVente::class, 'id_vente', 'id_vente')->orderBy('ordre');
     }
+
+    public function livraison(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Livraison::class, 'id_vente', 'id_vente');
+    }
 }

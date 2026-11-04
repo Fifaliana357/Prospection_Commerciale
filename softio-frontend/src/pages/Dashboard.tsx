@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import {
-  AlertCircle, CalendarDays, ChartNoAxesCombined, Filter, RefreshCw,
+  AlertCircle, AlertTriangle, CalendarDays, ChartNoAxesCombined, Filter, RefreshCw,
   ShoppingCart, Star, Trophy, Users,
 } from "lucide-react"
 import api from "@/services/api"
 import { useToast } from "@/contexts/ToastContext"
+import { Link } from "react-router-dom"
+import PageHeader from "@/components/ui/PageHeader"
+import TableSummary from "@/components/ui/TableSummary"
+import DatePicker from "@/components/ui/DatePicker"
+import Select from "@/components/ui/Select"
 
 type DashboardTab = "ventes" | "scoring" | "etoiles"
 type Period = "day" | "week" | "month"
@@ -34,6 +39,7 @@ type DashboardStats = {
   chiffre_affaires: number
   nombre_ventes: number
   ventes_non_validees: number
+  livraisons_en_retard: number
   clients_avec_achat: number
   evolution: TrendPoint[]
   top_produits: ProductRank[]
@@ -250,17 +256,7 @@ export default function Dashboard() {
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-5">
-      <header className="rounded-2xl border border-primary/10 bg-gradient-to-r from-primary/10 via-card to-primary/5 p-5 shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="grid h-12 w-12 place-items-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-            <ChartNoAxesCombined size={22} />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">Statistiques</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Suivez votre chiffre d’affaires, vos ventes et vos performances commerciales.</p>
-          </div>
-        </div>
-      </header>
+      <PageHeader title="Tableau de bord" description="Suivez votre chiffre d’affaires, vos ventes et vos performances commerciales." icon={<ChartNoAxesCombined size={23} />} />
 
       <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Vues statistiques">
         {tabs.map((item) => (
@@ -280,38 +276,43 @@ export default function Dashboard() {
           <div className="flex flex-wrap items-end gap-2">
             <label className="space-y-1 text-xs text-muted-foreground">
               <span className="flex items-center gap-1"><CalendarDays size={13} /> Du</span>
-              <input type="date" value={dateFrom} max={dateTo} onChange={(event) => setDateFrom(event.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground" />
+              <DatePicker value={dateFrom} max={dateTo} onChange={setDateFrom} ariaLabel="Date de début" />
             </label>
             <label className="space-y-1 text-xs text-muted-foreground">
               <span>Au</span>
-              <input type="date" value={dateTo} min={dateFrom} onChange={(event) => setDateTo(event.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground" />
+              <DatePicker value={dateTo} min={dateFrom} onChange={setDateTo} ariaLabel="Date de fin" />
             </label>
             <label className="space-y-1 text-xs text-muted-foreground">
               <span className="flex items-center gap-1"><Filter size={13} /> Type</span>
-              <select value={type} onChange={(event) => setType(event.target.value as SalesType)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground">
-                <option value="all">Tous</option>
-                <option value="produit">Produits</option>
-                <option value="service">Services</option>
-              </select>
+              <Select value={type} onChange={(value) => setType(value as SalesType)} options={[
+                { value: "all", label: "Tous" },
+                { value: "produit", label: "Produits" },
+                { value: "service", label: "Services" },
+              ]} />
             </label>
             <label className="space-y-1 text-xs text-muted-foreground">
               <span>Responsable</span>
-              <select value={commercialId} onChange={(event) => setCommercialId(event.target.value)} className="min-w-36 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground">
-                <option value="">Tous</option>
-                {(stats?.responsables ?? []).map((responsable) => (
-                  <option key={responsable.id_commercial} value={responsable.id_commercial}>{[responsable.prenom, responsable.nom].filter(Boolean).join(" ")}</option>
-                ))}
-              </select>
+              <Select value={commercialId} onChange={setCommercialId} className="min-w-36" options={[
+                { value: "", label: "Tous" },
+                ...(stats?.responsables ?? []).map((responsable) => ({
+                  value: String(responsable.id_commercial),
+                  label: [responsable.prenom, responsable.nom].filter(Boolean).join(" "),
+                })),
+              ]} />
             </label>
             <button type="button" onClick={() => setRefreshKey((value) => value + 1)} disabled={loading} className={`${buttonClass} h-10`} aria-label="Actualiser les statistiques">
               <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
             </button>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className={cardClass}><p className="text-xs uppercase tracking-wide text-muted-foreground">Chiffre d’affaires</p><p className="mt-1 text-2xl font-bold text-primary">{money(stats?.chiffre_affaires ?? 0)}</p></div>
             <div className={cardClass}><p className="text-xs uppercase tracking-wide text-muted-foreground">Nombre de ventes</p><p className="mt-1 text-2xl font-bold text-emerald-600">{stats?.nombre_ventes ?? 0}</p></div>
             <div className={cardClass}><p className="text-xs uppercase tracking-wide text-muted-foreground">Ventes non validées</p><p className="mt-1 text-2xl font-bold text-rose-500">{stats?.ventes_non_validees ?? 0}</p></div>
+            <Link to="/sav?statut=retardee" className={`${cardClass} transition hover:border-red-300 hover:bg-red-50/50 dark:hover:bg-red-950/20`} aria-label={`${stats?.livraisons_en_retard ?? 0} livraisons en retard. Ouvrir le suivi SAV.`}>
+              <p className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground"><AlertTriangle size={14} className="text-red-600" /> Livraisons en retard</p>
+              <p className="mt-1 text-2xl font-bold text-red-600">{stats?.livraisons_en_retard ?? 0}</p>
+            </Link>
           </div>
 
           <section className={cardClass}>
@@ -418,10 +419,13 @@ export default function Dashboard() {
 
       {tab === "etoiles" && (
         <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-          <label className="relative block border-b border-border p-3">
-            <Filter size={16} className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input type="search" value={interestSearch} onChange={(event) => setInterestSearch(event.target.value)} placeholder="Rechercher une offre..." aria-label="Rechercher une offre" className="w-full rounded-lg border border-border bg-background py-2.5 pl-9 pr-3 text-sm" />
-          </label>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-3">
+            <label className="relative min-w-48 flex-1">
+              <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input type="search" value={interestSearch} onChange={(event) => setInterestSearch(event.target.value)} placeholder="Rechercher une offre..." aria-label="Rechercher une offre" className="w-full rounded-lg border border-border bg-background py-2.5 pl-9 pr-3 text-sm" />
+            </label>
+            <TableSummary total={stats?.interets_par_etoile.length ?? 0} label="offres" />
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-sm">
               <thead className="bg-primary text-primary-foreground">

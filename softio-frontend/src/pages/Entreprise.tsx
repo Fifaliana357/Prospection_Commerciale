@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Building2, Check, ImageUp, MapPin, Phone, Scale, Upload } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import Modal from '../components/ui/Modal';
+import PageHeader from '../components/ui/PageHeader';
 import {
   getCompanySettings,
   updateCompanySettings,
@@ -101,15 +102,7 @@ export default function Entreprise() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">
-      <header className="rounded-2xl border border-primary/10 bg-gradient-to-r from-card to-primary/10 p-6">
-        <div className="flex items-center gap-4">
-          <div className="grid h-12 w-12 place-items-center rounded-xl bg-primary/10 text-primary"><Building2 size={24} /></div>
-          <div>
-            <h1 className="text-2xl font-bold">Mon entreprise</h1>
-            <p className="text-sm text-muted-foreground">Informations reprises sur vos factures et devis.</p>
-          </div>
-        </div>
-      </header>
+      <PageHeader title="Mon entreprise" description="Informations reprises sur vos factures et devis." icon={<Building2 size={23} />} />
 
       <form onSubmit={save} className="grid gap-5 lg:grid-cols-[1.25fr_0.75fr]">
         <div className="space-y-5">

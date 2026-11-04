@@ -8,6 +8,8 @@ import {
 } from '../services/bibliotheque';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import PageHeader from '../components/ui/PageHeader';
+import { ModalPortal } from '../components/ui/Modal';
 
 const API_URL = 'http://127.0.0.1:8000';
 
@@ -125,15 +127,7 @@ export default function Bibliotheque() {
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
-      <div className="mb-5 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-          <FolderOpen size={20} />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold">Bibliothèques</h1>
-          <p className="text-sm text-muted-foreground">Gérez vos fichiers et documents</p>
-        </div>
-      </div>
+      <PageHeader title="Bibliothèque" description="Gérez vos fichiers et documents." icon={<FolderOpen size={23} />} />
 
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-1">
@@ -276,6 +270,7 @@ export default function Bibliotheque() {
       </div>
 
       {deleteId && (
+        <ModalPortal onClose={() => setDeleteId(null)}>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-card rounded-xl w-full max-w-sm p-6 shadow-xl text-center">
             <h3 className="font-semibold mb-2">Supprimer ce fichier ?</h3>
@@ -296,6 +291,7 @@ export default function Bibliotheque() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   );

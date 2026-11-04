@@ -16,6 +16,11 @@ import { createClosing } from '../services/closings';
 import { createRendezVous } from '../services/rendezvous';
 import { getInterets, createInteret } from '../services/interets';
 import { useToast } from '../contexts/ToastContext';
+import { ModalPortal } from '../components/ui/Modal';
+import DatePicker from '../components/ui/DatePicker';
+import TimePicker from '../components/ui/TimePicker';
+import Select from '../components/ui/Select';
+import { getLocalDateInputValue } from '../lib/date';
 
 export default function ProspectionDetail() {
   const { id } = useParams<{ id: string }>();
@@ -344,14 +349,18 @@ export default function ProspectionDetail() {
               )}
               <div>
                 <label className="text-xs font-medium">Type</label>
-                <select value={form.type_message} onChange={(e) => setForm({ ...form, type_message: e.target.value })}
-                  className="mt-1 w-full px-3 py-2 border border-border rounded-lg bg-background text-sm">
-                  <option value="Contact">Contact</option>
-                  <option value="Facebook">Facebook</option>
-                  <option value="Email">Email</option>
-                  <option value="Téléphone">Téléphone</option>
-                  <option value="WhatsApp">WhatsApp</option>
-                </select>
+                <Select
+                  value={form.type_message}
+                  onChange={(type_message) => setForm({ ...form, type_message })}
+                  className="mt-1"
+                  options={[
+                    { value: "Contact", label: "Contact" },
+                    { value: "Facebook", label: "Facebook" },
+                    { value: "Email", label: "Email" },
+                    { value: "Téléphone", label: "Téléphone" },
+                    { value: "WhatsApp", label: "WhatsApp" },
+                  ]}
+                />
               </div>
             </div>
             <div>
@@ -393,11 +402,15 @@ export default function ProspectionDetail() {
             <div
               key={msg.id_proposition}
               id={`proposition-${msg.id_proposition}`}
-              className={`border border-border rounded-xl p-3.5 transition-colors ${msg.type === 'sortant' ? 'bg-primary/5' : 'bg-amber-500/5'} ${focusedMessageId === msg.id_proposition ? 'ring-2 ring-primary shadow-lg' : ''}`}>
+              className={`border border-l-4 rounded-xl p-3.5 transition-colors ${
+                msg.type === 'sortant'
+                  ? 'border-primary/30 border-l-primary bg-primary/10'
+                  : 'border-amber-500/30 border-l-amber-500 bg-amber-500/10'
+              } ${focusedMessageId === msg.id_proposition ? 'ring-2 ring-primary shadow-lg' : ''}`}>
               <div className="flex items-start justify-between gap-2 mb-1.5">
                 <div className="flex items-center gap-2">
                   <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${
-                    msg.type === 'sortant' ? 'bg-primary/20 text-primary' : 'bg-amber-500/20 text-amber-600'
+                    msg.type === 'sortant' ? 'bg-primary/20 text-primary' : 'bg-amber-500/25 text-amber-700 dark:text-amber-400'
                   }`}>
                     {msg.type === 'sortant' ? 'A' : clientName.charAt(0)}
                   </div>
@@ -427,6 +440,7 @@ export default function ProspectionDetail() {
 
       {/* Closing */}
       {showClosing && (
+        <ModalPortal onClose={() => setShowClosing(false)}>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-xl">
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
@@ -464,10 +478,12 @@ export default function ProspectionDetail() {
             </form>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* RDV */}
       {showRdv && (
+        <ModalPortal onClose={() => setShowRdv(false)}>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-border sticky top-0 bg-card">
@@ -478,27 +494,39 @@ export default function ProspectionDetail() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm font-medium">Date *</label>
-                  <input type="date" required value={rdvForm.date_rdv}
-                    onChange={(e) => setRdvForm({ ...rdvForm, date_rdv: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 border border-border rounded-lg bg-background text-sm" />
+                  <DatePicker
+                    required
+                    value={rdvForm.date_rdv}
+                    min={getLocalDateInputValue()}
+                    onChange={(date_rdv) => setRdvForm({ ...rdvForm, date_rdv })}
+                    ariaLabel="Date du rendez-vous"
+                    className="mt-1"
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Heure</label>
-                  <input type="time" value={rdvForm.heure}
-                    onChange={(e) => setRdvForm({ ...rdvForm, heure: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 border border-border rounded-lg bg-background text-sm" />
+                  <TimePicker
+                    value={rdvForm.heure}
+                    onChange={(heure) => setRdvForm({ ...rdvForm, heure })}
+                    ariaLabel="Heure du rendez-vous"
+                    className="mt-1"
+                  />
                 </div>
               </div>
               <div>
                 <label className="text-sm font-medium">Mode</label>
-                <select value={rdvForm.type_rdv} onChange={(e) => setRdvForm({ ...rdvForm, type_rdv: e.target.value })}
-                  className="mt-1 w-full px-3 py-2 border border-border rounded-lg bg-background text-sm">
-                  <option value="Direct">Direct</option>
-                  <option value="Téléphonique">Téléphonique</option>
-                  <option value="Visio conférence">Visio conférence</option>
-                  <option value="Livraison">Livraison</option>
-                  <option value="Réunion">Réunion</option>
-                </select>
+                <Select
+                  value={rdvForm.type_rdv}
+                  onChange={(type_rdv) => setRdvForm({ ...rdvForm, type_rdv })}
+                  className="mt-1"
+                  options={[
+                    { value: "Direct", label: "Direct" },
+                    { value: "Téléphonique", label: "Téléphonique" },
+                    { value: "Visio conférence", label: "Visio conférence" },
+                    { value: "Livraison", label: "Livraison" },
+                    { value: "Réunion", label: "Réunion" },
+                  ]}
+                />
               </div>
               {(rdvForm.type_rdv === 'Direct' || rdvForm.type_rdv === 'Livraison' || rdvForm.type_rdv === 'Réunion') && (
                 <div>
@@ -528,16 +556,17 @@ export default function ProspectionDetail() {
             </form>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* Relance */}
       {showRelance && (
+        <ModalPortal onClose={() => setShowRelance(false)}>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-card border border-border rounded-xl w-full max-w-sm shadow-xl p-5">
             <h2 className="font-semibold text-center mb-1">Date de relance</h2>
             <p className="text-xs text-muted-foreground text-center mb-4">Choisissez la date à laquelle relancer ce prospect</p>
-            <input type="date" value={relanceDate} onChange={(e) => setRelanceDate(e.target.value)}
-              className="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm mb-4" />
+            <DatePicker value={relanceDate} onChange={setRelanceDate} ariaLabel="Date de relance" className="mb-4" />
             <div className="flex justify-center gap-2">
               <button onClick={() => {
                 if (!relanceDate) { toast.error('Choisissez une date'); return; }
@@ -549,10 +578,12 @@ export default function ProspectionDetail() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* Intérêts */}
       {showInterets && (
+        <ModalPortal onClose={() => setShowInterets(false)}>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-xl">
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
@@ -593,10 +624,12 @@ export default function ProspectionDetail() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* Score (simplifié) */}
       {showScore && (
+        <ModalPortal onClose={() => setShowScore(false)}>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-xl p-5">
             <div className="flex items-center justify-between mb-4">
@@ -619,6 +652,7 @@ export default function ProspectionDetail() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   );

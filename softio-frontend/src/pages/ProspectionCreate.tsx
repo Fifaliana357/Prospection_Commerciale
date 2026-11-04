@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check } from 'lucide-react';
+import { ArrowLeft, Check, MessageSquare } from 'lucide-react';
 import { createProspection } from '../services/prospections';
 import { getClients, type Client } from '../services/clients';
 import { useToast } from '../contexts/ToastContext';
+import PageHeader from '../components/ui/PageHeader';
+import Select from '../components/ui/Select';
 
 export default function ProspectionCreate() {
   const navigate = useNavigate();
@@ -64,7 +66,7 @@ export default function ProspectionCreate() {
   };
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="mx-auto max-w-5xl px-2 py-4 sm:px-4 sm:py-5">
       <button
         onClick={() => navigate('/prospections')}
         className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
@@ -73,31 +75,28 @@ export default function ProspectionCreate() {
         Retour aux prospections
       </button>
 
-      <div className="mb-6">
-        <h1 className="text-xl font-bold">Nouvelle prospection</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Enregistrez une nouvelle action de prospection
-        </p>
-      </div>
+      <PageHeader
+        title="Nouvelle prospection"
+        description="Enregistrez une nouvelle action de prospection."
+        icon={<MessageSquare size={23} />}
+      />
 
       <form onSubmit={handleSubmit} className="bg-card border border-border rounded-xl p-6 space-y-5">
         {/* Prospect */}
         <div>
           <label className="text-sm font-medium">Prospect *</label>
-            <select
+            <Select
             required
             value={form.id_client}
-            onChange={(e) => setForm({ ...form, id_client: e.target.value })}
-            className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
+            onChange={(id_client) => setForm({ ...form, id_client })}
+            className="mt-1"
             disabled={loadingClients}
-            >
-            <option value="">Sélectionner un prospect</option>
-            {clients.map((c) => (
-                <option key={c.id_client} value={c.id_client}>
-                {c.matricule} — {c.nom} {c.prenom || ''}
-                </option>
-            ))}
-            </select>
+            placeholder="Sélectionner un prospect"
+            options={clients.map((client) => ({
+              value: String(client.id_client),
+              label: `${client.matricule} — ${client.nom} ${client.prenom || ''}`,
+            }))}
+            />
         </div>
 
         {/* Produit / Service */}
@@ -123,17 +122,17 @@ export default function ProspectionCreate() {
           </div>
           <div>
             <label className="text-sm font-medium">Type de message</label>
-            <select
+            <Select
               value={form.type_message}
-              onChange={(e) => setForm({ ...form, type_message: e.target.value })}
-              className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
-            >
-              <option value="Facebook">Facebook</option>
-              <option value="Email">Email</option>
-              <option value="Téléphone">Téléphone</option>
-              <option value="WhatsApp">WhatsApp</option>
-              <option value="Autre">Autre</option>
-            </select>
+              onChange={(type_message) => setForm({ ...form, type_message })}
+              className="mt-1"
+              options={[
+                { value: "Facebook", label: "Facebook" },
+                { value: "Email", label: "Email" },
+                { value: "Téléphone", label: "Téléphone" },
+                { value: "WhatsApp", label: "WhatsApp" },
+              ]}
+            />
           </div>
         </div>
 

@@ -11,6 +11,10 @@ import {
   type Produit, type Offre,
 } from '../services/catalogue';
 import Barcode from '../components/Barcode';
+import TablePagination from '../components/ui/TablePagination';
+import TableSummary from '../components/ui/TableSummary';
+import PageHeader from '../components/ui/PageHeader';
+import { ModalPortal } from '../components/ui/Modal';
 import { useToast } from '../contexts/ToastContext';
 
 type Tab = 'produit' | 'service';
@@ -241,16 +245,7 @@ export default function Catalogue() {
 
   return (
     <div className="p-4 sm:p-6 max-w-[1400px] mx-auto">
-      {/* Header */}
-      <div className="mb-5 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-          <Package size={20} />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold">Services et produits</h1>
-          <p className="text-sm text-muted-foreground">Gérez votre catalogue</p>
-        </div>
-      </div>
+      <PageHeader title="Services et produits" description="Gérez votre catalogue." icon={<Package size={23} />} />
 
       {/* Tabs */}
       <div className="flex gap-1 mb-4 p-1 rounded-xl bg-muted/50 w-fit">
@@ -314,6 +309,7 @@ export default function Catalogue() {
           <Plus size={18} />
           {tab === 'produit' ? 'Nouveau produit' : 'Nouveau service'}
         </button>
+        <TableSummary total={tab === 'produit' ? pTotal : oTotal} label={tab === 'produit' ? 'produits' : 'services'} />
       </div>
 
       {/* Table Produits */}
@@ -400,24 +396,7 @@ export default function Catalogue() {
               </tbody>
             </table>
           </div>
-          {pLast > 1 && (
-            <div className="flex justify-end gap-1.5 px-4 py-3">
-              {Array.from({ length: pLast }, (_, i) => i + 1).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPPage(p)}
-                  className={`min-w-[36px] h-9 rounded-lg text-sm ${
-                    pPage === p
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-secondary hover:bg-accent'
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          )}
-          <div className="px-4 py-2 text-xs text-muted-foreground">{pTotal} produit(s)</div>
+          <TablePagination page={pPage} lastPage={pLast} onChange={setPPage} />
         </div>
       )}
 
@@ -477,29 +456,13 @@ export default function Catalogue() {
               </tbody>
             </table>
           </div>
-          {oLast > 1 && (
-            <div className="flex justify-end gap-1.5 px-4 py-3">
-              {Array.from({ length: oLast }, (_, i) => i + 1).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setOPage(p)}
-                  className={`min-w-[36px] h-9 rounded-lg text-sm ${
-                    oPage === p
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-secondary hover:bg-accent'
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          )}
-          <div className="px-4 py-2 text-xs text-muted-foreground">{oTotal} service(s)</div>
+          <TablePagination page={oPage} lastPage={oLast} onChange={setOPage} />
         </div>
       )}
 
       {/* Modal Produit */}
       {showPModal && (
+        <ModalPortal onClose={() => setShowPModal(false)}>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-card rounded-xl w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-5 py-4 shadow-sm sticky top-0 bg-card">
@@ -633,10 +596,12 @@ export default function Catalogue() {
           </form>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* Modal Service */}
       {showOModal && (
+        <ModalPortal onClose={() => setShowOModal(false)}>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-card rounded-xl w-full max-w-lg shadow-xl">
             <div className="flex items-center justify-between px-5 py-4 shadow-sm">
@@ -696,10 +661,12 @@ export default function Catalogue() {
             </form>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* Modal suppression */}
       {deleteTarget && (
+        <ModalPortal onClose={() => setDeleteTarget(null)}>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-card rounded-xl w-full max-w-sm p-6 shadow-xl text-center">
             <div className="w-12 h-12 rounded-full bg-amber-500/15 text-amber-500 flex items-center justify-center mx-auto mb-3 text-xl font-bold">
@@ -723,10 +690,12 @@ export default function Catalogue() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* Aperçu photo */}
       {photoModal.open && (
+      <ModalPortal onClose={() => setPhotoModal({ open: false, url: null, title: '' })}>
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
         onClick={() => setPhotoModal({ open: false, url: null, title: '' })}
@@ -768,6 +737,7 @@ export default function Catalogue() {
           </div>
         </div>
       </div>
+      </ModalPortal>
     )}
   </div>
   );

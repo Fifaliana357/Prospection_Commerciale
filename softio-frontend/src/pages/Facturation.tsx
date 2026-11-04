@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
-  CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardList, Eye, FileText,
+  CalendarDays, Check, ClipboardList, Eye, FileText,
   Mail, Minus, Plus, Search, Trash2, X,
 } from "lucide-react"
 import Modal from "@/components/ui/Modal"
+import DatePicker from "@/components/ui/DatePicker"
+import Select from "@/components/ui/Select"
+import TablePagination from "@/components/ui/TablePagination"
+import TableSummary from "@/components/ui/TableSummary"
+import PageHeader from "@/components/ui/PageHeader"
 import { useToast } from "@/contexts/ToastContext"
 import type { Client } from "@/services/clients"
 import type { Offre, Produit } from "@/services/catalogue"
@@ -74,41 +79,6 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 function documentTypeLabel(type: DocumentType) {
   return type === "facture" ? "Facture" : type === "devis" ? "Devis" : "Proforma"
-}
-
-function Pagination({
-  page,
-  lastPage,
-  onChange,
-}: {
-  page: number
-  lastPage: number
-  onChange: (page: number) => void
-}) {
-  if (lastPage <= 1) return null
-  return (
-    <div className="flex items-center justify-end gap-2 border-t border-border px-4 py-3">
-      <button
-        type="button"
-        disabled={page <= 1}
-        onClick={() => onChange(page - 1)}
-        className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-accent disabled:opacity-40"
-        aria-label="Page précédente"
-      >
-        <ChevronLeft size={16} />
-      </button>
-      <span className="px-2 text-sm text-muted-foreground">Page {page} sur {lastPage}</span>
-      <button
-        type="button"
-        disabled={page >= lastPage}
-        onClick={() => onChange(page + 1)}
-        className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-accent disabled:opacity-40"
-        aria-label="Page suivante"
-      >
-        <ChevronRight size={16} />
-      </button>
-    </div>
-  )
 }
 
 export default function Facturation() {
@@ -453,25 +423,15 @@ export default function Facturation() {
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-5">
-      <header className="rounded-2xl border border-primary/10 bg-gradient-to-r from-primary/10 via-card to-primary/5 p-5 shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="grid h-12 w-12 place-items-center rounded-xl bg-amber-400 text-white shadow-sm">
-            <FileText size={22} />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">
-              {view === "liste" ? "Liste des factures" : view === "brouillon" ? "Brouillons" : "Facturation"}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {view === "liste"
-                ? "Consultez et filtrez vos documents validés."
-                : view === "brouillon"
-                  ? "Reprenez vos documents non validés ou supprimez-les."
-                  : "Créez un devis, une proforma ou une facture."}
-            </p>
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        title={view === "liste" ? "Liste des factures" : view === "brouillon" ? "Brouillons" : "Facturation"}
+        description={view === "liste"
+          ? "Consultez et filtrez vos documents validés."
+          : view === "brouillon"
+            ? "Reprenez vos documents non validés ou supprimez-les."
+            : "Créez un devis, une proforma ou une facture."}
+        icon={<FileText size={23} />}
+      />
 
       <nav className="flex w-fit items-center gap-1 border-b border-border" aria-label="Facturation">
         {([
@@ -564,6 +524,7 @@ export default function Facturation() {
                 <CalendarDays size={14} /> Dates
               </button>
             </div>
+            <TableSummary total={documentsTotal} label="documents" />
           </div>
 
           <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -623,8 +584,7 @@ export default function Facturation() {
                 </tbody>
               </table>
             </div>
-            <div className="border-t border-border px-4 py-2 text-xs text-muted-foreground">{documentsTotal} document(s)</div>
-            <Pagination page={page} lastPage={lastPage} onChange={(nextPage) => {
+            <TablePagination page={page} lastPage={lastPage} onChange={(nextPage) => {
               setPage(nextPage)
               setLoadingList(true)
             }} />
@@ -632,27 +592,30 @@ export default function Facturation() {
         </section>
       )}
 
-      <Modal open={mode === "document"} onClose={closeModal} title={editingId ? "Modifier le brouillon" : "Nouveau document"} size="lg">
+      <Modal open={mode === "document"} onClose={closeModal} title={editingId ? "Modifier le brouillon" : "Nouveau document"} size="2xl">
         <div className="space-y-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block space-y-1.5 text-sm font-medium">
               <span>Type de document</span>
-              <select value={documentForm.type} onChange={(event) => setDocumentForm({ ...documentForm, type: event.target.value as DocumentType })} className={inputClass}>
-                <option value="proforma">Proforma</option>
-                <option value="devis">Devis</option>
-                <option value="facture">Facture</option>
-              </select>
+              <Select value={documentForm.type} onChange={(type) => setDocumentForm({ ...documentForm, type: type as DocumentType })} options={[
+                { value: "proforma", label: "Proforma" },
+                { value: "devis", label: "Devis" },
+                { value: "facture", label: "Facture" },
+              ]} />
             </label>
             <label className="block space-y-1.5 text-sm font-medium">
               <span>Date</span>
-              <input type="date" value={documentForm.date} onChange={(event) => setDocumentForm({ ...documentForm, date: event.target.value })} className={inputClass} />
+              <DatePicker value={documentForm.date} onChange={(date) => setDocumentForm({ ...documentForm, date })} />
             </label>
             <label className="block space-y-1.5 text-sm font-medium sm:col-span-2">
               <span>Client</span>
-              <select required value={documentForm.clientId} onChange={(event) => setDocumentForm({ ...documentForm, clientId: event.target.value })} className={inputClass}>
-                <option value="" disabled>Sélectionner un client</option>
-                {clients.map((client) => <option key={client.id_client} value={client.id_client}>{clientLabel(client)}</option>)}
-              </select>
+              <Select
+                required
+                value={documentForm.clientId}
+                onChange={(clientId) => setDocumentForm({ ...documentForm, clientId })}
+                placeholder="Sélectionner un client"
+                options={clients.map((client) => ({ value: String(client.id_client), label: clientLabel(client) }))}
+              />
             </label>
             <label className="block space-y-1.5 text-sm font-medium sm:col-span-2">
               <span>Objet (facultatif)</span>
@@ -665,19 +628,21 @@ export default function Facturation() {
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block space-y-1.5 text-sm font-medium">
                 <span>Type</span>
-                <select value={lineType} onChange={(event) => { setLineType(event.target.value as LineType); setSelectedItemId("") }} className={inputClass}>
-                  <option value="service">Service</option>
-                  <option value="produit">Produit</option>
-                </select>
+                <Select value={lineType} onChange={(value) => { setLineType(value as LineType); setSelectedItemId("") }} options={[
+                  { value: "service", label: "Service" },
+                  { value: "produit", label: "Produit" },
+                ]} />
               </label>
               <label className="block space-y-1.5 text-sm font-medium">
                 <span>Désignation</span>
-                <select value={selectedItemId} onChange={(event) => setSelectedItemId(event.target.value)} className={inputClass}>
-                  <option value="">Sélectionner...</option>
-                  {lineType === "produit"
-                    ? products.map((product) => <option key={product.id_produit} value={product.id_produit}>{product.reference || "Produit"} — {product.designation}</option>)
-                    : services.map((service) => <option key={service.id_offre} value={service.id_offre}>{service.denomination}</option>)}
-                </select>
+                <Select
+                  value={selectedItemId}
+                  onChange={setSelectedItemId}
+                  placeholder="Sélectionner..."
+                  options={lineType === "produit"
+                    ? products.map((product) => ({ value: String(product.id_produit), label: `${product.reference || "Produit"} — ${product.designation}` }))
+                    : services.map((service) => ({ value: String(service.id_offre), label: service.denomination }))}
+                />
               </label>
               <label className="block space-y-1.5 text-sm font-medium">
                 <span>Prix / tarif unitaire</span>
@@ -705,31 +670,30 @@ export default function Facturation() {
           </div>
 
           <div className="overflow-hidden rounded-xl border border-border">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[600px] text-sm">
+              <table className="w-full min-w-0 table-fixed text-xs sm:text-sm">
                 <thead className="bg-primary text-primary-foreground">
                   <tr>
-                    <th className="px-3 py-2.5 text-left">Référence / type</th>
-                    <th className="px-3 py-2.5 text-left">Désignation</th>
-                    <th className="px-3 py-2.5 text-right">Prix</th>
-                    <th className="px-3 py-2.5 text-center">Qté</th>
-                    <th className="px-3 py-2.5 text-right">Remise</th>
-                    <th className="px-3 py-2.5 text-right">Montant</th>
-                    <th className="px-3 py-2.5 text-center">Action</th>
+                    <th className="break-words px-1.5 py-2 text-left sm:px-2">Type</th>
+                    <th className="break-words px-1.5 py-2 text-left sm:px-2">Désignation</th>
+                    <th className="break-words px-1.5 py-2 text-right sm:px-2">Prix</th>
+                    <th className="break-words px-1.5 py-2 text-center sm:px-2">Qté</th>
+                    <th className="break-words px-1.5 py-2 text-right sm:px-2">Remise</th>
+                    <th className="break-words px-1.5 py-2 text-right sm:px-2">Montant</th>
+                    <th className="break-words px-1.5 py-2 text-center sm:px-2">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {basket.length === 0 ? (
-                    <tr><td colSpan={7} className="px-3 py-5 text-center text-muted-foreground">Le panier est vide.</td></tr>
+                    <tr><td colSpan={7} className="px-2 py-5 text-center text-muted-foreground">Le panier est vide.</td></tr>
                   ) : basket.map((line) => (
                     <tr key={line.key}>
-                      <td className="px-3 py-2.5 capitalize">{line.type_ligne}</td>
-                      <td className="px-3 py-2.5">{line.designation}</td>
-                      <td className="px-3 py-2.5 text-right">{formatAmount(line.prix_unitaire)}</td>
-                      <td className="px-3 py-2.5 text-center">{line.quantite}</td>
-                      <td className="px-3 py-2.5 text-right">{line.remise ? formatAmount(line.remise) : "—"}</td>
-                      <td className="px-3 py-2.5 text-right font-semibold">{formatAmount(line.montant)}</td>
-                      <td className="px-3 py-2.5 text-center">
+                      <td className="break-words px-1.5 py-2 capitalize sm:px-2">{line.type_ligne}</td>
+                      <td className="break-words px-1.5 py-2 sm:px-2">{line.designation}</td>
+                      <td className="break-words px-1.5 py-2 text-right sm:px-2">{formatAmount(line.prix_unitaire)}</td>
+                      <td className="px-1.5 py-2 text-center sm:px-2">{line.quantite}</td>
+                      <td className="break-words px-1.5 py-2 text-right sm:px-2">{line.remise ? formatAmount(line.remise) : "—"}</td>
+                      <td className="break-words px-1.5 py-2 text-right font-semibold sm:px-2">{formatAmount(line.montant)}</td>
+                      <td className="px-1.5 py-2 text-center sm:px-2">
                         <button type="button" onClick={() => setBasket((current) => current.filter((item) => item.key !== line.key))} className="rounded-lg p-2 text-destructive hover:bg-destructive/10" aria-label={`Retirer ${line.designation}`}>
                           <X size={15} />
                         </button>
@@ -738,7 +702,6 @@ export default function Facturation() {
                   ))}
                 </tbody>
               </table>
-            </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -773,7 +736,7 @@ export default function Facturation() {
         </div>
       </Modal>
 
-      <Modal open={mode === "detail"} onClose={closeModal} title={selectedDocument ? `Détail ${documentTypeLabel(selectedDocument.type)} ${selectedDocument.numero}` : "Détail du document"} size="lg">
+      <Modal open={mode === "detail"} onClose={closeModal} title={selectedDocument ? `Détail ${documentTypeLabel(selectedDocument.type)} ${selectedDocument.numero}` : "Détail du document"} size="2xl">
         {loadingDetail || !selectedDocument ? (
           <p className="py-12 text-center text-muted-foreground">Chargement...</p>
         ) : (
@@ -789,8 +752,8 @@ export default function Facturation() {
                 <p className="text-lg font-bold text-primary">{formatAmount(selectedDocument.montant_ttc)}</p>
               </div>
             </div>
-            <div className="overflow-x-auto rounded-xl border border-border">
-              <table className="w-full min-w-[620px] text-sm">
+            <div className="overflow-hidden rounded-xl border border-border">
+              <table className="w-full min-w-0 table-fixed text-xs sm:text-sm">
                 <thead className="bg-primary text-primary-foreground">
                   <tr><th className="px-3 py-2.5 text-left">Référence</th><th className="px-3 py-2.5 text-left">Désignation</th><th className="px-3 py-2.5 text-right">Prix unitaire</th><th className="px-3 py-2.5 text-center">Quantité</th><th className="px-3 py-2.5 text-right">Remise</th><th className="px-3 py-2.5 text-right">Montant</th></tr>
                 </thead>
@@ -849,8 +812,8 @@ export default function Facturation() {
       <Modal open={mode === "dates"} onClose={closeModal} title="Filtrer par dates" size="sm">
         <form onSubmit={applyDateFilter} className="space-y-5">
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block space-y-1.5 text-sm font-medium"><span>Du</span><input type="date" value={draftDateFrom} onChange={(event) => setDraftDateFrom(event.target.value)} className={inputClass} /></label>
-            <label className="block space-y-1.5 text-sm font-medium"><span>Au</span><input type="date" value={draftDateTo} onChange={(event) => setDraftDateTo(event.target.value)} className={inputClass} /></label>
+            <label className="block space-y-1.5 text-sm font-medium"><span>Du</span><DatePicker value={draftDateFrom} onChange={setDraftDateFrom} /></label>
+            <label className="block space-y-1.5 text-sm font-medium"><span>Au</span><DatePicker value={draftDateTo} onChange={setDraftDateTo} /></label>
           </div>
           <div className="flex justify-between gap-2 border-t border-border pt-4">
             <button type="button" onClick={() => { setDraftDateFrom(""); setDraftDateTo(""); setDateFrom(""); setDateTo(""); setPage(1); setLoadingList(true); setMode(null) }} className={`${buttonClass} text-muted-foreground hover:bg-accent`}>

@@ -1,12 +1,14 @@
 import { NavLink } from "react-router-dom"
 import {
-  LayoutDashboard, BarChart3, UserSearch, Target, CalendarDays, Sparkles, Trophy,
+  LayoutDashboard, UserSearch, Target, CalendarDays, Sparkles, Trophy,
   Users, ShoppingCart, FileText, LifeBuoy, Package, Boxes, UserCog, BookOpen, GraduationCap,
-  LogOut, X, ChevronLeft, ChevronRight,
+  X, ChevronLeft, ChevronRight,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { getSessionUser, logout } from "@/lib/session"
+import { getSessionUser } from "@/lib/session"
+import softioLogo from "@/assets/softio-fixed.png"
+import softioMark from "@/assets/softio-logo.png"
 
 type Item = { name: string; path: string; icon: LucideIcon; adminOnly?: boolean }
 type Group = { title: string; items: Item[] }
@@ -77,30 +79,26 @@ export default function Sidebar({
       )}
 
       <aside
+        style={{ backgroundColor: "color-mix(in srgb, hsl(var(--primary)) 30%, #101827)" }}
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex flex-col bg-card text-card-foreground shadow-md transition-all duration-300",
+          "fixed inset-y-0 left-0 z-40 flex flex-col text-white shadow-xl shadow-black/15 transition-all duration-300 md:shadow-none",
           collapsed ? "w-[72px]" : "w-[260px]",
           open ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
       >
         {/* Header */}
-        <div className="flex h-14 shrink-0 items-center justify-between px-3 shadow-sm">
+        <div className="flex h-[68px] shrink-0 items-center justify-between border-b border-white/10 px-4">
           {!collapsed ? (
-            <div className="flex items-center gap-2.5 px-1">
-              <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary font-bold text-primary-foreground text-sm">
-                S
-              </span>
-              <span className="text-lg font-semibold tracking-tight">Softio</span>
+            <div className="flex min-w-0 items-center px-1">
+              <img src={softioLogo} alt="Softio — Prospection commerciale" className="h-auto w-[124px] max-w-full object-contain" />
             </div>
           ) : (
-            <span className="mx-auto grid h-8 w-8 place-items-center rounded-lg bg-primary font-bold text-primary-foreground text-sm">
-              S
-            </span>
+            <img src={softioMark} alt="Softio" className="mx-auto h-8 w-8 object-contain" />
           )}
 
           <button
             onClick={() => onCollapsedChange(!collapsed)}
-            className="hidden md:flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            className="hidden md:flex items-center justify-center h-8 w-8 rounded-lg text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
             title={collapsed ? "Agrandir" : "Réduire"}
           >
             {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
@@ -108,14 +106,14 @@ export default function Sidebar({
 
           <button
             onClick={onClose}
-            className="md:hidden flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:bg-accent"
+            className="md:hidden flex items-center justify-center h-8 w-8 rounded-lg text-slate-300 hover:bg-white/10"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Navigation */}
-        <nav className="sidebar-navigation flex-1 overflow-y-auto px-2 py-4 space-y-5">
+        <nav className="sidebar-navigation flex-1 overflow-y-auto px-3 py-5 space-y-6">
           {groups.map((group) => {
             const items = group.items.filter(
               (i) => !i.adminOnly || user.role === "admin"
@@ -125,11 +123,11 @@ export default function Sidebar({
             return (
               <div key={group.title}>
                 {!collapsed && (
-                  <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                     {group.title}
                   </p>
                 )}
-                <ul className="space-y-0.5">
+                <ul className="space-y-1">
                   {items.map(({ name, path, icon: Icon }) => (
                     <li key={path}>
                       <NavLink
@@ -138,26 +136,26 @@ export default function Sidebar({
                         title={collapsed ? name : undefined}
                         className={({ isActive }) =>
                           cn(
-                            "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all",
+                            "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] transition-all duration-200",
                             collapsed && "justify-center px-0",
                             isActive
-                              ? "bg-primary/10 text-primary font-medium"
-                              : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                              ? "bg-white/[0.11] text-white font-semibold shadow-inner shadow-white/[0.03]"
+                              : "text-slate-300 hover:bg-white/[0.07] hover:text-white"
                           )
                         }
                       >
                         {({ isActive }) => (
                           <>
                             {isActive && !collapsed && (
-                              <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary" />
+                              <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-white/80" />
                             )}
                             <Icon
                               size={18}
                               className={cn(
                                 "shrink-0",
                                 isActive
-                                  ? "text-primary"
-                                  : "text-muted-foreground group-hover:text-foreground"
+                                  ? "text-white"
+                                  : "text-slate-400 group-hover:text-white"
                               )}
                             />
                             {!collapsed && <span>{name}</span>}
@@ -172,31 +170,24 @@ export default function Sidebar({
           })}
         </nav>
 
-        {/* User 
-        <div className="shrink-0 p-3 shadow-[0_-1px_0_0_hsl(var(--border))]">
-          <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
-              {user.initiale}
+        <NavLink
+          to="/profil"
+          onClick={onClose}
+          title={collapsed ? user.nom : undefined}
+          className={cn("mx-3 mb-3 flex shrink-0 flex-col items-center gap-2 rounded-xl border-t border-white/10 px-2 pt-4 text-center transition-colors hover:bg-white/[0.06]")}
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-semibold text-white">
+            {user.initiale}
+          </span>
+          {!collapsed && (
+            <span className="min-w-0 py-1">
+              <span className="block truncate text-xs font-semibold text-white">{user.nom}</span>
+              <span className="block text-[10px] text-slate-400">
+                {user.role === "admin" ? "Administrateur" : "Commercial"}
+              </span>
             </span>
-            {!collapsed && (
-              <>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{user.nom}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {user.role === "admin" ? "Administrateur" : "Commercial"}
-                  </p>
-                </div>
-                <button
-                  onClick={logout}
-                  title="Se déconnecter"
-                  className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                >
-                  <LogOut size={16} />
-                </button>
-              </>
-            )}
-          </div>
-        </div>*/}
+          )}
+        </NavLink>
       </aside>
     </>
   )

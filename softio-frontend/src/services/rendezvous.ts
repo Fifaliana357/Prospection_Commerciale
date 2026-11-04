@@ -32,6 +32,9 @@ export const getRendezVous = async (params?: {
   search?: string;
   filtre?: string;
   page?: number;
+  date_debut?: string;
+  date_fin?: string;
+  per_page?: number;
 }) => {
   const response = await api.get('/rendez-vous', { params });
   return response.data;

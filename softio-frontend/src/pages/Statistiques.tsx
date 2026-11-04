@@ -1,4 +1,5 @@
 import { TrendingUp, Users, ShoppingCart, Handshake } from "lucide-react"
+import PageHeader from "@/components/ui/PageHeader"
 
 const kpis = [
   { title: "Chiffre d'affaires", value: "42.8M MGA", change: "+18.7%", icon: TrendingUp, color: "bg-emerald-500/10 text-emerald-600" },
@@ -10,10 +11,7 @@ const kpis = [
 export default function Statistiques() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Statistiques</h1>
-        <p className="text-muted-foreground text-sm mt-1">Analysez vos performances commerciales</p>
-      </div>
+      <PageHeader title="Statistiques" description="Analysez vos performances commerciales." icon={<TrendingUp size={23} />} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((kpi) => (

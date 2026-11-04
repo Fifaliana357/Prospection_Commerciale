@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { GraduationCap, Plus, Trash2 } from 'lucide-react';
 import { getTutoriels, createTutoriel, deleteTutoriel, type Tutoriel } from '../services/tutoriels';
 import { useToast } from '../contexts/ToastContext';
+import PageHeader from '../components/ui/PageHeader';
+import { ModalPortal } from '../components/ui/Modal';
 
 function youtubeId(url: string): string | null {
   try {
@@ -71,15 +73,7 @@ export default function Tutoriels() {
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
-      <div className="mb-5 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-          <GraduationCap size={20} />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold">Tutoriels</h1>
-          <p className="text-sm text-muted-foreground">Gérez vos vidéos de formation</p>
-        </div>
-      </div>
+      <PageHeader title="Tutoriels" description="Gérez vos vidéos de formation." icon={<GraduationCap size={23} />} />
 
       <form onSubmit={handleSubmit} className="rounded-xl bg-card shadow-sm p-4 mb-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
@@ -154,6 +148,7 @@ export default function Tutoriels() {
       )}
 
       {deleteId && (
+        <ModalPortal onClose={() => setDeleteId(null)}>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-card rounded-xl w-full max-w-sm p-6 shadow-xl text-center">
             <h3 className="font-semibold mb-2">Supprimer ce tutoriel ?</h3>
@@ -163,6 +158,7 @@ export default function Tutoriels() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   );

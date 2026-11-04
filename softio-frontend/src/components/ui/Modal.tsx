@@ -2,14 +2,24 @@ import { useCallback, useEffect, useId, useRef, useState } from "react"
 import type { FormEvent, ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { X } from "lucide-react"
+import Select from "@/components/ui/Select"
 
 interface ModalProps {
   open: boolean
   onClose: () => void
   title: string
   children: ReactNode
-  size?: "sm" | "md" | "lg"
+  size?: "sm" | "md" | "lg" | "xl" | "2xl"
   closing?: boolean
+  hideHeader?: boolean
+  topAligned?: boolean
+  ariaLabel?: string
+  contentClassName?: string
+}
+
+interface ModalPortalProps {
+  children: ReactNode
+  onClose: () => void
 }
 
 export interface FormField {
@@ -34,13 +44,59 @@ interface RecordFormModalProps {
 
 const emptyValues: Record<string, string> = {}
 
+function useModalLifecycle(onClose: () => void) {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose()
+    }
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [onClose])
+}
+
+export function ModalPortal({ children, onClose }: ModalPortalProps) {
+  useModalLifecycle(onClose)
+
+  return createPortal(
+    <div
+      onMouseDown={(event) => {
+        const target = event.target
+        if (!(target instanceof Element)) return
+        const backdrop = target.closest('[class~="fixed"][class~="inset-0"]')
+        if (target === backdrop) onClose()
+      }}
+    >
+      {children}
+    </div>,
+    document.body
+  )
+}
+
 export default function Modal(props: ModalProps) {
   if (!props.open) return null
 
   return <ModalContent {...props} />
 }
 
-function ModalContent({ open, onClose, title, children, size = "md", closing }: ModalProps) {
+function ModalContent({
+  onClose,
+  title,
+  children,
+  size = "md",
+  closing,
+  hideHeader = false,
+  topAligned = false,
+  ariaLabel,
+  contentClassName,
+}: ModalProps) {
   const [internalClosing, setInternalClosing] = useState(false)
   const closeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const titleId = useId()
@@ -56,25 +112,7 @@ function ModalContent({ open, onClose, title, children, size = "md", closing }: 
     closeTimeout.current = setTimeout(onClose, 160)
   }, [closing, internalClosing, onClose])
 
-  useEffect(() => {
-    if (open) {
-      const previousOverflow = document.body.style.overflow
-      document.body.style.overflow = "hidden"
-      return () => {
-        document.body.style.overflow = previousOverflow
-      }
-    }
-
-  }, [open])
-
-  useEffect(() => {
-    if (!open) return
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") requestClose()
-    }
-    document.addEventListener("keydown", handleKeyDown)
-    return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [open, requestClose])
+  useModalLifecycle(requestClose)
 
   useEffect(() => () => {
     if (closeTimeout.current) clearTimeout(closeTimeout.current)
@@ -84,35 +122,40 @@ function ModalContent({ open, onClose, title, children, size = "md", closing }: 
     sm: "max-w-md",
     md: "max-w-lg",
     lg: "max-w-2xl",
+    xl: "max-w-3xl",
+    "2xl": "max-w-5xl",
   }
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 ${isClosing ? "modal-overlay-exit" : "modal-overlay-enter"}`}
+      className={`fixed inset-0 z-[100] flex ${topAligned ? "items-start justify-center overflow-y-auto pt-[8vh] sm:pt-[12vh]" : "items-center justify-center"} p-3 sm:p-4 ${isClosing ? "modal-overlay-exit" : "modal-overlay-enter"}`}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !isClosing) requestClose()
       }}
     >
-      <div className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]" />
+      <div className="absolute inset-0 bg-ink/55 backdrop-blur-sm" />
       <section
         role="dialog"
         aria-modal="true"
-        aria-labelledby={titleId}
+        aria-labelledby={hideHeader ? undefined : titleId}
+        aria-label={hideHeader ? ariaLabel ?? title : undefined}
         className={`relative flex max-h-[min(90dvh,800px)] w-full ${sizes[size]} flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl ${isClosing ? "modal-dialog-exit" : "modal-dialog-enter"}`}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
-          <h2 id={titleId} className="text-lg font-semibold tracking-tight">{title}</h2>
-          <button
-            type="button"
-            onClick={requestClose}
-            className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-            aria-label="Fermer la fenêtre"
-          >
-            <X size={18} />
-          </button>
-        </div>
-        <div className="overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
+        {!hideHeader && (
+          <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
+            <h2 id={titleId} className="text-lg font-semibold tracking-tight">{title}</h2>
+            <button
+              type="button"
+              onClick={requestClose}
+              className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+              aria-label="Fermer la fenêtre"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        )}
+        <div className={contentClassName ?? "overflow-y-auto px-5 py-5 sm:px-6"}>{children}</div>
       </section>
     </div>,
     document.body
@@ -199,17 +242,13 @@ function RecordFormContent({
                     className={`${inputClass} min-h-24 resize-y`}
                   />
                 ) : field.type === "select" ? (
-                  <select
+                  <Select
                     required={field.required}
                     value={value}
-                    onChange={(event) => setValues({ ...values, [field.name]: event.target.value })}
-                    className={inputClass}
-                  >
-                    <option value="" disabled>Choisir...</option>
-                    {field.options?.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
+                    onChange={(nextValue) => setValues({ ...values, [field.name]: nextValue })}
+                    placeholder="Choisir..."
+                    options={field.options ?? []}
+                  />
                 ) : (
                   <input
                     required={field.required}

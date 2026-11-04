@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Check, KeyRound, Mail, UserRound } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
+import PageHeader from '../components/ui/PageHeader';
 import {
   getAccountProfile,
   updateAccountEmail,
@@ -104,17 +105,7 @@ export default function Profil() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">
-      <header className="rounded-2xl border border-primary/10 bg-gradient-to-r from-card to-primary/10 p-6">
-        <div className="flex items-center gap-4">
-          <div className="grid h-12 w-12 place-items-center rounded-xl bg-primary/10 text-primary">
-            <UserRound size={24} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">Profil</h1>
-            <p className="text-sm text-muted-foreground">Gérez vos informations personnelles et votre sécurité.</p>
-          </div>
-        </div>
-      </header>
+      <PageHeader title="Profil" description="Gérez vos informations personnelles et votre sécurité." icon={<UserRound size={23} />} />
 
       <div className="grid gap-5 lg:grid-cols-3">
         <form onSubmit={saveProfile} className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">

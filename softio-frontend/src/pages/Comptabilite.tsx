@@ -4,6 +4,11 @@ import {
   ArrowDownCircle, ArrowUpCircle, CalendarDays, Download, FileSpreadsheet, FileText, Plus, Trash2, Wallet,
 } from 'lucide-react';
 import Modal from '../components/ui/Modal';
+import DatePicker from '../components/ui/DatePicker';
+import DateTimePicker from '../components/ui/DateTimePicker';
+import TablePagination from '../components/ui/TablePagination';
+import PageHeader from '../components/ui/PageHeader';
+import TableSummary from '../components/ui/TableSummary';
 import { useToast } from '../contexts/ToastContext';
 import {
   createAccountingOperation,
@@ -173,15 +178,7 @@ export default function Comptabilite() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-5">
-      <header className="rounded-2xl border border-primary/10 bg-gradient-to-r from-card to-primary/10 p-6">
-        <div className="flex items-center gap-4">
-          <div className="grid h-12 w-12 place-items-center rounded-xl bg-primary/10 text-primary"><Wallet size={24} /></div>
-          <div>
-            <h1 className="text-2xl font-bold">Comptabilité</h1>
-            <p className="text-sm text-muted-foreground">Recettes, versements, dépenses et solde.</p>
-          </div>
-        </div>
-      </header>
+      <PageHeader title="Comptabilité" description="Recettes, versements, dépenses et solde." icon={<Wallet size={23} />} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-1 border-b border-border">
@@ -209,11 +206,11 @@ export default function Comptabilite() {
       <div className="flex flex-wrap items-end gap-3">
         <label className="block space-y-1 text-sm">
           <span className="text-muted-foreground">Du</span>
-          <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} className={fieldClass} />
+          <DatePicker value={dateFrom} onChange={setDateFrom} />
         </label>
         <label className="block space-y-1 text-sm">
           <span className="text-muted-foreground">Au</span>
-          <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} className={fieldClass} />
+          <DatePicker value={dateTo} onChange={setDateTo} />
         </label>
         <button
           onClick={() => { setAppliedDates({ from: dateFrom, to: dateTo }); setPage(1); }}
@@ -234,6 +231,10 @@ export default function Comptabilite() {
         >
           <FileSpreadsheet size={16} /> {exporting ? 'Export...' : 'Exporter'}
         </button>
+        <TableSummary
+          total={tab === 'recettes' ? (data?.sales.total || 0) : (data?.operations.total || 0)}
+          label={tab === 'recettes' ? 'recettes' : tab === 'depenses' ? 'dépenses' : 'versements'}
+        />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -326,15 +327,7 @@ export default function Comptabilite() {
             </table>
           </div>
         )}
-        {!loading && (lastPage || 1) > 1 && (
-          <div className="flex items-center justify-between border-t border-border px-4 py-3 text-sm">
-            <span className="text-muted-foreground">Page {currentPage} sur {lastPage}</span>
-            <div className="flex gap-2">
-              <button disabled={(currentPage || 1) <= 1} onClick={() => setPage((value) => value - 1)} className={`${buttonClass} border border-border hover:bg-accent`}>Précédent</button>
-              <button disabled={(currentPage || 1) >= (lastPage || 1)} onClick={() => setPage((value) => value + 1)} className={`${buttonClass} border border-border hover:bg-accent`}>Suivant</button>
-            </div>
-          </div>
-        )}
+        {!loading && <TablePagination page={currentPage || 1} lastPage={lastPage || 1} onChange={setPage} />}
       </section>
 
       <Modal open={formOpen} onClose={() => !saving && setFormOpen(false)} title={tab === 'depenses' ? 'Ajouter une dépense' : 'Ajouter un versement'} size="sm">
@@ -349,7 +342,7 @@ export default function Comptabilite() {
           </label>
           <label className="block space-y-1.5 text-sm font-medium">
             <span>Date et heure</span>
-            <input type="datetime-local" required value={dateOperation} onChange={(event) => setDateOperation(event.target.value)} className={fieldClass} />
+            <DateTimePicker required value={dateOperation} onChange={setDateOperation} />
           </label>
           <label className="block space-y-1.5 text-sm font-medium">
             <span>Pièce jointe (facultative)</span>

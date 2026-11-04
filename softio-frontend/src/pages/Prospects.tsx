@@ -5,6 +5,11 @@ import {
 import * as XLSX from 'xlsx';
 import { getClients, createClient, updateClient, deleteClient, type Client } from '../services/clients';
 import { useToast } from '../contexts/ToastContext';
+import TablePagination from '../components/ui/TablePagination';
+import TableSummary from '../components/ui/TableSummary';
+import PageHeader from '../components/ui/PageHeader';
+import { ModalPortal } from '../components/ui/Modal';
+import Select from '../components/ui/Select';
 
 export default function Prospects() {
   const toast = useToast();
@@ -246,28 +251,9 @@ export default function Prospects() {
   };
 
   // Pagination numbers
-  const getPageNumbers = () => {
-    const pages = [];
-    for (let i = 1; i <= lastPage; i++) {
-      pages.push(i);
-    }
-    return pages;
-  };
-
   return (
     <div className="p-6 max-w-[1600px] mx-auto">
-      {/* Header */}
-      <div className="mb-5">
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-            <User size={20} />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Prospects</h1>
-            <p className="text-sm text-muted-foreground">Gérez vos contacts et prospects</p>
-          </div>
-        </div>
-      </div>
+      <PageHeader title="Prospects" description="Gérez vos contacts et prospects" icon={<User size={23} />} />
 
       {/* Search + Export */}
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -325,10 +311,7 @@ export default function Prospects() {
             </button>
           ))}
         </div>
-
-        <span className="text-sm text-muted-foreground whitespace-nowrap">
-          {total} élément{total > 1 ? 's' : ''}
-        </span>
+        <TableSummary total={total} label="prospects" />
       </div>
 
       {/* Table */}
@@ -432,36 +415,12 @@ export default function Prospects() {
           </table>
         </div>
 
-        {/* Pagination style ancien */}
-        {lastPage > 1 && (
-          <div className="flex items-center justify-end gap-1.5 px-4 py-3 border-t border-border">
-            {getPageNumbers().map((p) => (
-              <button
-                key={p}
-                onClick={() => setPage(p)}
-                className={`min-w-[36px] h-9 rounded-lg text-sm font-medium transition-colors ${
-                  page === p
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-secondary text-secondary-foreground hover:bg-accent'
-                }`}
-              >
-                {p}
-              </button>
-            ))}
-            {page < lastPage && (
-              <button
-                onClick={() => setPage(page + 1)}
-                className="min-w-[36px] h-9 rounded-lg text-sm bg-secondary hover:bg-accent"
-              >
-                ›
-              </button>
-            )}
-          </div>
-        )}
+        <TablePagination page={page} lastPage={lastPage} onChange={setPage} />
       </div>
 
       {/* ==================== MODAL CRÉATION / ÉDITION ==================== */}
       {showModal && (
+        <ModalPortal onClose={() => setShowModal(false)}>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-card border border-border rounded-xl w-full max-w-3xl max-h-[92vh] overflow-y-auto shadow-xl">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-card z-10">
@@ -556,14 +515,15 @@ export default function Prospects() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="text-sm font-medium">Type</label>
-                    <select
+                    <Select
                       value={form.type}
-                      onChange={(e) => setForm({ ...form, type: e.target.value as any })}
-                      className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    >
-                      <option value="particulier">Particulier</option>
-                      <option value="entreprise">Entreprise</option>
-                    </select>
+                      onChange={(type) => setForm({ ...form, type: type as typeof form.type })}
+                      className="mt-1"
+                      options={[
+                        { value: "particulier", label: "Particulier" },
+                        { value: "entreprise", label: "Entreprise" },
+                      ]}
+                    />
                   </div>
 
                   {form.type === 'entreprise' ? (
@@ -650,17 +610,18 @@ export default function Prospects() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="text-sm font-medium">Classification</label>
-                      <select
+                      <Select
                         value={form.classification}
-                        onChange={(e) => setForm({ ...form, classification: e.target.value })}
-                        className="mt-1 w-full px-3 py-2.5 border border-border rounded-lg bg-background"
-                      >
-                        <option value="">Veuillez sélectionner</option>
-                        <option value="TPE">TPE</option>
-                        <option value="PE">PE</option>
-                        <option value="ME">ME</option>
-                        <option value="GE">GE</option>
-                      </select>
+                        onChange={(classification) => setForm({ ...form, classification })}
+                        className="mt-1"
+                        placeholder="Veuillez sélectionner"
+                        options={[
+                          { value: "TPE", label: "TPE" },
+                          { value: "PE", label: "PE" },
+                          { value: "ME", label: "ME" },
+                          { value: "GE", label: "GE" },
+                        ]}
+                      />
                     </div>
                     <div>
                       <label className="text-sm font-medium">Site web</label>
@@ -723,10 +684,12 @@ export default function Prospects() {
             )}
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* ==================== MODAL CONFIRMATION SUPPRESSION ==================== */}
       {deleteId && (
+        <ModalPortal onClose={() => setDeleteId(null)}>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-card border border-border rounded-xl w-full max-w-md p-6 shadow-xl text-center">
             <div className="w-14 h-14 rounded-full bg-amber-500/15 text-amber-500 flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
@@ -752,6 +715,7 @@ export default function Prospects() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   );

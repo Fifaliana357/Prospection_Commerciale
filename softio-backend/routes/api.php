@@ -12,6 +12,7 @@ use App\Http\Controllers\FactureController;
 use App\Http\Controllers\FacturationController;
 use App\Http\Controllers\EntrepriseController;
 use App\Http\Controllers\InteretController;
+use App\Http\Controllers\LivraisonController;
 use App\Http\Controllers\OffreController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProduitController;
@@ -110,6 +111,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/closings', [ClosingController::class, 'index']);
     Route::post('/closings', [ClosingController::class, 'store']);
     Route::delete('/closings/{id}', [ClosingController::class, 'destroy']);
+    Route::get('/sav/livraisons', [LivraisonController::class, 'index']);
+    Route::get('/sav/livraisons/{id}/historique', [LivraisonController::class, 'history']);
+    Route::put('/sav/livraisons/{id}', [LivraisonController::class, 'update']);
     // Route::apiResource('sav-tickets', SavTicketController::class);
     // Route::apiResource('bibliotheque', BibliothequeController::class)->only(['index', 'store', 'destroy']);
 

@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react';
 import { Search, Eye, Star } from 'lucide-react';
 import { getInterets, type ClientWithInterets } from '../services/interets';
 import { useToast } from '../contexts/ToastContext';
+import TablePagination from '../components/ui/TablePagination';
+import TableSummary from '../components/ui/TableSummary';
+import PageHeader from '../components/ui/PageHeader';
+import { ModalPortal } from '../components/ui/Modal';
 
 export default function Interets() {
   const toast = useToast();
@@ -42,21 +46,8 @@ export default function Interets() {
   }, [search, produitFilter, page]);
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto">
-      {/* Header */}
-      <div className="mb-5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-            <Star size={20} />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Intérêts des prospects</h1>
-            <p className="text-sm text-muted-foreground">
-              Visualisez les services et produits qui intéressent vos prospects
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="mx-auto max-w-[1600px] space-y-5">
+      <PageHeader title="Intérêts des prospects" description="Visualisez les services et produits qui intéressent vos prospects." icon={<Star size={23} />} />
 
       {/* Search */}
       <div className="relative mb-4 max-w-xl">
@@ -73,7 +64,7 @@ export default function Interets() {
         />
       </div>
 
-      {/* Filtres produits + total */}
+      {/* Filtres produits */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex flex-wrap gap-2">
           <button
@@ -106,9 +97,7 @@ export default function Interets() {
             </button>
           ))}
         </div>
-        <span className="text-sm text-muted-foreground whitespace-nowrap">
-          {total} prospect{total > 1 ? 's' : ''}
-        </span>
+        <TableSummary total={total} label="prospects avec intérêts" />
       </div>
 
       {/* Table */}
@@ -213,10 +202,12 @@ export default function Interets() {
             </tbody>
           </table>
         </div>
+        <TablePagination page={page} lastPage={lastPage} onChange={setPage} />
       </div>
 
     {/* Modal détail */}
     {selectedClient && (
+      <ModalPortal onClose={() => setSelectedClient(null)}>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
         <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
           {/* Header */}
@@ -281,6 +272,7 @@ export default function Interets() {
           </div>
         </div>
       </div>
+      </ModalPortal>
     )}
     </div>
   );
