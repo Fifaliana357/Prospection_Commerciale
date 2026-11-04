@@ -6,6 +6,7 @@ use App\Models\Admin;
 use App\Models\Client;
 use App\Models\Commercial;
 use App\Models\Devis;
+use App\Models\Entreprise;
 use App\Models\LigneDevis;
 use App\Models\LigneVente;
 use App\Models\Offre;
@@ -17,7 +18,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class FacturationController extends Controller
 {
@@ -199,22 +202,51 @@ class FacturationController extends Controller
             ], 422);
         }
 
-        $rows = $document->lignes->map(function (LigneDevis $line) {
-            return '<tr><td>' . e($line->designation) . '</td><td>'
-                . (int) $line->quantite . '</td><td>'
-                . number_format($line->montant, 0, ',', ' ') . ' Ar</td></tr>';
-        })->implode('');
-        $body = '<h2>' . e(strtoupper($document->type)) . ' ' . e($document->numero) . '</h2>'
-            . '<p>Bonjour ' . e($document->client->prenom . ' ' . $document->client->nom) . ',</p>'
-            . '<p>Veuillez trouver ci-dessous le récapitulatif de votre document.</p>'
-            . '<table border="1" cellpadding="6" cellspacing="0"><thead><tr><th>Désignation</th><th>Qté</th><th>Montant</th></tr></thead><tbody>'
-            . $rows . '</tbody></table><p>Total : <strong>'
-            . number_format($document->montant_ttc, 0, ',', ' ') . ' Ar</strong></p>';
+        $companyQuery = Entreprise::query()
+            ->where('id_admin', $document->id_admin)
+            ->orderBy('id_entreprise');
+        if ($document->id_entreprise) {
+            $companyQuery->where('id_entreprise', $document->id_entreprise);
+        }
+        $company = $companyQuery->first();
+        $companyLogoPath = $company?->logo
+            ? Storage::disk('public')->path($company->logo)
+            : null;
+        $companyCachetPath = $company?->cachet
+            ? Storage::disk('public')->path($company->cachet)
+            : null;
+        $companyName = $company?->nom_entreprise ?: 'L’équipe commerciale';
+        $clientName = trim(($document->client->prenom ?? '') . ' ' . ($document->client->nom ?? ''));
+        $typeLabel = match ($document->type) {
+            'facture' => 'Facture',
+            'devis' => 'Devis',
+            default => 'Facture proforma',
+        };
+        $lineSubtotal = (int) $document->lignes->sum('montant');
+        $vatAmount = max(0, (int) $document->montant_ttc - (int) $document->montant_ht);
+        $pdf = Pdf::loadView('pdf.facturation', compact(
+            'document',
+            'company',
+            'companyLogoPath',
+            'companyCachetPath',
+            'clientName',
+            'typeLabel',
+            'lineSubtotal',
+            'vatAmount',
+        ))->setPaper('a4');
+        $pdfBytes = $pdf->output();
+        $emailBody = view('emails.facturation', compact(
+            'clientName',
+            'companyName',
+            'typeLabel',
+        ))->render();
+        $attachmentName = Str::slug($typeLabel . '-' . $document->numero) . '.pdf';
 
-        Mail::send([], [], function ($message) use ($email, $document, $body) {
+        Mail::send([], [], function ($message) use ($email, $typeLabel, $emailBody, $pdfBytes, $attachmentName) {
             $message->to($email)
-                ->subject(strtoupper($document->type) . ' ' . $document->numero)
-                ->html($body);
+                ->subject($typeLabel . ' n° ' . $document->numero)
+                ->html($emailBody)
+                ->attachData($pdfBytes, $attachmentName, ['mime' => 'application/pdf']);
         });
 
         return response()->json(['message' => "E-mail envoyé à {$email}."]);

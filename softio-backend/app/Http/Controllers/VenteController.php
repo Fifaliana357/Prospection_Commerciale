@@ -7,6 +7,8 @@ use App\Models\Client;
 use App\Models\Commercial;
 use App\Models\Devis;
 use App\Models\LigneVente;
+use App\Models\Livraison;
+use App\Models\LivraisonHistorique;
 use App\Models\Produit;
 use App\Models\Offre;
 use App\Models\StockMouvement;
@@ -124,7 +126,7 @@ class VenteController extends Controller
         $sale = DB::transaction(function () use ($request, $validated) {
             $sale = $this->saveSale($request->user(), $validated);
             if (($validated['statut'] ?? 'brouillon') === 'validee') {
-                $this->validateSale($sale);
+                $this->validateSale($sale, $request->user());
             }
 
             return $sale->fresh()->load(['client', 'commercial', 'lignes']);
@@ -165,7 +167,7 @@ class VenteController extends Controller
 
             $sale = $this->saveSale($request->user(), $validated, $sale);
             if (($validated['statut'] ?? 'brouillon') === 'validee') {
-                $this->validateSale($sale);
+                $this->validateSale($sale, $request->user());
             }
 
             return $sale->fresh()->load(['client', 'commercial', 'lignes']);
@@ -189,7 +191,7 @@ class VenteController extends Controller
                 abort(response()->json(['message' => 'Cette vente est déjà validée.'], 422));
             }
 
-            $this->validateSale($sale);
+            $this->validateSale($sale, $request->user());
 
             return $sale->fresh()->load(['client', 'commercial', 'lignes']);
         });
@@ -392,7 +394,7 @@ class VenteController extends Controller
         return $sale;
     }
 
-    private function validateSale(Vente $sale): void
+    private function validateSale(Vente $sale, Admin|Commercial $user): void
     {
         $quantities = [];
         foreach ($sale->lignes as $line) {
@@ -435,6 +437,27 @@ class VenteController extends Controller
         }
 
         $sale->update(['statut' => 'validee']);
+        $delivery = Livraison::firstOrCreate(
+            ['id_vente' => $sale->id_vente],
+            [
+                'statut' => 'a_preparer',
+                'livreur' => $sale->id_commercial
+                    ? Commercial::query()->whereKey($sale->id_commercial)
+                        ->value(DB::raw("CONCAT_WS(' ', prenom, nom)"))
+                    : null,
+            ],
+        );
+
+        if ($delivery->wasRecentlyCreated) {
+            LivraisonHistorique::create([
+                'id_livraison' => $delivery->id_livraison,
+                'ancien_statut' => null,
+                'nouveau_statut' => 'a_preparer',
+                'commentaire' => 'Livraison créée à la validation de la vente.',
+                'id_admin' => $user instanceof Admin ? $user->id_admin : null,
+                'id_commercial' => $user instanceof Commercial ? $user->id_commercial : null,
+            ]);
+        }
     }
 
     private function ownedSales(Admin|Commercial $user): Builder

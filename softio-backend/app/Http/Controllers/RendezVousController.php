@@ -12,6 +12,11 @@ class RendezVousController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+        $validated = $request->validate([
+            'date_debut' => 'sometimes|date_format:Y-m-d',
+            'date_fin' => 'sometimes|date_format:Y-m-d|after_or_equal:date_debut',
+            'per_page' => 'sometimes|integer|min:1|max:100',
+        ]);
 
         $query = RendezVous::with([
             'client:id_client,nom,prenom,telephone,email',
@@ -22,6 +27,13 @@ class RendezVousController extends Controller
             $query->where('id_admin', $user->id_admin);
         } else {
             $query->where('id_commercial', $user->id_commercial);
+        }
+
+        if (isset($validated['date_debut'])) {
+            $query->whereDate('date_rdv', '>=', $validated['date_debut']);
+        }
+        if (isset($validated['date_fin'])) {
+            $query->whereDate('date_rdv', '<=', $validated['date_fin']);
         }
 
         // Filtres de date
@@ -59,7 +71,9 @@ class RendezVousController extends Controller
             });
         }
 
-        $rdvs = $query->orderBy('date_rdv', 'desc')->paginate(15);
+        $rdvs = $query
+            ->orderBy('date_rdv', isset($validated['date_debut']) ? 'asc' : 'desc')
+            ->paginate($validated['per_page'] ?? 15);
 
         return response()->json($rdvs);
     }
@@ -87,7 +101,7 @@ class RendezVousController extends Controller
 
         $validated = $request->validate([
             'id_client'   => 'required|exists:client,id_client',
-            'date_rdv'    => 'required|date',
+            'date_rdv'    => 'required|date|after_or_equal:today',
             'lieu'        => 'nullable|string|max:191',
             'type_rdv'    => 'nullable|string|max:191',
             'lien_rdv'    => 'nullable|string|max:191',
@@ -137,7 +151,21 @@ class RendezVousController extends Controller
 
         $validated = $request->validate([
             'id_client'   => 'sometimes|exists:client,id_client',
-            'date_rdv'    => 'sometimes|date',
+            'date_rdv'    => [
+                'sometimes',
+                'date',
+                function (string $attribute, mixed $value, \Closure $fail) use ($rdv) {
+                    if (! is_string($value) || strtotime($value) === false) {
+                        return;
+                    }
+
+                    $date = Carbon::parse($value)->toDateString();
+                    $existingDate = Carbon::parse($rdv->date_rdv)->toDateString();
+                    if ($date < Carbon::today()->toDateString() && $date !== $existingDate) {
+                        $fail('La date du rendez-vous ne peut pas être antérieure à aujourd’hui.');
+                    }
+                },
+            ],
             'lieu'        => 'nullable|string|max:191',
             'type_rdv'    => 'nullable|string|max:191',
             'lien_rdv'    => 'nullable|string|max:191',

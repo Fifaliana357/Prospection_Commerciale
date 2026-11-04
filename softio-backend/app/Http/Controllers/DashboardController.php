@@ -6,6 +6,7 @@ use App\Models\Admin;
 use App\Models\Client;
 use App\Models\Closing;
 use App\Models\Commercial;
+use App\Models\Livraison;
 use App\Models\Prospection;
 use App\Models\RendezVous;
 use App\Models\Vente;
@@ -210,6 +211,18 @@ class DashboardController extends Controller
             ? $appointmentsQuery->whereDate('date_rdv', today())->count()
             : 0;
 
+        $lateDeliveries = Livraison::query()
+            ->whereNotIn('livraison.statut', ['livree', 'retournee'])
+            ->whereNotNull('livraison.date_prevue')
+            ->whereDate('livraison.date_prevue', '<', today())
+            ->whereHas('vente', fn (Builder $sales) => $sales
+                ->where('vente.id_admin', $adminId)
+                ->when($commercialId !== null, fn (Builder $query) => $query
+                    ->where('vente.id_commercial', $commercialId))
+                ->when(! $user instanceof Admin && $commercialId === null, fn (Builder $query) => $query
+                    ->where('vente.id_commercial', $user->id_commercial)))
+            ->count();
+
         $messageScores = collect();
         if (Schema::hasTable('proposition') && Schema::hasColumn('proposition', 'note')) {
             $messageQuery = DB::table('proposition')
@@ -274,6 +287,7 @@ class DashboardController extends Controller
             'en_cours' => $enCours,
             'closings' => $totalClosings,
             'rdv_aujourdhui' => $appointmentsToday,
+            'livraisons_en_retard' => $lateDeliveries,
             'chiffre_affaires' => $revenue,
             'nombre_ventes' => $salesCount,
             'clients_avec_achat' => $clientsWithSales,
