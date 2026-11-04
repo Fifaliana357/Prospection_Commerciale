@@ -12,8 +12,9 @@ use App\Http\Controllers\FactureController;
 use App\Http\Controllers\FacturationController;
 use App\Http\Controllers\EntrepriseController;
 use App\Http\Controllers\InteretController;
-use App\Http\Controllers\ProduitController;
 use App\Http\Controllers\OffreController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ProduitController;
 use App\Http\Controllers\ProspectionController;
 use App\Http\Controllers\RendezVousController;
 use App\Http\Controllers\SavTicketController;
@@ -21,11 +22,6 @@ use App\Http\Controllers\StockController;
 use App\Http\Controllers\VenteController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TutorielController;
-use App\Http\Controllers\NotificationController;
-
-
-
-
 
 /*
 |--------------------------------------------------------------------------
@@ -37,6 +33,14 @@ use App\Http\Controllers\NotificationController;
 Route::post('/login', [AuthController::class, 'login'])
     ->middleware('throttle:5,1')
     ->name('api.login');
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:3,1');
+Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
+Route::post('/email/verification-notification', [AuthController::class, 'resendVerification'])
+    ->middleware('throttle:3,1');
+Route::get('/email/verify/{type}/{id}/{hash}', [AuthController::class, 'verifyEmail'])
+    ->middleware(['signed', 'throttle:10,1'])
+    ->name('verification.verify');
 
 // --- ROUTES PROTÉGÉES (Nécessite d'être connecté avec un Token) ---
 Route::middleware('auth:sanctum')->group(function () {
@@ -112,7 +116,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('commerciaux', CommercialController::class);
 
-
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/bibliotheque', [BibliothequeController::class, 'index']);
     Route::post('/bibliotheque', [BibliothequeController::class, 'store']);
@@ -129,6 +132,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
 });
 });
+
 });
 
 });

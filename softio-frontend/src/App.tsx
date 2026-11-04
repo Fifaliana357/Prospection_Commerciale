@@ -25,6 +25,10 @@ import Notifications from './pages/Notifications'
 import Profil from './pages/Profil'
 import Entreprise from './pages/Entreprise'
 import Comptabilite from './pages/Comptabilite'
+import Register from "./pages/Register"
+import ForgotPassword from "./pages/ForgotPassword"
+import ResetPassword from "./pages/ResetPassword"
+import EmailVerified from "./pages/EmailVerified"
 
 
 
@@ -38,6 +42,10 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/email-verifie" element={<EmailVerified />} />
 
       <Route element={<PrivateRoute />}>
         <Route path="/dashboard" element={<Dashboard />} />

@@ -2,15 +2,17 @@
 
 namespace App\Models;
 
-use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 class Admin extends Authenticatable
 {
-    use HasApiTokens;
+    use HasApiTokens, Notifiable;
 
     protected $table = 'admin';
+
     protected $primaryKey = 'id_admin';
 
     protected $fillable = [
@@ -22,6 +24,7 @@ class Admin extends Authenticatable
         'password',
         'token',
         'est_verifie',
+        'email_verification_required',
         'theme_preference',
         'pass_token',
         'is_first_login',
@@ -40,6 +43,7 @@ class Admin extends Authenticatable
 
     protected $casts = [
         'est_verifie' => 'boolean',
+        'email_verification_required' => 'boolean',
         'is_first_login' => 'boolean',
         'est_admin_site' => 'boolean',
         'created_at' => 'datetime',
