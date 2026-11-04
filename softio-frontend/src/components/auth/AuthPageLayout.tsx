@@ -12,9 +12,9 @@ export default function AuthPageLayout({
   children: ReactNode
 }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#eaf1f0] px-0 py-0 text-slate-800 sm:px-5 sm:py-6 lg:px-8">
+    <div className="flex min-h-screen items-center justify-center bg-[#edf3f1] px-0 py-0 text-slate-800 sm:px-5 sm:py-6 lg:px-8">
       <div className="grid min-h-screen w-full overflow-hidden bg-white shadow-[0_24px_70px_rgba(14,70,72,0.12)] sm:min-h-0 sm:max-w-[1080px] sm:rounded-[24px] lg:min-h-[min(760px,calc(100dvh-3rem))] lg:grid-cols-[0.92fr_1.08fr]">
-        <aside className="relative flex min-h-[174px] flex-col justify-between overflow-hidden bg-gradient-to-br from-[#104f53] via-[#176d70] to-[#21898a] px-6 py-5 text-white sm:min-h-[190px] sm:px-8 lg:min-h-[660px] lg:px-12 lg:py-10">
+        <aside className="relative flex min-h-[174px] flex-col justify-between overflow-hidden bg-gradient-to-br from-[#0f4b4f] via-[#146a6d] to-[#1a7b82] px-6 py-5 text-white sm:min-h-[190px] sm:px-8 lg:min-h-[660px] lg:px-12 lg:py-10">
           <div className="pointer-events-none absolute -bottom-36 -right-20 h-[350px] w-[350px] rounded-full border-[32px] border-white/[0.055] lg:-bottom-40 lg:-right-28 lg:h-[430px] lg:w-[430px] lg:border-[38px]" aria-hidden />
           <div className="pointer-events-none absolute -bottom-24 -right-8 h-[230px] w-[230px] rounded-full border-[23px] border-white/[0.055] lg:-bottom-24 lg:-right-12 lg:h-[280px] lg:w-[280px] lg:border-[28px]" aria-hidden />
           <div className="pointer-events-none absolute right-8 top-8 hidden h-24 w-24 rotate-45 rounded-2xl border border-white/10 lg:block" aria-hidden />
@@ -33,12 +33,12 @@ export default function AuthPageLayout({
                 Faites grandir
                 <span className="block text-[#ffd166]">vos relations.</span>
               </h1>
-              <p className="mt-3 hidden max-w-xs text-sm leading-relaxed text-white/70 lg:block">
+              <p className="mt-3 hidden max-w-xs text-sm leading-relaxed text-white/75 lg:block">
                 De la première prise de contact à la vente, avancez avec une vision claire de chaque opportunité.
               </p>
               <span className="mt-4 block h-1 w-11 rounded-full bg-[#ffd166] lg:mt-6 lg:w-14" />
             </div>
-            <div className="relative mb-1 hidden w-[148px] shrink-0 rounded-2xl border border-white/15 bg-white/[0.09] p-3 shadow-xl backdrop-blur-sm sm:block lg:mb-0 lg:w-[178px] lg:p-4">
+            <div className="relative mb-1 hidden w-[148px] shrink-0 rounded-2xl border border-white/15 bg-white/[0.08] p-3 shadow-xl backdrop-blur-sm sm:block lg:mb-0 lg:w-[178px] lg:p-4">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-[9px] font-medium text-white/65 lg:text-[10px]">Opportunités</p>

@@ -29,6 +29,7 @@ import Register from "./pages/Register"
 import ForgotPassword from "./pages/ForgotPassword"
 import ResetPassword from "./pages/ResetPassword"
 import EmailVerified from "./pages/EmailVerified"
+import Apparence from "./pages/Apparence"
 
 
 
@@ -53,6 +54,7 @@ function App() {
         <Route path="/profil" element={<Profil />} />
         <Route path="/entreprise" element={<Entreprise />} />
         <Route path="/comptabilite" element={<Comptabilite />} />
+        <Route path="/apparence" element={<Apparence />} />
         <Route path="/statistiques" element={<Statistiques />} />
         <Route path="/prospects" element={<Prospects />} />
         <Route path="/prospections" element={<Prospection />} />

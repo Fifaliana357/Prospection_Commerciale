@@ -1,9 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import {
   Menu, Moon, Sun, Bell, LogOut, Palette, CheckCheck, UserRound, Building2, Wallet,
+  Search, Command, X, ArrowRight, LayoutDashboard, UsersRound, Target, CalendarDays,
+  Sparkles, Trophy, ShoppingCart, FileText, LifeBuoy, Package, Boxes, UserCog,
+  BookOpen, GraduationCap, ChartNoAxesCombined,
 } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 import { useTheme } from "@/contexts/ThemeContext"
 import { cn } from "@/lib/utils"
+import Modal from "@/components/ui/Modal"
 import { getSessionUser, logout } from "@/lib/session"
 import { useLocation, useNavigate } from "react-router-dom"
 import {
@@ -14,7 +19,8 @@ import {
 } from "@/services/notifications"
 
 const titles: Record<string, string> = {
-  dashboard: "Tableau de bord",
+  dashboard: "Aujourd’hui",
+  apparence: "Apparence",
   statistiques: "Statistiques",
   prospects: "Prospects",
   prospections: "Prospections",
@@ -36,28 +42,67 @@ const titles: Record<string, string> = {
   comptabilite: "Comptabilité",
 }
 
-const colorOptions = [
-  { name: "Navy", value: "navy", color: "#1e3a5f" },
-  { name: "Teal", value: "teal", color: "#0f5c56" },
-  { name: "Rose", value: "rose", color: "#9d4a6a" },
-  { name: "Violet", value: "violet", color: "#6b4f8a" },
-] as const
+function normalizeSearchValue(value: string) {
+  return value
+    .toLocaleLowerCase("fr")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+const destinations: Array<{ label: string; path: string; group: string; icon: LucideIcon; adminOnly?: boolean }> = [
+  { label: "Tableau de bord", path: "/dashboard", group: "Pilotage", icon: LayoutDashboard },
+  { label: "Prospects", path: "/prospects", group: "Prospection", icon: UsersRound },
+  { label: "Pipeline de prospection", path: "/prospections", group: "Prospection", icon: Target },
+  { label: "Rendez-vous", path: "/rendez-vous", group: "Prospection", icon: CalendarDays },
+  { label: "Intérêts", path: "/interets", group: "Prospection", icon: Sparkles },
+  { label: "Closing", path: "/closing", group: "Prospection", icon: Trophy },
+  { label: "Clients", path: "/clients", group: "Ventes", icon: UserRound },
+  { label: "Ventes", path: "/ventes", group: "Ventes", icon: ShoppingCart },
+  { label: "Facturation", path: "/facturation", group: "Ventes", icon: FileText },
+  { label: "SAV et livraisons", path: "/sav", group: "Ventes", icon: LifeBuoy },
+  { label: "Produits et catalogue", path: "/catalogue", group: "Catalogue", icon: Package },
+  { label: "Stock", path: "/stock", group: "Catalogue", icon: Boxes },
+  { label: "Équipe commerciale", path: "/commerciaux", group: "Équipe", icon: UserCog, adminOnly: true },
+  { label: "Bibliothèque", path: "/bibliotheque", group: "Ressources", icon: BookOpen },
+  { label: "Tutoriels", path: "/tutoriels", group: "Ressources", icon: GraduationCap },
+  { label: "Statistiques", path: "/statistiques", group: "Pilotage", icon: ChartNoAxesCombined },
+  { label: "Notifications", path: "/notifications", group: "Compte", icon: Bell },
+  { label: "Profil", path: "/profil", group: "Compte", icon: UserRound },
+  { label: "Apparence et thèmes", path: "/apparence", group: "Compte", icon: Palette },
+  { label: "Mon entreprise", path: "/entreprise", group: "Compte", icon: Building2, adminOnly: true },
+  { label: "Comptabilité", path: "/comptabilite", group: "Compte", icon: Wallet, adminOnly: true },
+]
 
 export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
-  const { theme, toggleTheme, colorTheme, setColorTheme } = useTheme()
+  const { theme, toggleTheme } = useTheme()
   const [user, setUser] = useState(getSessionUser)
   const navigate = useNavigate()
-  const page = titles[useLocation().pathname.split("/")[1]] ?? ""
-  const [showPalette, setShowPalette] = useState(false)
+  const location = useLocation()
+  const page = titles[location.pathname.split("/")[1]] ?? ""
   const [showNotifications, setShowNotifications] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showQuickNav, setShowQuickNav] = useState(false)
+  const [quickSearch, setQuickSearch] = useState("")
   const [notifications, setNotifications] = useState<Notif[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [notificationError, setNotificationError] = useState(false)
 
-  const paletteRef = useRef<HTMLDivElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
   const userRef = useRef<HTMLDivElement>(null)
+  const quickSearchRef = useRef<HTMLInputElement>(null)
+  const matchingDestinations = destinations.filter((destination) => {
+    if (destination.adminOnly && user.role !== "admin") {
+      return false
+    }
+
+    const search = normalizeSearchValue(quickSearch)
+    if (!search) return true
+
+    const haystack = normalizeSearchValue(`${destination.label} ${destination.group}`)
+    return haystack.includes(search)
+  }).slice(0, 8)
 
   useEffect(() => {
     const updateUser = () => setUser(getSessionUser())
@@ -89,10 +134,11 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
   }, [refreshNotifications])
 
   useEffect(() => {
+    if (showQuickNav) quickSearchRef.current?.focus()
+  }, [showQuickNav])
+
+  useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (paletteRef.current && !paletteRef.current.contains(e.target as Node)) {
-        setShowPalette(false)
-      }
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
         setShowNotifications(false)
       }
@@ -102,10 +148,16 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
     }
 
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        setShowPalette(false)
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault()
+        setShowQuickNav(true)
         setShowNotifications(false)
         setShowUserMenu(false)
+      }
+      if (e.key === "Escape") {
+        setShowNotifications(false)
+        setShowUserMenu(false)
+        setShowQuickNav(false)
       }
     }
 
@@ -138,6 +190,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
   }
 
   return (
+    <>
     <header className="h-14 sticky top-0 z-20 flex items-center justify-between px-3 sm:px-5 bg-background/90 backdrop-blur-md shadow-sm">
       <button
         onClick={onMenuClick}
@@ -149,53 +202,36 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
 
       <h2 className="ml-2 font-semibold text-base md:ml-0">{page}</h2>
 
-      <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
-        {/* Palette */}
-        <div className="relative" ref={paletteRef}>
-          <button
-            onClick={() => {
-              setShowPalette(!showPalette)
-              setShowNotifications(false)
-              setShowUserMenu(false)
-            }}
-            className="p-2 rounded-lg text-muted-foreground hover:bg-accent"
-            title="Couleur du thème"
-          >
-            <Palette size={18} />
-          </button>
+      <button
+        type="button"
+        onClick={() => setShowQuickNav(true)}
+        className="ml-6 hidden h-10 max-w-md flex-1 items-center gap-2 rounded-xl border border-border bg-card/80 px-3 text-left text-sm text-muted-foreground shadow-sm transition hover:border-primary/30 hover:bg-card lg:flex"
+        aria-label="Rechercher une page"
+      >
+        <Search size={16} />
+        <span className="flex-1 truncate">Rechercher une rubrique, un mot-clé...</span>
+        <kbd className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"><Command size={10} /> K</kbd>
+      </button>
 
-        {showPalette && (
-          <div className="absolute right-0 mt-2 w-44 rounded-xl bg-card py-2 shadow-xl z-50 ring-1 ring-black/5 dark:ring-white/10">
-            <p className="px-3 pb-1.5 text-[11px] font-medium text-muted-foreground">
-              Couleur
-            </p>
-            {colorOptions.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => {
-                  setColorTheme(option.value)
-                  setShowPalette(false)
-                }}
-                className={cn(
-                  "w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors",
-                  colorTheme === option.value
-                    ? "bg-accent font-medium text-foreground"
-                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-                )}
-              >
-                <span
-                  className="w-3 h-3 rounded-full shrink-0"
-                  style={{ backgroundColor: option.color }}
-                />
-                {option.name}
-                {colorTheme === option.value && (
-                  <span className="ml-auto text-xs opacity-50">✓</span>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-        </div>
+      <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
+        <button
+          type="button"
+          onClick={() => setShowQuickNav(true)}
+          className="rounded-lg p-2 text-muted-foreground hover:bg-accent lg:hidden"
+          title="Rechercher une page"
+          aria-label="Rechercher une page"
+        >
+          <Search size={18} />
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate("/apparence")}
+          className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-primary"
+          title="Personnaliser l’apparence"
+          aria-label="Personnaliser l’apparence"
+        >
+          <Palette size={18} />
+        </button>
 
         {/* Dark / Light */}
         <button
@@ -212,7 +248,6 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
             onClick={() => {
               setShowNotifications(!showNotifications)
               setShowUserMenu(false)
-              setShowPalette(false)
               refreshNotifications()
             }}
             className="p-2 rounded-lg text-muted-foreground hover:bg-accent relative"
@@ -286,7 +321,6 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
             onClick={() => {
               setShowUserMenu(!showUserMenu)
               setShowNotifications(false)
-              setShowPalette(false)
             }}
             className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium hover:opacity-90"
           >
@@ -332,6 +366,15 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
                   </>
                 )}
                 <button
+                  onClick={() => {
+                    setShowUserMenu(false)
+                    navigate("/apparence")
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <Palette size={16} /> Apparence
+                </button>
+                <button
                   onClick={logout}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                 >
@@ -344,5 +387,55 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
         </div>
       </div>
     </header>
+    {showQuickNav && (
+      <Modal
+        open={showQuickNav}
+        onClose={() => { setShowQuickNav(false); setQuickSearch("") }}
+        title="Recherche dans Softio"
+        size="2xl"
+        hideHeader
+        topAligned
+        contentClassName="overflow-hidden p-0"
+      >
+        <div className="mx-auto w-full max-w-4xl">
+          <div className="flex items-center gap-3 border-b border-border px-4">
+            <Search size={19} className="shrink-0 text-primary" />
+            <input
+              ref={quickSearchRef}
+              value={quickSearch}
+              onChange={(event) => setQuickSearch(event.target.value)}
+              placeholder="Rechercher un menu ou un outil..."
+              className="h-14 min-w-0 flex-1 border-0 bg-transparent text-sm outline-none ring-0 focus:border-0 focus:shadow-none focus:outline-none focus:ring-0"
+              aria-label="Rechercher une rubrique"
+            />
+            <button type="button" onClick={() => { setShowQuickNav(false); setQuickSearch("") }} className="rounded-md p-1.5 text-muted-foreground hover:bg-accent" aria-label="Fermer la recherche"><X size={17} /></button>
+          </div>
+          <div className="max-h-[min(60vh,480px)] overflow-y-auto p-2">
+            {matchingDestinations.length ? matchingDestinations.map(({ label, path, group, icon: Icon }) => (
+              <button
+                type="button"
+                key={path}
+                onClick={() => { navigate(path); setShowQuickNav(false); setQuickSearch("") }}
+                className="group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-primary/8"
+              >
+                <span className="grid h-9 w-9 place-items-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary"><Icon size={17} /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium">{label}</span>
+                  <span className="block text-xs text-muted-foreground">{group}</span>
+                </span>
+                <ArrowRight size={15} className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+              </button>
+            )) : (
+              <p className="px-3 py-10 text-center text-sm text-muted-foreground">Aucune rubrique ne correspond à « {quickSearch} ».</p>
+            )}
+          </div>
+          <div className="flex items-center justify-between border-t border-border bg-muted/40 px-4 py-2.5 text-[11px] text-muted-foreground">
+            <span>Accès rapide aux rubriques et outils Softio</span>
+            <span className="rounded border border-border bg-card px-1.5 py-0.5">Esc</span>
+          </div>
+        </div>
+      </Modal>
+    )}
+    </>
   )
 }
