@@ -20,6 +20,7 @@ export interface Prospection {
   etat: string;
   est_perdu: boolean;
   note_actuelle?: number;
+  date_relance?: string | null;
   created_at: string;
   client?: {
     id_client: number;
@@ -45,6 +46,7 @@ export const getProspections = async (params?: {
   search?: string;
   etat?: string;
   page?: number;
+  relance_only?: boolean;
 }) => {
   const response = await api.get('/prospections', { params });
   return response.data;

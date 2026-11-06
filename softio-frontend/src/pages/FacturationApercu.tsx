@@ -19,7 +19,7 @@ import {
   type FacturationDocument,
 } from "@/services/facturation"
 import { getCompanySettings } from "@/services/account"
-import { formatMGA } from "@/lib/utils"
+import { amountInFrenchWords, formatAR, formatMGA } from "@/lib/utils"
 
 type PaperFormat = "A4" | "A5" | "Ticket"
 type IssuerDetails = Pick<PreviewSettings, "companyName" | "companyEmail" | "companyPhone" | "companyAddress" | "companyNif" | "companyStat" | "companyRcs">
@@ -40,6 +40,14 @@ interface PreviewSettings {
   logoWidth: number
   logoX: number
   logoY: number
+  stampWidth: number
+  stampX: number
+  stampY: number
+  stampRotation: number
+  signatureWidth: number
+  signatureX: number
+  signatureY: number
+  signatureRotation: number
   showReference: boolean
   showDiscount: boolean
 }
@@ -65,6 +73,14 @@ function defaultSettings(): PreviewSettings {
     logoWidth: 140,
     logoX: 0,
     logoY: 0,
+    stampWidth: 180,
+    stampX: 0,
+    stampY: 0,
+    stampRotation: 0,
+    signatureWidth: 150,
+    signatureX: 0,
+    signatureY: 0,
+    signatureRotation: 0,
     showReference: true,
     showDiscount: true,
   }
@@ -106,6 +122,10 @@ function formatAmount(value: number) {
   return formatMGA(value)
 }
 
+function formatDocumentAmount(value: number, type: DocumentType) {
+  return type === "facture" ? formatAR(value) : formatMGA(value)
+}
+
 function formatPaperAmount(value: number) {
   return new Intl.NumberFormat("fr-FR").format(value)
 }
@@ -139,6 +159,14 @@ function isPreviewSettings(value: unknown): value is PreviewSettings {
     && typeof settings.logoWidth === "number"
     && typeof settings.logoX === "number"
     && typeof settings.logoY === "number"
+    && (typeof settings.stampWidth === "number" || settings.stampWidth === undefined)
+    && (typeof settings.stampX === "number" || settings.stampX === undefined)
+    && (typeof settings.stampY === "number" || settings.stampY === undefined)
+    && (typeof settings.stampRotation === "number" || settings.stampRotation === undefined)
+    && (typeof settings.signatureWidth === "number" || settings.signatureWidth === undefined)
+    && (typeof settings.signatureX === "number" || settings.signatureX === undefined)
+    && (typeof settings.signatureY === "number" || settings.signatureY === undefined)
+    && (typeof settings.signatureRotation === "number" || settings.signatureRotation === undefined)
     && typeof settings.showReference === "boolean"
     && typeof settings.showDiscount === "boolean"
 }
@@ -170,7 +198,7 @@ export default function FacturationApercu() {
     [id],
   )
   const dragRef = useRef<{
-    target: "logo"
+    target: "logo" | "stamp" | "signature"
     startX: number
     startY: number
     offsetX: number
@@ -182,6 +210,7 @@ export default function FacturationApercu() {
   const [settings, setSettings] = useState<PreviewSettings>(initialSettings.settings)
   const [recipientOverrides, setRecipientOverrides] = useState<RecipientDetails | null>(initialRecipients.values)
   const [companyCachetUrl, setCompanyCachetUrl] = useState<string | null>(null)
+  const [companySignatureUrl, setCompanySignatureUrl] = useState<string | null>(null)
   const [documentType, setDocumentType] = useState<DocumentType>("proforma")
   const [discountInput, setDiscountInput] = useState("0")
   const [appliedDiscount, setAppliedDiscount] = useState(0)
@@ -233,6 +262,7 @@ export default function FacturationApercu() {
           logo: company.logo_url || current.logo,
         }))
         setCompanyCachetUrl(company.cachet_url)
+        setCompanySignatureUrl(company.signature_url)
       } catch {
         if (active) toastRef.current.error("Impossible de charger les informations de l’entreprise.")
       }
@@ -292,15 +322,19 @@ export default function FacturationApercu() {
     }
   }
 
-  const startImageDrag = (event: ReactPointerEvent<HTMLImageElement>) => {
+  const startImageDrag = (event: ReactPointerEvent<HTMLImageElement>, target: "logo" | "stamp" | "signature") => {
     event.preventDefault()
     event.currentTarget.setPointerCapture(event.pointerId)
+    const position = target === "logo"
+      ? { offsetX: settings.logoX, offsetY: settings.logoY }
+      : target === "stamp"
+        ? { offsetX: settings.stampX ?? 0, offsetY: settings.stampY ?? 0 }
+        : { offsetX: settings.signatureX ?? 0, offsetY: settings.signatureY ?? 0 }
     dragRef.current = {
-      target: "logo",
+      target,
       startX: event.clientX,
       startY: event.clientY,
-      offsetX: settings.logoX,
-      offsetY: settings.logoY,
+      ...position,
     }
   }
 
@@ -309,7 +343,11 @@ export default function FacturationApercu() {
     if (!drag) return
     const x = Math.max(-120, Math.min(320, drag.offsetX + event.clientX - drag.startX))
     const y = Math.max(-100, Math.min(700, drag.offsetY + event.clientY - drag.startY))
-    setSettings((current) => ({ ...current, logoX: x, logoY: y }))
+    setSettings((current) => drag.target === "logo"
+      ? { ...current, logoX: x, logoY: y }
+      : drag.target === "stamp"
+        ? { ...current, stampX: x, stampY: y }
+        : { ...current, signatureX: x, signatureY: y })
   }
 
   const openIssuerEditor = () => {

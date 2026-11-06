@@ -20,12 +20,14 @@ class Prospection extends Model
         'produit_prospecte',
         'etat',
         'note_actuelle',
+        'date_relance',
         'est_perdu',
     ];
 
     protected $casts = [
         'est_perdu' => 'boolean',
         'note_actuelle' => 'integer',
+        'date_relance' => 'date:Y-m-d',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

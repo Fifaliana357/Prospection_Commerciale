@@ -354,11 +354,10 @@ export default function ProspectionDetail() {
                   onChange={(type_message) => setForm({ ...form, type_message })}
                   className="mt-1"
                   options={[
-                    { value: "Contact", label: "Contact" },
-                    { value: "Facebook", label: "Facebook" },
                     { value: "Email", label: "Email" },
-                    { value: "Téléphone", label: "Téléphone" },
-                    { value: "WhatsApp", label: "WhatsApp" },
+                    { value: "Facebook", label: "Facebook" },
+                    { value: "LinkedIn", label: "LinkedIn" },
+                    { value: "Contact", label: "Contact" },
                   ]}
                 />
               </div>
@@ -568,11 +567,17 @@ export default function ProspectionDetail() {
             <p className="text-xs text-muted-foreground text-center mb-4">Choisissez la date à laquelle relancer ce prospect</p>
             <DatePicker value={relanceDate} onChange={setRelanceDate} ariaLabel="Date de relance" className="mb-4" />
             <div className="flex justify-center gap-2">
-              <button onClick={() => {
+              <button onClick={async () => {
                 if (!relanceDate) { toast.error('Choisissez une date'); return; }
-                toast.success(`Relance planifiée pour le ${new Date(relanceDate).toLocaleDateString('fr-FR')}`);
-                setShowRelance(false);
-                setRelanceDate('');
+                try {
+                  await updateProspection(prospection.id_prospection, { date_relance: relanceDate });
+                  toast.success(`Relance planifiée pour le ${new Date(`${relanceDate}T00:00:00`).toLocaleDateString('fr-FR')}`);
+                  setShowRelance(false);
+                  setRelanceDate('');
+                  fetchData();
+                } catch {
+                  toast.error('Erreur lors de la planification de la relance');
+                }
               }} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm">Enregistrer</button>
               <button onClick={() => setShowRelance(false)} className="px-4 py-2 border border-border rounded-lg text-sm hover:bg-accent">Annuler</button>
             </div>

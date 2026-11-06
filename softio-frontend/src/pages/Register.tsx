@@ -4,7 +4,7 @@ import { ArrowRight, Building2, Eye, EyeOff, Loader2, LockKeyhole, Mail, Phone, 
 import AuthPageLayout from "../components/auth/AuthPageLayout"
 import api from "../services/api"
 
-const fieldClass = "w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-10 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#18777a] focus:ring-4 focus:ring-[#18777a]/15"
+const fieldClass = "w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-10 text-sm outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-4 focus:ring-slate-500/15"
 
 function getErrorMessage(error: unknown) {
   const response = (error as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } })?.response
@@ -30,9 +30,9 @@ export default function Register() {
     options: { type?: string; autoComplete?: string; minLength?: number; toggle?: boolean; visible?: boolean; onToggle?: () => void } = {},
   ) => (
     <label className="block">
-      <span className="mb-1.5 block text-xs font-semibold text-[#174e53]">{label} <span className="text-red-500">*</span></span>
+      <span className="mb-1.5 block text-xs font-semibold text-slate-800">{label} <span className="text-red-500">*</span></span>
       <span className="relative block">
-        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 text-[#668184]" size={15} />
+        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={15} />
         <input
           type={options.toggle ? (options.visible ? "text" : "password") : options.type || "text"}
           autoComplete={options.autoComplete}
@@ -44,7 +44,7 @@ export default function Register() {
           required
         />
         {options.toggle && (
-          <button type="button" onClick={options.onToggle} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-slate-500 hover:text-[#176d70]" aria-label={options.visible ? "Masquer le mot de passe" : "Afficher le mot de passe"}>
+          <button type="button" onClick={options.onToggle} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-slate-500 hover:text-slate-800" aria-label={options.visible ? "Masquer le mot de passe" : "Afficher le mot de passe"}>
             {options.visible ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
         )}
@@ -84,10 +84,10 @@ export default function Register() {
           onToggle: () => setShowConfirmation((visible) => !visible),
         })}
         {error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
-        <button type="submit" disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-full bg-[#176d70] px-4 py-3 text-sm font-semibold text-white shadow-[0_8px_18px_rgba(23,109,112,0.2)] transition hover:bg-[#125e61] disabled:opacity-60">
+        <button type="submit" disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-full bg-slate-800 px-4 py-3 text-sm font-semibold text-white shadow-[0_8px_18px_rgba(31,41,55,0.2)] transition hover:bg-slate-700 disabled:opacity-60">
           {loading && <Loader2 size={16} className="animate-spin" />}S’inscrire <ArrowRight size={16} />
         </button>
-        <p className="text-center text-xs text-slate-500">Vous avez déjà un compte ? <Link to="/login" className="font-semibold text-[#176d70] hover:underline">Se connecter</Link></p>
+        <p className="text-center text-xs text-slate-500">Vous avez déjà un compte ? <Link to="/login" className="font-semibold text-slate-800 hover:underline">Se connecter</Link></p>
       </form>
     </AuthPageLayout>
   )

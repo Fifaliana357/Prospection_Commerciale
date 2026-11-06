@@ -10,7 +10,7 @@ const api = axios.create({
 
 // Ajoute le token automatiquement
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('@Softio:token');
+  const token = sessionStorage.getItem('@Softio:token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -23,9 +23,9 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       // Token expiré ou invalide
-      localStorage.removeItem('@Softio:token');
-      localStorage.removeItem('@Softio:user');
-      localStorage.removeItem('@Softio:type');
+      sessionStorage.removeItem('@Softio:token');
+      sessionStorage.removeItem('@Softio:user');
+      sessionStorage.removeItem('@Softio:type');
       window.location.href = '/login';
     }
     return Promise.reject(error);

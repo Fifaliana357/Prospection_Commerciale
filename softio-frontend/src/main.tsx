@@ -6,6 +6,10 @@ import { ToastProvider } from "./contexts/ToastContext"
 import App from "./App"
 import "./index.css"
 
+for (const key of ["@Softio:token", "@Softio:user", "@Softio:type"]) {
+  localStorage.removeItem(key)
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>

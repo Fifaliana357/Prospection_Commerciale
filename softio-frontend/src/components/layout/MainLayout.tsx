@@ -3,6 +3,7 @@ import { Outlet, useLocation } from "react-router-dom"
 import Sidebar from "./Sidebar"
 import Header from "./Header"
 import { cn } from "@/lib/utils"
+import UpcomingAppointmentReminder from "@/components/ui/UpcomingAppointmentReminder"
 
 export default function MainLayout() {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -31,6 +32,7 @@ export default function MainLayout() {
           </div>
         </main>
       </div>
+      <UpcomingAppointmentReminder />
     </div>
   )
 }

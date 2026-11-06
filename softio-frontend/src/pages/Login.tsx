@@ -43,9 +43,9 @@ export default function Login() {
     setLoading(true)
     try {
       const response = await api.post("/login", { email, password, type })
-      localStorage.setItem("@Softio:token", response.data.token)
-      localStorage.setItem("@Softio:user", JSON.stringify(response.data.user))
-      localStorage.setItem("@Softio:type", response.data.type)
+      sessionStorage.setItem("@Softio:token", response.data.token)
+      sessionStorage.setItem("@Softio:user", JSON.stringify(response.data.user))
+      sessionStorage.setItem("@Softio:type", response.data.type)
       navigate("/dashboard")
     } catch (err: unknown) {
       const requestError = getApiError(err, "Connexion impossible. Vérifiez vos identifiants.")
@@ -70,7 +70,7 @@ export default function Login() {
   }
 
   const field =
-    "w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-11 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#18777a] focus:ring-4 focus:ring-[#18777a]/15"
+    "w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-11 text-sm outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-4 focus:ring-slate-500/15"
 
   return (
       <AuthPageLayout title="Connexion" description="Heureux de vous revoir. Connectez-vous pour accéder à votre espace.">
@@ -85,7 +85,7 @@ export default function Login() {
                 onClick={() => setType(value)}
                 className={cn(
                   "flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition",
-                  type === value ? "bg-white text-[#155d61] shadow-sm" : "text-slate-500 hover:text-slate-800"
+                  type === value ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-800"
                 )}
               >
                 <Icon size={15} />
@@ -96,26 +96,26 @@ export default function Login() {
 
           <div className="space-y-4">
             {(emailVerified || notice) && (
-              <p role="status" className="rounded-lg border border-emerald-600/25 bg-emerald-50 px-3 py-3 text-sm leading-relaxed text-emerald-800">
+              <p role="status" className="rounded-lg border border-slate-300 bg-slate-50 px-3 py-3 text-sm leading-relaxed text-slate-700">
                 {emailVerified
                   ? "Votre adresse e-mail est vérifiée. Vous pouvez maintenant vous connecter."
                   : notice}
               </p>
             )}
             <label className="block">
-              <span className="mb-1.5 block text-sm font-semibold text-[#174e53]">Email <span className="text-red-500">*</span></span>
+              <span className="mb-1.5 block text-sm font-semibold text-slate-800">Email <span className="text-red-500">*</span></span>
               <span className="relative block">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[#52777a]" size={17} />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={17} />
                 <input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className={field} placeholder="Entrez votre adresse email" required />
               </span>
             </label>
             <label className="block">
-              <span className="mb-1.5 flex items-center justify-between gap-2 text-sm font-semibold text-[#174e53]">
+              <span className="mb-1.5 flex items-center justify-between gap-2 text-sm font-semibold text-slate-800">
                 <span>Mot de passe <span className="text-red-500">*</span></span>
-                <Link to="/forgot-password" className="font-medium text-[#176d70] hover:underline">Mot de passe oublié ?</Link>
+                <Link to="/forgot-password" className="font-medium text-slate-700 hover:underline">Mot de passe oublié ?</Link>
               </span>
               <div className="relative">
-                <LockKeyhole className="absolute left-4 top-1/2 -translate-y-1/2 text-[#52777a]" size={17} />
+                <LockKeyhole className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={17} />
                 <input type={show ? "text" : "password"} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className={field} required />
                 <button type="button" onClick={() => setShow(!show)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-slate-500 hover:text-slate-800" aria-label={show ? "Masquer le mot de passe" : "Afficher le mot de passe"}>
                   {show ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -140,7 +140,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-[#176d70] px-4 py-3.5 text-sm font-semibold text-white shadow-[0_8px_18px_rgba(23,109,112,0.2)] transition hover:bg-[#125e61] disabled:opacity-60"
+            className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-slate-800 px-4 py-3.5 text-sm font-semibold text-white shadow-[0_8px_18px_rgba(31,41,55,0.2)] transition hover:bg-slate-700 disabled:opacity-60"
           >
             {loading && <Loader2 size={16} className="animate-spin" />}
             Se connecter <ArrowRight size={17} />
@@ -149,7 +149,7 @@ export default function Login() {
             <span className="h-px flex-1 bg-slate-200" /><span>OU</span><span className="h-px flex-1 bg-slate-200" />
           </div>
           <p className="text-center text-sm text-slate-500">
-              Vous n’avez pas de compte ? <Link to="/register" className="font-semibold text-[#176d70] hover:underline">Créer un compte</Link>
+              Vous n’avez pas de compte ? <Link to="/register" className="font-semibold text-slate-800 hover:underline">Créer un compte</Link>
             </p>
         </form>
       </AuthPageLayout>

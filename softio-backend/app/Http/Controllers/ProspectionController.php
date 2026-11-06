@@ -49,6 +49,10 @@ class ProspectionController extends Controller
             });
         }
 
+        if ($request->boolean('relance_only')) {
+            $query->whereNotNull('date_relance');
+        }
+
         $prospections = $query->orderBy('created_at', 'desc')->paginate(15);
 
         return response()->json($prospections);
@@ -67,6 +71,10 @@ class ProspectionController extends Controller
             'type_message'      => 'nullable|string|max:50',
         ]);
 
+
+        if ($request->boolean('relance_only')) {
+            $query->whereNotNull('date_relance');
+        }
         $prospection = Prospection::create([
             'id_admin'          => $user instanceof \App\Models\Admin ? $user->id_admin : $user->id_admin,
             'id_commercial'     => $user instanceof \App\Models\Commercial ? $user->id_commercial : null,
@@ -139,6 +147,7 @@ class ProspectionController extends Controller
             'etat'      => 'sometimes|string',
             'est_perdu' => 'sometimes|boolean',
             'note_actuelle' => 'nullable|integer|min:0|max:5',
+            'date_relance' => 'nullable|date',
         ]);
 
         $prospection->update($validated);

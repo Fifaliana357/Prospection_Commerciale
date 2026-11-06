@@ -11,7 +11,7 @@ import TablePagination from "@/components/ui/TablePagination"
 import TableSummary from "@/components/ui/TableSummary"
 import PageHeader from "@/components/ui/PageHeader"
 import { useToast } from "@/contexts/ToastContext"
-import { formatMGA } from "@/lib/utils"
+import { formatAR } from "@/lib/utils"
 import type { Client } from "@/services/clients"
 import type { Offre, Produit } from "@/services/catalogue"
 import {
@@ -49,7 +49,7 @@ const buttonClass = "inline-flex items-center justify-center gap-2 rounded-lg px
 const today = () => new Date().toISOString().slice(0, 10)
 
 function formatAmount(value: number) {
-  return formatMGA(value)
+  return formatAR(value)
 }
 
 function formatDate(value: string) {
@@ -359,7 +359,7 @@ export default function Facturation() {
     try {
       setSaving(true)
       await deleteFacturationDocument(selectedDocument.id_devis)
-      toast.success("Brouillon supprimé")
+      toast.success("Document supprimé")
       closeModal()
       refreshDocuments()
     } catch (error: unknown) {
@@ -574,9 +574,14 @@ export default function Facturation() {
                               </button>
                             </>
                           ) : (
-                            <button type="button" onClick={() => void showDetails(document)} className="rounded-full bg-primary p-2 text-primary-foreground hover:opacity-80" aria-label="Afficher le document" title="Détail et impression">
-                              <FileText size={14} />
-                            </button>
+                            <>
+                              <button type="button" onClick={() => void showDetails(document)} className="rounded-full bg-primary p-2 text-primary-foreground hover:opacity-80" aria-label="Afficher le document" title="Détail et impression">
+                                <FileText size={14} />
+                              </button>
+                              <button type="button" onClick={() => { setSelectedDocument(document); setMode("delete") }} disabled={saving || Boolean(document.vente)} className="rounded-full bg-destructive p-2 text-white hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40" aria-label="Supprimer le document" title={document.vente ? "Document lié à une vente" : "Supprimer le document"}>
+                                <Trash2 size={14} />
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -658,7 +663,7 @@ export default function Facturation() {
                 </div>
               </label>
               <label className="block space-y-1.5 text-sm font-medium">
-                <span>Remise (MGA)</span>
+                <span>Remise (AR)</span>
                 <input type="number" min={0} value={itemDiscount} onChange={(event) => setItemDiscount(event.target.value)} className={inputClass} />
               </label>
               <div className="flex items-end">
@@ -707,7 +712,7 @@ export default function Facturation() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block space-y-1.5 text-sm font-medium">
-              <span>Remise globale (MGA)</span>
+              <span>Remise globale (AR)</span>
               <input type="number" min={0} value={documentForm.discount} onChange={(event) => setDocumentForm({ ...documentForm, discount: event.target.value })} className={inputClass} />
             </label>
             <label className="flex items-center gap-3 self-end rounded-lg border border-border p-3 text-sm font-medium">
@@ -796,7 +801,7 @@ export default function Facturation() {
         )}
       </Modal>
 
-      <Modal open={mode === "delete"} onClose={closeModal} title="Supprimer le brouillon" size="sm">
+              <Modal open={mode === "delete"} onClose={closeModal} title="Supprimer le document" size="sm">
         <div className="space-y-5">
           <p className="text-sm text-muted-foreground">
             Supprimer le document <strong className="text-foreground">{selectedDocument?.numero}</strong> ? Cette action est définitive.

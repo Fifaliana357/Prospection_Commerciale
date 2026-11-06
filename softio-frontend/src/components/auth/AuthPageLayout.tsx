@@ -12,9 +12,9 @@ export default function AuthPageLayout({
   children: ReactNode
 }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#edf3f1] px-0 py-0 text-slate-800 sm:px-5 sm:py-6 lg:px-8">
-      <div className="grid min-h-screen w-full overflow-hidden bg-white shadow-[0_24px_70px_rgba(14,70,72,0.12)] sm:min-h-0 sm:max-w-[1080px] sm:rounded-[24px] lg:min-h-[min(760px,calc(100dvh-3rem))] lg:grid-cols-[0.92fr_1.08fr]">
-        <aside className="relative flex min-h-[174px] flex-col justify-between overflow-hidden bg-gradient-to-br from-[#0f4b4f] via-[#146a6d] to-[#1a7b82] px-6 py-5 text-white sm:min-h-[190px] sm:px-8 lg:min-h-[660px] lg:px-12 lg:py-10">
+    <div className="flex min-h-screen items-center justify-center bg-[#f1f2f3] px-0 py-0 text-slate-800 sm:px-5 sm:py-6 lg:px-8">
+      <div className="grid min-h-screen w-full overflow-hidden bg-white shadow-[0_24px_70px_rgba(31,41,55,0.12)] sm:min-h-0 sm:max-w-[1080px] sm:rounded-[24px] lg:min-h-[min(760px,calc(100dvh-3rem))] lg:grid-cols-[0.92fr_1.08fr]">
+        <aside className="relative flex min-h-[174px] flex-col justify-between overflow-hidden bg-gradient-to-br from-[#263238] via-[#37474f] to-[#455a64] px-6 py-5 text-white sm:min-h-[190px] sm:px-8 lg:min-h-[660px] lg:px-12 lg:py-10">
           <div className="pointer-events-none absolute -bottom-36 -right-20 h-[350px] w-[350px] rounded-full border-[32px] border-white/[0.055] lg:-bottom-40 lg:-right-28 lg:h-[430px] lg:w-[430px] lg:border-[38px]" aria-hidden />
           <div className="pointer-events-none absolute -bottom-24 -right-8 h-[230px] w-[230px] rounded-full border-[23px] border-white/[0.055] lg:-bottom-24 lg:-right-12 lg:h-[280px] lg:w-[280px] lg:border-[28px]" aria-hidden />
           <div className="pointer-events-none absolute right-8 top-8 hidden h-24 w-24 rotate-45 rounded-2xl border border-white/10 lg:block" aria-hidden />
@@ -69,7 +69,7 @@ export default function AuthPageLayout({
         </aside>
         <main className="flex items-center justify-center px-6 py-8 sm:px-10 sm:py-10 lg:px-14 lg:py-12">
           <section className="w-full max-w-[420px]">
-            <h2 className="font-display text-[1.8rem] font-bold tracking-tight text-[#124f55]">{title}</h2>
+            <h2 className="font-display text-[1.8rem] font-bold tracking-tight text-[#263238]">{title}</h2>
             <span className="mt-2 block h-[3px] w-8 rounded-full bg-[#ffc45c]" />
             <p className="mt-3 text-sm leading-relaxed text-slate-500">{description}</p>
             {children}

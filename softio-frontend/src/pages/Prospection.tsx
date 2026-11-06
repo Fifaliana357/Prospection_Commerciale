@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import {
   getProspections,
+  updateProspection,
   deleteProspection,
   type Prospection
 } from '../services/prospections';
@@ -25,6 +26,7 @@ export default function Prospections() {
   const navigate = useNavigate();
 
   const [prospections, setProspections] = useState<Prospection[]>([]);
+  const [listTab, setListTab] = useState<'enregistrement' | 'relance'>('enregistrement');
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [etatFilter, setEtatFilter] = useState('');
@@ -64,6 +66,7 @@ export default function Prospections() {
         search: search || undefined,
         etat: etatFilter || undefined,
         page,
+        relance_only: listTab === 'relance',
       });
       setProspections(res.data);
       setLastPage(res.last_page);
@@ -77,7 +80,17 @@ export default function Prospections() {
 
   useEffect(() => {
     fetchProspections();
-  }, [search, etatFilter, page]);
+  }, [search, etatFilter, page, listTab]);
+
+  const clearRelance = async (id: number) => {
+    try {
+      await updateProspection(id, { date_relance: null });
+      toast.success('Relance supprimée');
+      fetchProspections();
+    } catch {
+      toast.error('Erreur lors de la suppression de la relance');
+    }
+  };
 
   const confirmDelete = async () => {
     if (!deleteId) return;
@@ -175,6 +188,17 @@ export default function Prospections() {
     <div className="p-6 max-w-[1600px] mx-auto">
       <PageHeader title="Prospections" description="Gérez vos actions de prospection." icon={<Target size={23} />} />
 
+      <nav className="flex gap-1 border-b border-border" aria-label="Vues des prospections">
+        {([
+          ['enregistrement', 'Enregistrement'],
+          ['relance', 'Relance'],
+        ] as const).map(([key, label]) => (
+          <button key={key} type="button" onClick={() => { setListTab(key); setPage(1); }} className={`rounded-t-lg px-4 py-2.5 text-sm transition-colors ${listTab === key ? 'bg-card font-semibold text-primary shadow-sm' : 'text-muted-foreground hover:bg-accent'}`}>
+            {label}
+          </button>
+        ))}
+      </nav>
+
       {/* Search + Actions */}
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-1">
@@ -187,18 +211,18 @@ export default function Prospections() {
             className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
         </div>
-        <button
+        {listTab === 'enregistrement' && <button
           onClick={() => navigate('/prospections/create')}
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground hover:opacity-90 rounded-lg font-medium"
         >
           <Plus size={18} />
           Nouvelle prospection
-        </button>
+        </button>}
       </div>
 
       {/* Filtres + Total */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div className="flex flex-wrap gap-2">
+        {listTab === 'enregistrement' && <div className="flex flex-wrap gap-2">
           {[
             { value: '', label: 'Tout' },
             { value: 'non_cloture', label: 'Non clôturé' },
@@ -217,8 +241,8 @@ export default function Prospections() {
               {f.label}
             </button>
           ))}
-        </div>
-        <TableSummary total={total} label="prospections" />
+        </div>}
+        <TableSummary total={total} label={listTab === 'relance' ? 'relances' : 'prospections'} />
       </div>
 
       {/* Table */}
@@ -227,6 +251,13 @@ export default function Prospections() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-primary text-primary-foreground">
+                {listTab === 'relance' ? <>
+                  <th className="px-3 py-3 text-left font-medium">Nom et prénom</th>
+                  <th className="px-3 py-3 text-left font-medium">Email</th>
+                  <th className="px-3 py-3 text-left font-medium">Téléphone</th>
+                  <th className="px-3 py-3 text-left font-medium">Date de relance</th>
+                  <th className="px-3 py-3 text-center font-medium">Actions</th>
+                </> : <>
                 <th className="px-3 py-3 text-left font-medium">Matricule</th>
                 <th className="px-3 py-3 text-left font-medium">Date</th>
                 <th className="px-3 py-3 text-left font-medium">Objet / Produit</th>
@@ -234,21 +265,35 @@ export default function Prospections() {
                 <th className="px-3 py-3 text-left font-medium">Prospect</th>
                 <th className="px-3 py-3 text-left font-medium">Entreprise</th>
                 <th className="px-3 py-3 text-left font-medium">État</th>
-                <th className="px-3 py-3 text-left font-medium">Commercial</th>
+                <th className="px-3 py-3 text-left font-medium">Éditeur</th>
                 <th className="px-3 py-3 text-right font-medium">Actions</th>
+                </>}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">Chargement...</td>
+                  <td colSpan={listTab === 'relance' ? 5 : 9} className="px-4 py-12 text-center text-muted-foreground">Chargement...</td>
                 </tr>
               ) : prospections.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">Aucune prospection trouvée</td>
+                  <td colSpan={listTab === 'relance' ? 5 : 9} className="px-4 py-12 text-center text-muted-foreground">{listTab === 'relance' ? 'Aucune relance planifiée' : 'Aucune prospection trouvée'}</td>
                 </tr>
               ) : (
-                prospections.map((p) => (
+                prospections.map((p) => listTab === 'relance' ? (
+                  <tr key={p.id_prospection} className="hover:bg-accent/40 transition-colors">
+                    <td className="px-3 py-2.5 font-medium">{p.client ? `${p.client.nom} ${p.client.prenom || ''}`.trim() : '—'}</td>
+                    <td className="px-3 py-2.5">{p.client?.email || '—'}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">{p.client?.telephone || '—'}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap font-medium">{p.date_relance ? new Date(`${p.date_relance.slice(0, 10)}T00:00:00`).toLocaleDateString('fr-FR') : '—'}</td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button type="button" onClick={() => navigate(`/prospections/${p.id_prospection}`)} className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 hover:bg-blue-500/20" title="Voir la prospection" aria-label="Voir la prospection"><MessageSquare size={15} /></button>
+                        <button type="button" onClick={() => void clearRelance(p.id_prospection)} className="p-1.5 rounded-lg bg-red-500/10 text-red-600 hover:bg-red-500/20" title="Supprimer la relance" aria-label="Supprimer la relance"><Trash2 size={15} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
                   <tr key={p.id_prospection} className="hover:bg-accent/40 transition-colors">
                     <td className="px-3 py-2.5 font-medium whitespace-nowrap">
                       P-{String(p.id_prospection).padStart(4, '0')}

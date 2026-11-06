@@ -7,6 +7,7 @@ use App\Models\Client;
 use App\Models\Closing;
 use App\Models\Commercial;
 use App\Models\Livraison;
+use App\Models\Offre;
 use App\Models\Prospection;
 use App\Models\RendezVous;
 use App\Models\Vente;
@@ -26,8 +27,10 @@ class DashboardController extends Controller
             'date_to' => 'nullable|date|after_or_equal:date_from',
             'type' => 'nullable|in:all,produit,service',
             'commercial_id' => 'nullable|regex:/^(admin|[0-9]+)$/',
+            'offer_id' => 'nullable|integer',
             'period' => 'nullable|in:day,week,month',
             'interest_search' => 'nullable|string|max:191',
+            'star_search' => 'nullable|string|max:191',
         ]);
 
         $user = $request->user();
@@ -36,6 +39,7 @@ class DashboardController extends Controller
         $dateTo = $validated['date_to'] ?? now()->toDateString();
         $type = ($validated['type'] ?? 'all') !== 'all' ? $validated['type'] : null;
         $commercialFilter = $validated['commercial_id'] ?? null;
+        $offerId = $validated['offer_id'] ?? null;
         if ($commercialFilter === 'admin' && ! $user instanceof Admin) {
             throw ValidationException::withMessages([
                 'commercial_id' => 'Le responsable sélectionné est invalide.',
@@ -52,6 +56,14 @@ class DashboardController extends Controller
             ->exists()) {
             throw ValidationException::withMessages([
                 'commercial_id' => 'Le responsable sélectionné est invalide.',
+            ]);
+        }
+        if ($offerId !== null && (! Schema::hasTable('offre') || ! Offre::query()
+            ->where('id_admin', $adminId)
+            ->whereKey($offerId)
+            ->exists())) {
+            throw ValidationException::withMessages([
+                'offer_id' => 'L’offre sélectionnée est invalide.',
             ]);
         }
 
@@ -238,6 +250,8 @@ class DashboardController extends Controller
             ->count();
 
         $messageScores = collect();
+        $messagesByOffer = collect();
+        $messagesByResponsible = collect();
         if (Schema::hasTable('proposition') && Schema::hasColumn('proposition', 'note')) {
             $messageQuery = DB::table('proposition')
                 ->join('prospection', 'prospection.id_prospection', '=', 'proposition.id_prospection')
@@ -247,13 +261,36 @@ class DashboardController extends Controller
                 ->when(! $user instanceof Admin && $commercialId === null, fn ($query) => $query
                     ->where('prospection.id_commercial', $user->id_commercial))
                 ->whereBetween(DB::raw('DATE(proposition.date_proposition)'), [$dateFrom, $dateTo])
-                ->whereNotNull('proposition.note');
-            $messageScores = $messageQuery
+                ->whereNotNull('proposition.note')
+                ->when($offerId !== null, fn ($query) => $query->where('prospection.id_offre', $offerId));
+            $messageScores = (clone $messageQuery)
                 ->select('proposition.note')
                 ->selectRaw('COUNT(*) as total')
                 ->groupBy('proposition.note')
                 ->orderBy('proposition.note')
                 ->get();
+
+            if (Schema::hasTable('offre') && Schema::hasColumn('prospection', 'id_offre')) {
+                $messagesByOffer = (clone $messageQuery)
+                    ->leftJoin('offre', 'offre.id_offre', '=', 'prospection.id_offre')
+                    ->selectRaw("COALESCE(NULLIF(offre.denomination, ''), 'Sans offre') as label")
+                    ->selectRaw('COUNT(*) as total')
+                    ->selectRaw('AVG(proposition.note) as average')
+                    ->groupBy('offre.denomination')
+                    ->orderByDesc('total')
+                    ->get();
+            }
+
+            if (Schema::hasTable('commercial')) {
+                $messagesByResponsible = (clone $messageQuery)
+                    ->leftJoin('commercial', 'commercial.id_commercial', '=', 'prospection.id_commercial')
+                    ->selectRaw("COALESCE(NULLIF(TRIM(CONCAT(commercial.prenom, ' ', commercial.nom)), ''), 'Admin') as label")
+                    ->selectRaw('COUNT(*) as total')
+                    ->selectRaw('AVG(proposition.note) as average')
+                    ->groupBy('prospection.id_commercial', 'commercial.prenom', 'commercial.nom')
+                    ->orderByDesc('total')
+                    ->get();
+            }
         }
 
         $interestRatings = collect();
@@ -277,6 +314,73 @@ class DashboardController extends Controller
                 ->groupBy('interet.produit_concerne')
                 ->orderByDesc('total')
                 ->orderBy('interet.produit_concerne')
+                ->get();
+        }
+
+        $prospectionStarSummary = [
+            'total' => 0,
+            'rated' => 0,
+            'average' => null,
+            'four_or_five_stars' => 0,
+            'distribution' => collect(),
+            'by_offer' => collect(),
+            'by_responsible' => collect(),
+        ];
+        if (Schema::hasTable('prospection') && Schema::hasColumn('prospection', 'note_actuelle')) {
+            $starQuery = DB::table('prospection')
+                ->leftJoin('offre', 'offre.id_offre', '=', 'prospection.id_offre')
+                ->where('prospection.id_admin', $adminId)
+                ->when($commercialId !== null, fn ($query) => $query->where('prospection.id_commercial', $commercialId))
+                ->when($adminSales, fn ($query) => $query->whereNull('prospection.id_commercial'))
+                ->when(! $user instanceof Admin && $commercialId === null, fn ($query) => $query
+                    ->where('prospection.id_commercial', $user->id_commercial))
+                ->whereBetween(DB::raw('DATE(prospection.created_at)'), [$dateFrom, $dateTo])
+                ->when($offerId !== null, fn ($query) => $query->where('prospection.id_offre', $offerId))
+                ->when(! empty($validated['star_search']), fn ($query) => $query->where(function ($searchQuery) use ($validated) {
+                    $search = trim($validated['star_search']);
+                    $searchQuery->where('offre.denomination', 'like', '%' . $search . '%')
+                        ->orWhere('prospection.produit_prospecte', 'like', '%' . $search . '%');
+                }));
+
+            $summary = (clone $starQuery)
+                ->selectRaw('COUNT(*) as total')
+                ->selectRaw('SUM(CASE WHEN COALESCE(prospection.note_actuelle, 0) > 0 THEN 1 ELSE 0 END) as rated')
+                ->selectRaw('AVG(NULLIF(prospection.note_actuelle, 0)) as average')
+                ->selectRaw('SUM(CASE WHEN prospection.note_actuelle >= 4 THEN 1 ELSE 0 END) as four_or_five_stars')
+                ->first();
+
+            $prospectionStarSummary['total'] = (int) ($summary->total ?? 0);
+            $prospectionStarSummary['rated'] = (int) ($summary->rated ?? 0);
+            $prospectionStarSummary['average'] = $summary->average === null ? null : (float) $summary->average;
+            $prospectionStarSummary['four_or_five_stars'] = (int) ($summary->four_or_five_stars ?? 0);
+            $prospectionStarSummary['distribution'] = (clone $starQuery)
+                ->selectRaw('COALESCE(prospection.note_actuelle, 0) as note')
+                ->selectRaw('COUNT(*) as total')
+                ->groupBy('prospection.note_actuelle')
+                ->orderBy('prospection.note_actuelle')
+                ->get();
+            $prospectionStarSummary['by_offer'] = (clone $starQuery)
+                ->selectRaw("COALESCE(NULLIF(offre.denomination, ''), NULLIF(prospection.produit_prospecte, ''), 'Sans offre') as label")
+                ->selectRaw('SUM(CASE WHEN prospection.note_actuelle >= 4 THEN 1 ELSE 0 END) as interested')
+                ->selectRaw('SUM(CASE WHEN prospection.note_actuelle = 3 THEN 1 ELSE 0 END) as medium')
+                ->selectRaw('SUM(CASE WHEN prospection.note_actuelle = 2 THEN 1 ELSE 0 END) as neutral')
+                ->selectRaw('SUM(CASE WHEN prospection.note_actuelle = 1 THEN 1 ELSE 0 END) as not_interested')
+                ->selectRaw('SUM(CASE WHEN COALESCE(prospection.note_actuelle, 0) = 0 THEN 1 ELSE 0 END) as not_rated')
+                ->selectRaw('COUNT(*) as total')
+                ->groupBy('offre.denomination', 'prospection.produit_prospecte')
+                ->orderBy('label')
+                ->get();
+            $prospectionStarSummary['by_responsible'] = (clone $starQuery)
+                ->leftJoin('commercial', 'commercial.id_commercial', '=', 'prospection.id_commercial')
+                ->selectRaw("COALESCE(NULLIF(TRIM(CONCAT(commercial.prenom, ' ', commercial.nom)), ''), 'Admin') as label")
+                ->selectRaw('SUM(CASE WHEN prospection.note_actuelle >= 4 THEN 1 ELSE 0 END) as interested')
+                ->selectRaw('SUM(CASE WHEN prospection.note_actuelle = 3 THEN 1 ELSE 0 END) as medium')
+                ->selectRaw('SUM(CASE WHEN prospection.note_actuelle = 2 THEN 1 ELSE 0 END) as neutral')
+                ->selectRaw('SUM(CASE WHEN prospection.note_actuelle = 1 THEN 1 ELSE 0 END) as not_interested')
+                ->selectRaw('SUM(CASE WHEN COALESCE(prospection.note_actuelle, 0) = 0 THEN 1 ELSE 0 END) as not_rated')
+                ->selectRaw('COUNT(*) as total')
+                ->groupBy('prospection.id_commercial', 'commercial.prenom', 'commercial.nom')
+                ->orderBy('label')
                 ->get();
         }
 
@@ -309,9 +413,13 @@ class DashboardController extends Controller
                 'date_to' => $dateTo,
                 'type' => $type ?? 'all',
                 'commercial_id' => $adminSales ? 'admin' : $commercialId,
+                    'offer_id' => $offerId,
                 'period' => $period,
             ],
             'responsables' => $responsables,
+                'offres' => Schema::hasTable('offre')
+                    ? Offre::query()->where('id_admin', $adminId)->orderBy('denomination')->get(['id_offre', 'denomination'])
+                    : collect(),
             'prospects' => $prospects,
             'prospections' => $totalProspections,
             'en_cours' => $enCours,
@@ -327,6 +435,9 @@ class DashboardController extends Controller
             'top_clients' => $topClients,
             'repartition' => $distribution,
             'scoring_messages' => $messageScores,
+            'scoring_by_offer' => $messagesByOffer,
+            'scoring_by_responsible' => $messagesByResponsible,
+            'prospection_star_summary' => $prospectionStarSummary,
             'interets_par_etoile' => $interestRatings,
         ]);
     }

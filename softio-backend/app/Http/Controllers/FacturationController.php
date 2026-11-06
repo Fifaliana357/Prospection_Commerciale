@@ -49,7 +49,7 @@ class FacturationController extends Controller
     {
         $user = $request->user();
         $query = Devis::query()
-            ->with(['client:id_client,nom,prenom,entreprise,email,telephone', 'commercial:id_commercial,nom,prenom'])
+            ->with(['client:id_client,nom,prenom,entreprise,email,telephone', 'commercial:id_commercial,nom,prenom', 'vente:id_vente,id_devis'])
             ->withCount('lignes')
             ->where('id_admin', $user->id_admin);
 
@@ -174,15 +174,15 @@ class FacturationController extends Controller
     public function destroy(Request $request, int $id): JsonResponse
     {
         $document = $this->ownedDocuments($request->user())->findOrFail($id);
-        if ($document->statut !== 'brouillon') {
+        if ($document->vente()->exists()) {
             return response()->json([
-                'message' => 'Seuls les brouillons peuvent être supprimés.',
+                'message' => 'Ce document est lié à une vente et ne peut pas être supprimé.',
             ], 422);
         }
 
         $document->delete();
 
-        return response()->json(['message' => 'Brouillon supprimé.']);
+        return response()->json(['message' => 'Document supprimé.']);
     }
 
     public function sendEmail(Request $request, int $id): JsonResponse

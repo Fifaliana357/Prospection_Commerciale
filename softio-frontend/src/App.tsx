@@ -35,7 +35,7 @@ import Apparence from "./pages/Apparence"
 
 
 const PrivateRoute = () => {
-  const token = localStorage.getItem("@Softio:token")
+  const token = sessionStorage.getItem("@Softio:token")
   return token ? <MainLayout /> : <Navigate to="/login" />
 }
 
