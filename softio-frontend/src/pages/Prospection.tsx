@@ -193,7 +193,7 @@ export default function Prospections() {
           ['enregistrement', 'Enregistrement'],
           ['relance', 'Relance'],
         ] as const).map(([key, label]) => (
-          <button key={key} type="button" onClick={() => { setListTab(key); setPage(1); }} className={`rounded-t-lg px-4 py-2.5 text-sm transition-colors ${listTab === key ? 'bg-card font-semibold text-primary shadow-sm' : 'text-muted-foreground hover:bg-accent'}`}>
+          <button key={key} type="button" onClick={() => { setListTab(key); setPage(1); setEtatFilter(''); }} className={`rounded-t-lg px-4 py-2.5 text-sm transition-colors ${listTab === key ? 'bg-card font-semibold text-primary shadow-sm' : 'text-muted-foreground hover:bg-accent'}`}>
             {label}
           </button>
         ))}

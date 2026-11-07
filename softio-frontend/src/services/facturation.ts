@@ -35,6 +35,7 @@ export interface FacturationDocument {
   taux_tva: number;
   statut: DocumentStatus;
   remarque?: string | null;
+  editor_name?: string | null;
   lignes_count?: number;
   client: {
     id_client: number;

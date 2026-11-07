@@ -18,7 +18,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -110,11 +109,13 @@ class FacturationController extends Controller
             ->with([
                 'client',
                 'commercial',
+                'admin:id_admin,nom,prenom',
                 'lignes.produit:id_produit,reference',
                 'lignes.offre:id_offre',
                 'vente',
             ])
             ->findOrFail($id);
+        $document->setAttribute('editor_name', $this->editorName($document));
 
         return response()->json($document);
     }
@@ -162,8 +163,9 @@ class FacturationController extends Controller
 
             $document->update(['statut' => 'valide']);
 
-            return $document->fresh()->load(['client', 'lignes', 'vente']);
+            return $document->fresh()->load(['client', 'commercial', 'admin:id_admin,nom,prenom', 'lignes', 'vente']);
         });
+        $document->setAttribute('editor_name', $this->editorName($document));
 
         return response()->json([
             'message' => 'Document validé.',
@@ -188,7 +190,7 @@ class FacturationController extends Controller
     public function sendEmail(Request $request, int $id): JsonResponse
     {
         $document = $this->ownedDocuments($request->user())
-            ->with(['client', 'lignes'])
+            ->with(['client', 'lignes', 'commercial', 'admin:id_admin,nom,prenom'])
             ->findOrFail($id);
 
         if ($document->statut !== 'valide') {
@@ -210,12 +212,16 @@ class FacturationController extends Controller
         }
         $company = $companyQuery->first();
         $companyLogoPath = $company?->logo
-            ? Storage::disk('public')->path($company->logo)
+            ? $this->publicFilePath($company->logo)
             : null;
         $companyCachetPath = $company?->cachet
-            ? Storage::disk('public')->path($company->cachet)
+            ? $this->publicFilePath($company->cachet)
+            : null;
+        $companySignaturePath = $company?->signature
+            ? $this->publicFilePath($company->signature)
             : null;
         $companyName = $company?->nom_entreprise ?: 'L’équipe commerciale';
+        $editorName = $this->editorName($document);
         $clientName = trim(($document->client->prenom ?? '') . ' ' . ($document->client->nom ?? ''));
         $typeLabel = match ($document->type) {
             'facture' => 'Facture',
@@ -224,15 +230,19 @@ class FacturationController extends Controller
         };
         $lineSubtotal = (int) $document->lignes->sum('montant');
         $vatAmount = max(0, (int) $document->montant_ttc - (int) $document->montant_ht);
+        $amountInWords = $this->amountInFrenchWords((int) $document->montant_ttc);
         $pdf = Pdf::loadView('pdf.facturation', compact(
             'document',
             'company',
             'companyLogoPath',
             'companyCachetPath',
+            'companySignaturePath',
+            'editorName',
             'clientName',
             'typeLabel',
             'lineSubtotal',
             'vatAmount',
+            'amountInWords',
         ))->setPaper('a4');
         $pdfBytes = $pdf->output();
         $emailBody = view('emails.facturation', compact(
@@ -241,15 +251,101 @@ class FacturationController extends Controller
             'typeLabel',
         ))->render();
         $attachmentName = Str::slug($typeLabel . '-' . $document->numero) . '.pdf';
+        $subject = $typeLabel . ' n° ' . $document->numero;
 
-        Mail::send([], [], function ($message) use ($email, $typeLabel, $emailBody, $pdfBytes, $attachmentName) {
+        Mail::send([], [], function ($message) use ($email, $subject, $emailBody, $pdfBytes, $attachmentName) {
             $message->to($email)
-                ->subject($typeLabel . ' n° ' . $document->numero)
+            ->subject($subject)
                 ->html($emailBody)
                 ->attachData($pdfBytes, $attachmentName, ['mime' => 'application/pdf']);
         });
 
         return response()->json(['message' => "E-mail envoyé à {$email}."]);
+    }
+
+    private function editorName(Devis $document): string
+    {
+        $editor = $document->commercial ?? $document->admin;
+        $name = trim(($editor?->prenom ?? '') . ' ' . ($editor?->nom ?? ''));
+
+        return $name !== '' ? $name : 'Administrateur';
+    }
+
+    private function publicFilePath(string $relativePath): string
+    {
+        $root = (string) config('filesystems.disks.public.root', storage_path('app/public'));
+
+        return rtrim($root, '/\\') . DIRECTORY_SEPARATOR . ltrim($relativePath, '/\\');
+    }
+
+    private function amountInFrenchWords(int $amount): string
+    {
+        $amount = max(0, $amount);
+        if ($amount === 0) {
+            return 'zéro';
+        }
+
+        $scales = ['', 'mille', 'million', 'milliard', 'billion', 'billiard'];
+        $parts = [];
+        $scale = 0;
+        while ($amount > 0) {
+            $group = $amount % 1000;
+            if ($group > 0) {
+                $words = $this->underThousandInFrench($group);
+                if ($scale === 1 && $group === 1) {
+                    $words = 'mille';
+                } elseif ($scale > 1) {
+                    $words .= ' ' . $scales[$scale] . ($group > 1 ? 's' : '');
+                } elseif ($scale === 1) {
+                    $words .= ' mille';
+                }
+                array_unshift($parts, $words);
+            }
+            $amount = intdiv($amount, 1000);
+            $scale++;
+        }
+
+        return implode(' ', $parts);
+    }
+
+    private function underThousandInFrench(int $number): string
+    {
+        $small = ['zéro', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize'];
+        if ($number < 17) {
+            return $small[$number];
+        }
+        if ($number < 20) {
+            return 'dix-' . $small[$number - 10];
+        }
+        if ($number < 70) {
+            $tens = ['', '', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante'];
+            $decade = intdiv($number, 10);
+            $unit = $number % 10;
+            if ($unit === 0) {
+                return $tens[$decade];
+            }
+            return $unit === 1
+                ? $tens[$decade] . ' et un'
+                : $tens[$decade] . '-' . $small[$unit];
+        }
+        if ($number < 80) {
+            return $number === 71
+                ? 'soixante et onze'
+                : 'soixante-' . $this->underThousandInFrench($number - 60);
+        }
+        if ($number < 100) {
+            return $number === 80
+                ? 'quatre-vingts'
+                : 'quatre-vingt-' . $this->underThousandInFrench($number - 80);
+        }
+
+        $hundreds = intdiv($number, 100);
+        $remainder = $number % 100;
+        $words = ($hundreds === 1 ? '' : $small[$hundreds] . ' ') . 'cent';
+        if ($remainder === 0) {
+            return $hundreds > 1 ? $words . 's' : $words;
+        }
+        return $words . ' ' . $this->underThousandInFrench($remainder);
     }
 
     private function validatedPayload(Request $request): array

@@ -345,7 +345,7 @@ class DashboardController extends Controller
             $summary = (clone $starQuery)
                 ->selectRaw('COUNT(*) as total')
                 ->selectRaw('SUM(CASE WHEN COALESCE(prospection.note_actuelle, 0) > 0 THEN 1 ELSE 0 END) as rated')
-                ->selectRaw('AVG(NULLIF(prospection.note_actuelle, 0)) as average')
+                ->selectRaw('AVG(NULLIF(LEAST(prospection.note_actuelle, 4), 0)) as average')
                 ->selectRaw('SUM(CASE WHEN prospection.note_actuelle >= 4 THEN 1 ELSE 0 END) as four_or_five_stars')
                 ->first();
 
@@ -367,7 +367,7 @@ class DashboardController extends Controller
                 ->selectRaw('SUM(CASE WHEN prospection.note_actuelle = 1 THEN 1 ELSE 0 END) as not_interested')
                 ->selectRaw('SUM(CASE WHEN COALESCE(prospection.note_actuelle, 0) = 0 THEN 1 ELSE 0 END) as not_rated')
                 ->selectRaw('COUNT(*) as total')
-                ->groupBy('offre.denomination', 'prospection.produit_prospecte')
+                ->groupByRaw("COALESCE(NULLIF(offre.denomination, ''), NULLIF(prospection.produit_prospecte, ''), 'Sans offre')")
                 ->orderBy('label')
                 ->get();
             $prospectionStarSummary['by_responsible'] = (clone $starQuery)
@@ -385,18 +385,12 @@ class DashboardController extends Controller
         }
 
         if ($user instanceof Admin) {
-            $commercialIdsWithSales = Vente::query()
-                ->where('id_admin', $adminId)
-                ->whereNotNull('id_commercial')
-                ->distinct()
-                ->pluck('id_commercial');
             $responsables = collect([[
                 'id_commercial' => null,
                 'nom' => 'Admin',
                 'prenom' => null,
             ]])->concat(Commercial::query()
                 ->where('id_admin', $adminId)
-                ->whereIn('id_commercial', $commercialIdsWithSales)
                 ->orderBy('nom')
                 ->get(['id_commercial', 'nom', 'prenom']));
         } else {

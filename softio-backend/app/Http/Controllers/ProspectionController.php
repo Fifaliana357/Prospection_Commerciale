@@ -53,7 +53,9 @@ class ProspectionController extends Controller
             $query->whereNotNull('date_relance');
         }
 
-        $prospections = $query->orderBy('created_at', 'desc')->paginate(15);
+        $prospections = $request->boolean('relance_only')
+            ? $query->orderBy('date_relance')->paginate(15)
+            : $query->orderBy('created_at', 'desc')->paginate(15);
 
         return response()->json($prospections);
     }
@@ -70,11 +72,6 @@ class ProspectionController extends Controller
             'message'           => 'nullable|string',
             'type_message'      => 'nullable|string|max:50',
         ]);
-
-
-        if ($request->boolean('relance_only')) {
-            $query->whereNotNull('date_relance');
-        }
         $prospection = Prospection::create([
             'id_admin'          => $user instanceof \App\Models\Admin ? $user->id_admin : $user->id_admin,
             'id_commercial'     => $user instanceof \App\Models\Commercial ? $user->id_commercial : null,
@@ -106,7 +103,7 @@ class ProspectionController extends Controller
         ], 201);
     }
 
-    public function show(Request $request, $id)
+    public function show(Request $request, int $id)
     {
         $user = $request->user();
 
@@ -133,7 +130,7 @@ class ProspectionController extends Controller
         return response()->json($prospection);
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, int $id)
     {
         $user = $request->user();
         $prospection = Prospection::findOrFail($id);
@@ -146,7 +143,7 @@ class ProspectionController extends Controller
         $validated = $request->validate([
             'etat'      => 'sometimes|string',
             'est_perdu' => 'sometimes|boolean',
-            'note_actuelle' => 'nullable|integer|min:0|max:5',
+            'note_actuelle' => 'nullable|integer|min:0|max:4',
             'date_relance' => 'nullable|date',
         ]);
 
@@ -158,7 +155,7 @@ class ProspectionController extends Controller
         ]);
     }
 
-    public function destroy(Request $request, $id)
+    public function destroy(Request $request, int $id)
     {
         $prospection = Prospection::findOrFail($id);
         $prospection->delete();
@@ -167,7 +164,7 @@ class ProspectionController extends Controller
     }
 
     // Ajouter un message (proposition)
-    public function addMessage(Request $request, $id)
+    public function addMessage(Request $request, int $id)
     {
         $user = $request->user();
         $prospection = Prospection::findOrFail($id);

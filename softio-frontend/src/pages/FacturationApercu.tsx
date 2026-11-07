@@ -3,7 +3,7 @@ import type { PointerEvent as ReactPointerEvent } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import {
   ArrowLeft, CheckCircle2, Download, FileText, Mail, Pencil,
-  Save,
+  RotateCcw, RotateCw, Save,
 } from "lucide-react"
 import { useToast } from "@/contexts/ToastContext"
 import { getSessionUser } from "@/lib/session"
@@ -118,11 +118,7 @@ function readRecipientOverrides(key: string): { values: RecipientDetails | null;
   }
 }
 
-function formatAmount(value: number) {
-  return formatMGA(value)
-}
-
-function formatDocumentAmount(value: number, type: DocumentType) {
+function formatAmount(value: number, type: DocumentType) {
   return type === "facture" ? formatAR(value) : formatMGA(value)
 }
 
@@ -132,6 +128,14 @@ function formatPaperAmount(value: number) {
 
 function formatDate(value: string) {
   return new Date(`${value.slice(0, 10)}T00:00:00`).toLocaleDateString("fr-FR")
+}
+
+function getEmailErrorMessage(error: unknown) {
+  if (typeof error === "object" && error !== null && "response" in error) {
+    const response = (error as { response?: { data?: { message?: unknown } } }).response
+    if (typeof response?.data?.message === "string") return response.data.message
+  }
+  return "Impossible d’envoyer la facture par e-mail. Vérifiez la configuration du serveur mail."
 }
 
 function documentTypeLabel(type: DocumentType) {
@@ -456,8 +460,8 @@ export default function FacturationApercu() {
     try {
       setSendingEmail(true)
       toast.success(await emailFacturationDocument(document.id_devis))
-    } catch {
-      toast.error("Impossible d’envoyer la facture par e-mail.")
+    } catch (error: unknown) {
+      toast.error(getEmailErrorMessage(error))
     } finally {
       setSendingEmail(false)
     }
@@ -525,8 +529,8 @@ export default function FacturationApercu() {
           </button>
         </div>
       ) : (
-        <div className="grid items-start gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
-          <aside className="print:hidden space-y-4 rounded-xl border border-border bg-card p-4">
+        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+          <aside className="print:hidden order-2 space-y-4 rounded-xl border border-border bg-card p-4">
             <div className="flex items-center gap-2 border-b border-border pb-3">
               <h2 className="font-semibold">Mise en page</h2>
             </div>
@@ -562,13 +566,42 @@ export default function FacturationApercu() {
                   { value: "devis", label: "Devis" },
                   { value: "facture", label: "Facture" },
                 ]}
-                disabled={document.statut !== "brouillon"}
               />
             </label>
 
+            {(companyCachetUrl || companySignatureUrl) && (
+              <div className="space-y-4 border-b border-border pb-4">
+                <h3 className="text-sm font-semibold">Cachet et signature</h3>
+                {companyCachetUrl && (
+                  <div className="space-y-2">
+                    <label className="flex items-center justify-between text-xs font-medium"><span>Taille du cachet</span><span>{settings.stampWidth}px</span></label>
+                    <input type="range" min={80} max={320} step={5} value={settings.stampWidth} onChange={(event) => setSettings((current) => ({ ...current, stampWidth: Number(event.target.value) }))} className="w-full accent-primary" aria-label="Taille du cachet" />
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-muted-foreground">Rotation</span>
+                      <button type="button" onClick={() => setSettings((current) => ({ ...current, stampRotation: current.stampRotation - 15 }))} className="rounded-md border border-border p-1.5 hover:bg-accent" title="Tourner le cachet à gauche" aria-label="Tourner le cachet à gauche"><RotateCcw size={14} /></button>
+                      <span className="min-w-10 text-center text-xs">{settings.stampRotation}°</span>
+                      <button type="button" onClick={() => setSettings((current) => ({ ...current, stampRotation: current.stampRotation + 15 }))} className="rounded-md border border-border p-1.5 hover:bg-accent" title="Tourner le cachet à droite" aria-label="Tourner le cachet à droite"><RotateCw size={14} /></button>
+                    </div>
+                  </div>
+                )}
+                {companySignatureUrl && (
+                  <div className="space-y-2">
+                    <label className="flex items-center justify-between text-xs font-medium"><span>Taille de la signature</span><span>{settings.signatureWidth}px</span></label>
+                    <input type="range" min={80} max={320} step={5} value={settings.signatureWidth} onChange={(event) => setSettings((current) => ({ ...current, signatureWidth: Number(event.target.value) }))} className="w-full accent-primary" aria-label="Taille de la signature" />
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-muted-foreground">Rotation</span>
+                      <button type="button" onClick={() => setSettings((current) => ({ ...current, signatureRotation: current.signatureRotation - 15 }))} className="rounded-md border border-border p-1.5 hover:bg-accent" title="Tourner la signature à gauche" aria-label="Tourner la signature à gauche"><RotateCcw size={14} /></button>
+                      <span className="min-w-10 text-center text-xs">{settings.signatureRotation}°</span>
+                      <button type="button" onClick={() => setSettings((current) => ({ ...current, signatureRotation: current.signatureRotation + 15 }))} className="rounded-md border border-border p-1.5 hover:bg-accent" title="Tourner la signature à droite" aria-label="Tourner la signature à droite"><RotateCw size={14} /></button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div>
               <label htmlFor="global-discount" className="mb-1.5 block text-sm font-medium">
-                Remise globale <span className="text-xs font-normal text-muted-foreground">(sur le total, en MGA)</span>
+                Remise globale <span className="text-xs font-normal text-muted-foreground">(sur le total, en {documentType === "facture" ? "AR" : "MGA"})</span>
               </label>
               <div className="flex overflow-hidden rounded-xl border border-border">
                 <input
@@ -624,7 +657,7 @@ export default function FacturationApercu() {
             </button>
           </aside>
 
-          <section className="min-w-0 overflow-auto rounded-xl bg-slate-200/70 p-3 sm:p-6 dark:bg-slate-900/50">
+          <section className="order-1 min-w-0 overflow-auto rounded-xl bg-slate-200/70 p-3 sm:p-6 dark:bg-slate-900/50">
             <div
               className={`document-preview-sheet mx-auto bg-white text-slate-800 shadow-xl ${format === "Ticket" ? "ticket-preview-sheet" : "min-h-[900px]"}`}
               style={{ width: paperWidth, maxWidth: "100%", padding: paperPadding }}
@@ -692,7 +725,7 @@ export default function FacturationApercu() {
                         <img
                           src={settings.logo}
                           alt="Logo"
-                          onPointerDown={startImageDrag}
+                          onPointerDown={(event) => startImageDrag(event, "logo")}
                           onPointerMove={moveImage}
                           onPointerUp={() => { dragRef.current = null }}
                           style={{ width: `${settings.logoWidth}px`, transform: `translate(${settings.logoX}px, ${settings.logoY}px)`, touchAction: "none" }}
@@ -703,41 +736,31 @@ export default function FacturationApercu() {
                       )}
                       {companyLines.map((line) => <p key={line} className="break-words text-xs leading-5 text-slate-500">{line}</p>)}
                     </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{document.statut === "brouillon" ? "Brouillon" : "Document validé"}</p>
-                      <h2 className="mt-2 text-xl font-bold uppercase" style={{ color: settings.accent }}>{documentTypeLabel(documentType)}</h2>
-                      <p className="mt-1 text-sm font-semibold">N° {document.numero}</p>
-                      <p className="mt-1 text-xs text-slate-500">Date : {formatDate(document.date_devis)}</p>
+                    <div className="group relative min-w-[38%]">
+                      <p className="text-right text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{document.statut === "brouillon" ? "Brouillon" : "Document validé"}</p>
+                      <h2 className="mt-2 text-right text-xl font-bold uppercase" style={{ color: settings.accent }}>{documentTypeLabel(documentType)}</h2>
+                      <p className="mt-1 text-right text-sm font-semibold">N° {document.numero}</p>
+                      <p className="mt-1 text-right text-xs text-slate-500">Date : {formatDate(document.date_devis)}</p>
+                      <div className="relative mt-3 min-h-24 border border-dashed border-slate-300 p-3 text-left">
+                        <button
+                          type="button"
+                          onClick={openRecipientEditor}
+                          className="absolute right-2 top-2 z-10 rounded-full bg-white/90 p-1.5 text-slate-600 opacity-0 shadow transition-opacity group-hover:opacity-100 focus:opacity-100 print:hidden"
+                          aria-label="Modifier les informations du destinataire"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Adressé à</p>
+                        <p className="font-semibold">{recipient?.name}</p>
+                        {recipient?.email && <p className="mt-1 break-all text-xs text-slate-600">{recipient.email}</p>}
+                        {recipient?.phone && <p className="mt-1 text-xs text-slate-600">{recipient.phone}</p>}
+                        {recipient?.address && <p className="mt-1 whitespace-pre-wrap text-xs text-slate-600">{recipient.address}</p>}
+                        {document.intitule && <p className="mt-1 text-xs text-slate-600">{document.intitule}</p>}
+                      </div>
                     </div>
                   </>
                 )}
               </header>
-
-              {format !== "Ticket" && (
-                <div className="my-8 grid gap-5 sm:grid-cols-2">
-                  <div className="group relative rounded border border-dashed border-slate-300 p-3">
-                    <button
-                      type="button"
-                      onClick={openRecipientEditor}
-                      className="absolute right-2 top-2 z-10 rounded-full bg-white/90 p-1.5 text-slate-600 opacity-0 shadow transition-opacity group-hover:opacity-100 focus:opacity-100 print:hidden"
-                      aria-label="Modifier les informations du destinataire"
-                    >
-                      <Pencil size={13} />
-                    </button>
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Adressé à</p>
-                    <p className="font-semibold">{recipient?.name}</p>
-                    {recipient?.email && <p className="mt-1 break-all text-sm text-slate-600">{recipient.email}</p>}
-                    {recipient?.phone && <p className="mt-1 text-sm text-slate-600">{recipient.phone}</p>}
-                    {recipient?.address && <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{recipient.address}</p>}
-                  </div>
-                  {document.intitule && (
-                    <div className="sm:text-right">
-                      <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Objet</p>
-                      <p className="font-medium">{document.intitule}</p>
-                    </div>
-                  )}
-                </div>
-              )}
 
               {format === "Ticket" ? (
                 <div className="border-y border-dashed py-3 text-[10px]">
@@ -749,11 +772,11 @@ export default function FacturationApercu() {
                       <div className="min-w-0">
                         <p className="break-words font-semibold">{line.designation}</p>
                         <p className="mt-0.5 text-[9px] text-slate-600">
-                          {line.quantite} × {formatAmount(line.prix_unitaire)}
-                          {line.remise > 0 ? ` · remise ${formatAmount(line.remise)}` : ""}
+                          {line.quantite} × {formatAmount(line.prix_unitaire, documentType)}
+                          {line.remise > 0 ? ` · remise ${formatAmount(line.remise, documentType)}` : ""}
                         </p>
                       </div>
-                      <strong className="shrink-0 whitespace-nowrap">{formatAmount(line.montant)}</strong>
+                      <strong className="shrink-0 whitespace-nowrap">{formatAmount(line.montant, documentType)}</strong>
                     </div>
                   ))}
                 </div>
@@ -763,18 +786,18 @@ export default function FacturationApercu() {
                     <thead>
                       <tr>
                         <th className="normal-case border border-slate-900 px-2 py-2 text-left font-semibold sm:px-3">Désignation</th>
-                        <th className="normal-case border border-slate-900 px-2 py-2 text-right font-semibold sm:px-3">PU (en MGA)</th>
+                        <th className="normal-case border border-slate-900 px-2 py-2 text-right font-semibold sm:px-3">PU (en {documentType === "facture" ? "AR" : "MGA"})</th>
                         <th className="normal-case border border-slate-900 px-2 py-2 text-center font-semibold sm:px-3">Quantité</th>
-                        <th className="normal-case border border-slate-900 px-2 py-2 text-right font-semibold sm:px-3">Montant (en MGA)</th>
+                        <th className="normal-case border border-slate-900 px-2 py-2 text-right font-semibold sm:px-3">Montant (en {documentType === "facture" ? "AR" : "MGA"})</th>
                       </tr>
                     </thead>
                     <tbody>
                       {(document.lignes ?? []).map((line) => (
                         <tr key={line.id_ligne_devis} className="border-b border-slate-100 last:border-0">
                           <td className="break-words border border-slate-900 px-2 py-2 sm:px-3">{line.designation}</td>
-                          <td className="whitespace-nowrap border border-slate-900 px-2 py-2 text-right sm:px-3">{formatPaperAmount(line.prix_unitaire)}</td>
+                          <td className="whitespace-nowrap border border-slate-900 px-2 py-2 text-right sm:px-3">{formatPaperAmount(line.prix_unitaire)} {documentType === "facture" ? "AR" : "MGA"}</td>
                           <td className="border border-slate-900 px-2 py-2 text-center sm:px-3">{line.quantite}</td>
-                          <td className="whitespace-nowrap border border-slate-900 px-2 py-2 text-right sm:px-3">{formatPaperAmount(line.montant)}</td>
+                          <td className="whitespace-nowrap border border-slate-900 px-2 py-2 text-right sm:px-3">{formatPaperAmount(line.montant)} {documentType === "facture" ? "AR" : "MGA"}</td>
                         </tr>
                       ))}
                       {appliedDiscount > 0 && (
@@ -803,17 +826,19 @@ export default function FacturationApercu() {
                 {format === "Ticket" ? (
                   <>
                     {appliedDiscount > 0 && (
-                      <div className="flex justify-between gap-2 text-slate-600"><span>Remise</span><span>− {formatAmount(appliedDiscount)}</span></div>
+                      <div className="flex justify-between gap-2 text-slate-600"><span>Remise</span><span>− {formatAmount(appliedDiscount, documentType)}</span></div>
                     )}
                     {includeTax && (
-                      <div className="flex justify-between gap-2 text-slate-600"><span>TVA ({document.taux_tva} %)</span><span>{formatAmount(vatAmount)}</span></div>
+                      <div className="flex justify-between gap-2 text-slate-600"><span>TVA ({document.taux_tva} %)</span><span>{formatAmount(vatAmount, documentType)}</span></div>
                     )}
                     <div className="flex justify-between gap-2 border-t border-slate-800 pt-2 font-bold">
-                      <span>Total</span><span>{formatAmount(totalTtc)}</span>
+                      <span>Total</span><span>{formatAmount(totalTtc, documentType)}</span>
                     </div>
                   </>
                 ) : null}
               </div>}
+
+              {documentType === "facture" && <p className="mt-5 text-sm font-medium">Arrêté à la somme de : {amountInFrenchWords(totalTtc)} Ariary.</p>}
 
               {document.remarque && (
                 <div className={`${format === "Ticket" ? "mt-3 text-[10px]" : "mt-8 border-t border-slate-200 pt-4 text-sm"}`}>
@@ -827,10 +852,34 @@ export default function FacturationApercu() {
                 : "mt-8 flex items-end justify-between gap-4 border-t border-slate-200 pt-4 text-xs text-slate-500"}
               >
                 {format === "Ticket" && <Barcode value={document.numero || String(document.id_devis)} height={32} />}
-                <div className="flex flex-col items-start gap-2 text-slate-800">
+                <div className="flex w-full flex-col items-start gap-2 text-slate-800">
                   {format !== "Ticket" && <p className="font-medium">Le responsable</p>}
-                  {format !== "Ticket" && companyCachetUrl && (
-                    <img src={companyCachetUrl} alt="Cachet de l’entreprise" className="max-h-24 max-w-[220px] object-contain" />
+                  {format !== "Ticket" && (companyCachetUrl || companySignatureUrl) && (
+                    <div className="relative grid min-h-32 w-full max-w-[320px] place-items-center print:min-h-24">
+                      {companyCachetUrl && <img
+                        src={companyCachetUrl}
+                        alt="Cachet de l’entreprise"
+                        onPointerDown={(event) => startImageDrag(event, "stamp")}
+                        onPointerMove={moveImage}
+                        onPointerUp={() => { dragRef.current = null }}
+                        onPointerCancel={() => { dragRef.current = null }}
+                        style={{ width: `${settings.stampWidth}px`, maxWidth: "90%", position: "absolute", left: "50%", top: "50%", transform: `translate(calc(-50% + ${settings.stampX}px), calc(-50% + ${settings.stampY}px)) rotate(${settings.stampRotation}deg)`, touchAction: "none" }}
+                        className="cursor-move object-contain"
+                      />}
+                      {companySignatureUrl && <img
+                        src={companySignatureUrl}
+                        alt="Signature de l’entreprise"
+                        onPointerDown={(event) => startImageDrag(event, "signature")}
+                        onPointerMove={moveImage}
+                        onPointerUp={() => { dragRef.current = null }}
+                        onPointerCancel={() => { dragRef.current = null }}
+                        style={{ width: `${settings.signatureWidth}px`, maxWidth: "90%", position: "absolute", left: "50%", top: "50%", transform: `translate(calc(-50% + ${settings.signatureX}px), calc(-50% + ${settings.signatureY}px)) rotate(${settings.signatureRotation}deg)`, touchAction: "none" }}
+                        className="cursor-move object-contain"
+                      />}
+                    </div>
+                  )}
+                  {format !== "Ticket" && documentType === "facture" && document.editor_name && (
+                    <p className="font-medium text-slate-800">{document.editor_name}</p>
                   )}
                   {format === "Ticket" && <p>{settings.footer}</p>}
                 </div>

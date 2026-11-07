@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  ArrowLeft, CheckCircle2, XCircle, Trash2, Send, MessageSquare,
+  ArrowLeft, CheckCircle2, XCircle, Send, MessageSquare,
   Star, CalendarDays, RotateCcw, History
 } from 'lucide-react';
 import {
   getProspection,
   updateProspection,
-  deleteProspection,
   addMessage,
   type Prospection,
   type Proposition
@@ -32,7 +31,6 @@ export default function ProspectionDetail() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'sortant' | 'entrant' | null>(null);
   const [saving, setSaving] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   // Forms messages
   const [form, setForm] = useState({
@@ -204,17 +202,6 @@ export default function ProspectionDetail() {
       await updateProspection(prospection.id_prospection, { est_perdu: true });
       toast.success('Marquée comme perdue');
       fetchData();
-    } catch {
-      toast.error('Erreur');
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!prospection) return;
-    try {
-      await deleteProspection(prospection.id_prospection);
-      toast.success('Supprimée');
-      navigate('/prospections');
     } catch {
       toast.error('Erreur');
     }

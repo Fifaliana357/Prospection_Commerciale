@@ -11,7 +11,7 @@ import TablePagination from "@/components/ui/TablePagination"
 import TableSummary from "@/components/ui/TableSummary"
 import PageHeader from "@/components/ui/PageHeader"
 import { useToast } from "@/contexts/ToastContext"
-import { formatAR } from "@/lib/utils"
+import { formatAR, formatMGA } from "@/lib/utils"
 import type { Client } from "@/services/clients"
 import type { Offre, Produit } from "@/services/catalogue"
 import {
@@ -48,8 +48,8 @@ const inputClass = "w-full rounded-lg border border-border bg-background px-3 py
 const buttonClass = "inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
 const today = () => new Date().toISOString().slice(0, 10)
 
-function formatAmount(value: number) {
-  return formatAR(value)
+function formatAmount(value: number, type: DocumentType = "proforma") {
+  return type === "facture" ? formatAR(value) : formatMGA(value)
 }
 
 function formatDate(value: string) {
@@ -363,7 +363,7 @@ export default function Facturation() {
       closeModal()
       refreshDocuments()
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Impossible de supprimer le brouillon"))
+      toast.error(getErrorMessage(error, "Impossible de supprimer le document"))
     } finally {
       setSaving(false)
     }
@@ -555,7 +555,7 @@ export default function Facturation() {
                       <td className="px-3 py-3">{documentTypeLabel(document.type)}</td>
                       <td className="px-3 py-3 font-medium text-primary">{document.numero}</td>
                       <td className="px-3 py-3 font-medium">{document.client ? clientLabel(document.client) : "—"}</td>
-                      <td className="px-3 py-3 text-right font-semibold">{formatAmount(document.montant_ttc)}</td>
+                      <td className="px-3 py-3 text-right font-semibold">{formatAmount(document.montant_ttc, document.type)}</td>
                       <td className="px-3 py-3 text-muted-foreground">{formatDate(document.date_devis)}</td>
                       <td className="max-w-40 truncate px-3 py-3 text-muted-foreground">{document.remarque || "—"}</td>
                       <td className="px-3 py-3">{document.commercial ? [document.commercial.prenom, document.commercial.nom].filter(Boolean).join(" ") : "Administrateur"}</td>
@@ -652,7 +652,7 @@ export default function Facturation() {
               </label>
               <label className="block space-y-1.5 text-sm font-medium">
                 <span>Prix / tarif unitaire</span>
-                <input readOnly value={selectedItem ? formatAmount(selectedPrice) : ""} className={`${inputClass} bg-muted/50`} />
+                <input readOnly value={selectedItem ? formatAmount(selectedPrice, documentForm.type) : ""} className={`${inputClass} bg-muted/50`} />
               </label>
               <label className="block space-y-1.5 text-sm font-medium">
                 <span>Quantité</span>
@@ -663,7 +663,7 @@ export default function Facturation() {
                 </div>
               </label>
               <label className="block space-y-1.5 text-sm font-medium">
-                <span>Remise (AR)</span>
+                <span>Remise ({documentForm.type === "facture" ? "AR" : "MGA"})</span>
                 <input type="number" min={0} value={itemDiscount} onChange={(event) => setItemDiscount(event.target.value)} className={inputClass} />
               </label>
               <div className="flex items-end">
@@ -672,7 +672,7 @@ export default function Facturation() {
                 </button>
               </div>
             </div>
-            {selectedName && <p className="mt-3 text-sm text-muted-foreground">Ligne : {selectedName} — {formatAmount(Math.max(0, selectedPrice * itemQuantity - (Number(itemDiscount) || 0)))}</p>}
+            {selectedName && <p className="mt-3 text-sm text-muted-foreground">Ligne : {selectedName} — {formatAmount(Math.max(0, selectedPrice * itemQuantity - (Number(itemDiscount) || 0)), documentForm.type)}</p>}
           </div>
 
           <div className="overflow-hidden rounded-xl border border-border">
@@ -695,10 +695,10 @@ export default function Facturation() {
                     <tr key={line.key}>
                       <td className="break-words px-1.5 py-2 capitalize sm:px-2">{line.type_ligne}</td>
                       <td className="break-words px-1.5 py-2 sm:px-2">{line.designation}</td>
-                      <td className="break-words px-1.5 py-2 text-right sm:px-2">{formatAmount(line.prix_unitaire)}</td>
+                      <td className="break-words px-1.5 py-2 text-right sm:px-2">{formatAmount(line.prix_unitaire, documentForm.type)}</td>
                       <td className="px-1.5 py-2 text-center sm:px-2">{line.quantite}</td>
-                      <td className="break-words px-1.5 py-2 text-right sm:px-2">{line.remise ? formatAmount(line.remise) : "—"}</td>
-                      <td className="break-words px-1.5 py-2 text-right font-semibold sm:px-2">{formatAmount(line.montant)}</td>
+                      <td className="break-words px-1.5 py-2 text-right sm:px-2">{line.remise ? formatAmount(line.remise, documentForm.type) : "—"}</td>
+                      <td className="break-words px-1.5 py-2 text-right font-semibold sm:px-2">{formatAmount(line.montant, documentForm.type)}</td>
                       <td className="px-1.5 py-2 text-center sm:px-2">
                         <button type="button" onClick={() => setBasket((current) => current.filter((item) => item.key !== line.key))} className="rounded-lg p-2 text-destructive hover:bg-destructive/10" aria-label={`Retirer ${line.designation}`}>
                           <X size={15} />
@@ -712,7 +712,7 @@ export default function Facturation() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block space-y-1.5 text-sm font-medium">
-              <span>Remise globale (AR)</span>
+              <span>Remise globale ({documentForm.type === "facture" ? "AR" : "MGA"})</span>
               <input type="number" min={0} value={documentForm.discount} onChange={(event) => setDocumentForm({ ...documentForm, discount: event.target.value })} className={inputClass} />
             </label>
             <label className="flex items-center gap-3 self-end rounded-lg border border-border p-3 text-sm font-medium">
@@ -727,7 +727,7 @@ export default function Facturation() {
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-primary/5 p-4">
             <div>
               <p className="text-sm text-muted-foreground">Total du panier</p>
-              <p className="text-xl font-bold text-primary">{formatAmount(totalTtc)}</p>
+              <p className="text-xl font-bold text-primary">{formatAmount(totalTtc, documentForm.type)}</p>
             </div>
             <div className="flex flex-wrap justify-end gap-2">
               <button type="button" onClick={closeModal} className={`${buttonClass} border border-border hover:bg-accent`}>Annuler</button>
@@ -755,7 +755,7 @@ export default function Facturation() {
               </div>
               <div className="text-left sm:text-right">
                 <p className="text-xs text-muted-foreground">Total</p>
-                <p className="text-lg font-bold text-primary">{formatAmount(selectedDocument.montant_ttc)}</p>
+                <p className="text-lg font-bold text-primary">{formatAmount(selectedDocument.montant_ttc, selectedDocument.type)}</p>
               </div>
             </div>
             <div className="overflow-hidden rounded-xl border border-border">
@@ -768,10 +768,10 @@ export default function Facturation() {
                     <tr key={line.id_ligne_devis}>
                       <td className="px-3 py-2.5">{line.produit?.reference || line.offre?.denomination || (line.type_ligne === "produit" ? "Produit" : "Service")}</td>
                       <td className="px-3 py-2.5">{line.designation}</td>
-                      <td className="px-3 py-2.5 text-right">{formatAmount(line.prix_unitaire)}</td>
+                      <td className="px-3 py-2.5 text-right">{formatAmount(line.prix_unitaire, selectedDocument.type)}</td>
                       <td className="px-3 py-2.5 text-center">{line.quantite}</td>
-                      <td className="px-3 py-2.5 text-right">{line.remise ? formatAmount(line.remise) : "—"}</td>
-                      <td className="px-3 py-2.5 text-right font-medium">{formatAmount(line.montant)}</td>
+                      <td className="px-3 py-2.5 text-right">{line.remise ? formatAmount(line.remise, selectedDocument.type) : "—"}</td>
+                      <td className="px-3 py-2.5 text-right font-medium">{formatAmount(line.montant, selectedDocument.type)}</td>
                     </tr>
                   ))}
                 </tbody>
