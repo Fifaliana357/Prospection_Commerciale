@@ -502,13 +502,15 @@ export default function Dashboard() {
     <div className="mx-auto max-w-[1600px] space-y-5">
       <PageHeader title="Tableau de bord" description="Suivez votre chiffre d’affaires, vos ventes et vos performances commerciales." icon={<ChartNoAxesCombined size={23} />} />
 
-      <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Vues statistiques">
+      <nav className="page-tabs" role="tablist" aria-label="Vues statistiques">
         {tabs.map((item) => (
           <button
             key={item.key}
             type="button"
+            role="tab"
+            aria-selected={tab === item.key}
             onClick={() => setTab(item.key)}
-            className={`rounded-t-lg px-4 py-2.5 text-sm transition-colors ${tab === item.key ? "bg-card font-semibold text-primary shadow-sm" : "text-muted-foreground hover:bg-accent"}`}
+            className="page-tab"
           >
             {item.label}
           </button>

@@ -102,6 +102,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/facturation/{id}', [FacturationController::class, 'show']);
     Route::put('/facturation/{id}', [FacturationController::class, 'update']);
     Route::post('/facturation/{id}/valider', [FacturationController::class, 'validateDocument']);
+    Route::post('/facturation/{id}/telecharger', [FacturationController::class, 'downloadPdf']);
     Route::post('/facturation/{id}/envoyer', [FacturationController::class, 'sendEmail']);
     Route::delete('/facturation/{id}', [FacturationController::class, 'destroy']);
     // Route::apiResource('factures', FactureController::class);

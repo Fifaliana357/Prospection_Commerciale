@@ -64,15 +64,15 @@ const destinations: Array<{ label: string; path: string; group: string; icon: Lu
   { label: "SAV et livraisons", path: "/sav", group: "Ventes", icon: LifeBuoy },
   { label: "Produits et catalogue", path: "/catalogue", group: "Catalogue", icon: Package },
   { label: "Stock", path: "/stock", group: "Catalogue", icon: Boxes },
-  { label: "Équipe commerciale", path: "/commerciaux", group: "Équipe", icon: UserCog, adminOnly: true },
+  { label: "Équipe commerciale", path: "/commerciaux", group: "Équipe", icon: UserCog },
   { label: "Bibliothèque", path: "/bibliotheque", group: "Ressources", icon: BookOpen },
   { label: "Tutoriels", path: "/tutoriels", group: "Ressources", icon: GraduationCap },
   { label: "Statistiques", path: "/statistiques", group: "Pilotage", icon: ChartNoAxesCombined },
   { label: "Notifications", path: "/notifications", group: "Compte", icon: Bell },
   { label: "Profil", path: "/profil", group: "Compte", icon: UserRound },
   { label: "Apparence et thèmes", path: "/apparence", group: "Compte", icon: Palette },
-  { label: "Mon entreprise", path: "/entreprise", group: "Compte", icon: Building2, adminOnly: true },
-  { label: "Comptabilité", path: "/comptabilite", group: "Compte", icon: Wallet, adminOnly: true },
+  { label: "Mon entreprise", path: "/entreprise", group: "Compte", icon: Building2 },
+  { label: "Comptabilité", path: "/comptabilite", group: "Compte", icon: Wallet },
 ]
 
 export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
@@ -366,15 +366,6 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
                   </>
                 )}
                 <button
-                  onClick={() => {
-                    setShowUserMenu(false)
-                    navigate("/apparence")
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
-                >
-                  <Palette size={16} /> Apparence
-                </button>
-                <button
                   onClick={logout}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                 >
@@ -410,7 +401,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
             />
             <button type="button" onClick={() => { setShowQuickNav(false); setQuickSearch("") }} className="rounded-md p-1.5 text-muted-foreground hover:bg-accent" aria-label="Fermer la recherche"><X size={17} /></button>
           </div>
-          <div className="max-h-[min(60vh,480px)] overflow-y-auto p-2">
+          <div className="quick-nav-results max-h-[min(60vh,480px)] overflow-y-auto p-2">
             {matchingDestinations.length ? matchingDestinations.map(({ label, path, group, icon: Icon }) => (
               <button
                 type="button"

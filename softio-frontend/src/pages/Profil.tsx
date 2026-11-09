@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, KeyRound, Mail, UserRound } from 'lucide-react';
+import { Check, Eye, EyeOff, KeyRound, Mail, UserRound } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import PageHeader from '../components/ui/PageHeader';
 import {
@@ -27,6 +27,12 @@ export default function Profil() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
+  const [visiblePasswords, setVisiblePasswords] = useState({
+    email: false,
+    current: false,
+    next: false,
+    confirmation: false,
+  });
   const [saving, setSaving] = useState('');
 
   useEffect(() => {
@@ -138,7 +144,12 @@ export default function Profil() {
             </label>
             <label className="block space-y-1.5 text-sm font-medium">
               <span>Votre mot de passe</span>
-              <input type="password" required value={emailPassword} onChange={(event) => setEmailPassword(event.target.value)} className={fieldClass} autoComplete="current-password" />
+              <span className="relative block">
+                <input type={visiblePasswords.email ? 'text' : 'password'} required value={emailPassword} onChange={(event) => setEmailPassword(event.target.value)} className={`${fieldClass} pr-11`} autoComplete="current-password" />
+                <button type="button" onClick={() => setVisiblePasswords((current) => ({ ...current, email: !current.email }))} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-muted-foreground hover:text-foreground" aria-label={visiblePasswords.email ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>
+                  {visiblePasswords.email ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </span>
             </label>
           </div>
           <div className="flex justify-end border-t border-border bg-muted/20 p-4">
@@ -153,15 +164,30 @@ export default function Profil() {
           <div className="flex-1 space-y-4 p-5">
             <label className="block space-y-1.5 text-sm font-medium">
               <span>Ancien mot de passe</span>
-              <input type="password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} className={fieldClass} autoComplete="current-password" />
+              <span className="relative block">
+                <input type={visiblePasswords.current ? 'text' : 'password'} required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} className={`${fieldClass} pr-11`} autoComplete="current-password" />
+                <button type="button" onClick={() => setVisiblePasswords((current) => ({ ...current, current: !current.current }))} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-muted-foreground hover:text-foreground" aria-label={visiblePasswords.current ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>
+                  {visiblePasswords.current ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </span>
             </label>
             <label className="block space-y-1.5 text-sm font-medium">
               <span>Nouveau mot de passe</span>
-              <input type="password" minLength={8} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className={fieldClass} autoComplete="new-password" />
+              <span className="relative block">
+                <input type={visiblePasswords.next ? 'text' : 'password'} minLength={8} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className={`${fieldClass} pr-11`} autoComplete="new-password" />
+                <button type="button" onClick={() => setVisiblePasswords((current) => ({ ...current, next: !current.next }))} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-muted-foreground hover:text-foreground" aria-label={visiblePasswords.next ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>
+                  {visiblePasswords.next ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </span>
             </label>
             <label className="block space-y-1.5 text-sm font-medium">
               <span>Confirmer le nouveau mot de passe</span>
-              <input type="password" minLength={8} required value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} className={fieldClass} autoComplete="new-password" />
+              <span className="relative block">
+                <input type={visiblePasswords.confirmation ? 'text' : 'password'} minLength={8} required value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} className={`${fieldClass} pr-11`} autoComplete="new-password" />
+                <button type="button" onClick={() => setVisiblePasswords((current) => ({ ...current, confirmation: !current.confirmation }))} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-muted-foreground hover:text-foreground" aria-label={visiblePasswords.confirmation ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>
+                  {visiblePasswords.confirmation ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </span>
             </label>
           </div>
           <div className="flex justify-end border-t border-border bg-muted/20 p-4">

@@ -648,13 +648,15 @@ export default function Ventes() {
         ) : undefined}
       />
 
-      <nav className="flex gap-1 border-b border-border" aria-label="Navigation des ventes">
+      <nav className="page-tabs" role="tablist" aria-label="Navigation des ventes">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             type="button"
+            role="tab"
+            aria-selected={view === tab.key}
             onClick={() => { setView(tab.key); setPage(1); if (tab.key !== "enregistrement") setLoadingList(true) }}
-            className={`rounded-t-lg px-4 py-2.5 text-sm transition-colors ${view === tab.key ? "bg-card font-semibold text-primary shadow-sm" : "text-muted-foreground hover:bg-accent"}`}
+            className="page-tab"
           >
             {tab.label}
           </button>

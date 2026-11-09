@@ -294,11 +294,11 @@ export default function RendezVousPage() {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex rounded-xl border border-border bg-card p-1">
-          <button type="button" onClick={() => setView('calendar')} className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${view === 'calendar' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}>
+        <div className="page-tabs" role="tablist" aria-label="Affichage des rendez-vous">
+          <button type="button" role="tab" aria-selected={view === 'calendar'} onClick={() => setView('calendar')} className="page-tab">
             <CalendarDays size={16} /> Calendrier
           </button>
-          <button type="button" onClick={() => setView('list')} className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${view === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}>
+          <button type="button" role="tab" aria-selected={view === 'list'} onClick={() => setView('list')} className="page-tab">
             <List size={16} /> Liste
           </button>
         </div>

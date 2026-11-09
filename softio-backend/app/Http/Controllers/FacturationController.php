@@ -13,11 +13,12 @@ use App\Models\Offre;
 use App\Models\Produit;
 use App\Models\StockMouvement;
 use App\Models\Vente;
+use App\Jobs\SendFacturationEmail;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -48,13 +49,15 @@ class FacturationController extends Controller
     {
         $user = $request->user();
         $query = Devis::query()
-            ->with(['client:id_client,nom,prenom,entreprise,email,telephone', 'commercial:id_commercial,nom,prenom', 'vente:id_vente,id_devis'])
+            ->with([
+                'client:id_client,nom,prenom,entreprise,email,telephone',
+                'commercial:id_commercial,nom,prenom',
+                'admin:id_admin,nom,prenom',
+                'lignes',
+                'vente:id_vente,id_devis',
+            ])
             ->withCount('lignes')
             ->where('id_admin', $user->id_admin);
-
-        if (! $user instanceof Admin) {
-            $query->where('id_commercial', $user->id_commercial);
-        }
 
         $view = $request->query('view', 'liste');
         if ($view === 'brouillons') {
@@ -67,8 +70,6 @@ class FacturationController extends Controller
             if (in_array($request->query('type'), ['produit', 'service'], true)) {
                 $query->whereHas('lignes', fn (Builder $lineQuery) => $lineQuery
                     ->where('type_ligne', $request->query('type')));
-            } else {
-                $query->where('type', $request->query('type'));
             }
         }
 
@@ -89,7 +90,12 @@ class FacturationController extends Controller
             ->when($request->filled('date_to'), fn (Builder $builder) => $builder
                 ->whereDate('date_devis', '<=', $request->query('date_to')));
 
-        return response()->json($query->orderByDesc('date_devis')->orderByDesc('id_devis')->paginate(10));
+        $documents = $query->orderByDesc('date_devis')->orderByDesc('id_devis')->paginate(10);
+        $documents->getCollection()->each(function (Devis $document) {
+            $document->setAttribute('editor_name', $this->editorName($document));
+        });
+
+        return response()->json($documents);
     }
 
     public function store(Request $request): JsonResponse
@@ -163,7 +169,13 @@ class FacturationController extends Controller
 
             $document->update(['statut' => 'valide']);
 
-            return $document->fresh()->load(['client', 'commercial', 'admin:id_admin,nom,prenom', 'lignes', 'vente']);
+            return $document->fresh()->load([
+                'client',
+                'commercial',
+                'admin:id_admin,nom,prenom',
+                'lignes.produit:id_produit,reference',
+                'vente',
+            ]);
         });
         $document->setAttribute('editor_name', $this->editorName($document));
 
@@ -187,8 +199,33 @@ class FacturationController extends Controller
         return response()->json(['message' => 'Document supprimé.']);
     }
 
+    public function downloadPdf(Request $request, int $id): Response
+    {
+        $options = $this->validatePdfOptions($request);
+        $format = $options['format'] ?? 'A4';
+        $document = $this->ownedDocuments($request->user())
+            ->with(['client', 'lignes', 'commercial', 'admin:id_admin,nom,prenom'])
+            ->findOrFail($id);
+        $barcodeSvg = $format === 'Ticket'
+            ? $this->sanitizeBarcodeSvg($options['barcode_svg'] ?? null)
+            : null;
+        $pdfBytes = $this->renderDocumentPdf($document, $format, $barcodeSvg, $options);
+        $typeLabel = match ($document->type) {
+            'facture' => 'Facture',
+            'devis' => 'Devis',
+            default => 'Facture proforma',
+        };
+        $filename = Str::slug($typeLabel . '-' . $document->numero) . '.pdf';
+
+        return response($pdfBytes, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
     public function sendEmail(Request $request, int $id): JsonResponse
     {
+        $options = $this->validatePdfOptions($request);
         $document = $this->ownedDocuments($request->user())
             ->with(['client', 'lignes', 'commercial', 'admin:id_admin,nom,prenom'])
             ->findOrFail($id);
@@ -204,6 +241,56 @@ class FacturationController extends Controller
             ], 422);
         }
 
+        $format = $options['format'] ?? 'A4';
+        $barcodeSvg = $format === 'Ticket'
+            ? $this->sanitizeBarcodeSvg($options['barcode_svg'] ?? null)
+            : null;
+        $company = Entreprise::query()
+            ->where('id_admin', $document->id_admin)
+            ->when($document->id_entreprise, fn (Builder $query) => $query->where('id_entreprise', $document->id_entreprise))
+            ->orderBy('id_entreprise')
+            ->first();
+        $companyName = $company?->nom_entreprise ?: 'L’équipe commerciale';
+        $clientName = trim(($document->client->prenom ?? '') . ' ' . ($document->client->nom ?? ''));
+        $typeLabel = match ($document->type) {
+            'facture' => 'Facture',
+            'devis' => 'Devis',
+            default => 'Facture proforma',
+        };
+        $pdfBytes = $this->renderDocumentPdf($document, $format, $barcodeSvg, $options);
+        $emailBody = view('emails.facturation', compact(
+            'document',
+            'clientName',
+            'companyName',
+            'typeLabel',
+        ))->render();
+        $attachmentName = Str::slug($typeLabel . '-' . $document->numero) . '.pdf';
+        $subject = $typeLabel . ' n° ' . $document->numero;
+
+        SendFacturationEmail::dispatch($email, $subject, $emailBody, $pdfBytes, $attachmentName)
+            ->afterResponse();
+
+        return response()->json(['message' => "E-mail en cours d’envoi à {$email}."]);
+    }
+
+    private function validatePdfOptions(Request $request): array
+    {
+        return $request->validate([
+            'format' => 'nullable|in:A4,A5,Ticket',
+            'barcode_svg' => 'nullable|string|max:200000',
+            'stampWidth' => 'nullable|numeric|min:40|max:500',
+            'stampX' => 'nullable|numeric|min:-500|max:500',
+            'stampY' => 'nullable|numeric|min:-500|max:500',
+            'stampRotation' => 'nullable|numeric|min:-360|max:360',
+            'signatureWidth' => 'nullable|numeric|min:40|max:500',
+            'signatureX' => 'nullable|numeric|min:-500|max:500',
+            'signatureY' => 'nullable|numeric|min:-500|max:500',
+            'signatureRotation' => 'nullable|numeric|min:-360|max:360',
+        ]);
+    }
+
+    private function renderDocumentPdf(Devis $document, string $format, ?string $barcodeSvg, array $options): string
+    {
         $companyQuery = Entreprise::query()
             ->where('id_admin', $document->id_admin)
             ->orderBy('id_entreprise');
@@ -211,16 +298,9 @@ class FacturationController extends Controller
             $companyQuery->where('id_entreprise', $document->id_entreprise);
         }
         $company = $companyQuery->first();
-        $companyLogoPath = $company?->logo
-            ? $this->publicFilePath($company->logo)
-            : null;
-        $companyCachetPath = $company?->cachet
-            ? $this->publicFilePath($company->cachet)
-            : null;
-        $companySignaturePath = $company?->signature
-            ? $this->publicFilePath($company->signature)
-            : null;
-        $companyName = $company?->nom_entreprise ?: 'L’équipe commerciale';
+        $companyLogoPath = $company?->logo ? $this->publicFilePath($company->logo) : null;
+        $companyCachetPath = $company?->cachet ? $this->publicFilePath($company->cachet) : null;
+        $companySignaturePath = $company?->signature ? $this->publicFilePath($company->signature) : null;
         $editorName = $this->editorName($document);
         $clientName = trim(($document->client->prenom ?? '') . ' ' . ($document->client->nom ?? ''));
         $typeLabel = match ($document->type) {
@@ -243,24 +323,79 @@ class FacturationController extends Controller
             'lineSubtotal',
             'vatAmount',
             'amountInWords',
-        ))->setPaper('a4');
-        $pdfBytes = $pdf->output();
-        $emailBody = view('emails.facturation', compact(
-            'clientName',
-            'companyName',
-            'typeLabel',
-        ))->render();
-        $attachmentName = Str::slug($typeLabel . '-' . $document->numero) . '.pdf';
-        $subject = $typeLabel . ' n° ' . $document->numero;
+            'format',
+            'barcodeSvg',
+            'options',
+        ));
 
-        Mail::send([], [], function ($message) use ($email, $subject, $emailBody, $pdfBytes, $attachmentName) {
-            $message->to($email)
-            ->subject($subject)
-                ->html($emailBody)
-                ->attachData($pdfBytes, $attachmentName, ['mime' => 'application/pdf']);
-        });
+        if ($format === 'Ticket') {
+            $contentHeight = 460 + $document->lignes->sum(
+                fn ($line) => 64 + (int) ceil(mb_strlen((string) $line->designation) / 28) * 12,
+            );
+            return $pdf->setPaper([0, 0, 226.77, $contentHeight])->output();
+        }
 
-        return response()->json(['message' => "E-mail envoyé à {$email}."]);
+        return $pdf->setPaper(strtolower($format))->output();
+    }
+
+    private function sanitizeBarcodeSvg(?string $svg): ?string
+    {
+        if ($svg === null || $svg === '') {
+            return null;
+        }
+
+        $dom = new \DOMDocument();
+        $previousErrorMode = libxml_use_internal_errors(true);
+        try {
+            if (! $dom->loadXML($svg, LIBXML_NONET | LIBXML_NOBLANKS) || $dom->documentElement?->localName !== 'svg') {
+                abort(422, 'Le code-barres du ticket est invalide.');
+            }
+
+            $this->sanitizeBarcodeNode($dom->documentElement);
+
+            return $dom->saveXML($dom->documentElement) ?: null;
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previousErrorMode);
+        }
+    }
+
+    private function sanitizeBarcodeNode(\DOMNode $node): void
+    {
+        $allowedElements = ['svg', 'g', 'rect', 'path'];
+        $allowedAttributes = ['xmlns', 'width', 'height', 'viewBox', 'x', 'y', 'd', 'fill'];
+
+        for ($index = $node->childNodes->length - 1; $index >= 0; $index--) {
+            $child = $node->childNodes->item($index);
+            if (! $child) {
+                continue;
+            }
+            if ($child instanceof \DOMElement) {
+                if (! in_array($child->localName, $allowedElements, true)) {
+                    $node->removeChild($child);
+                    continue;
+                }
+                $this->sanitizeBarcodeNode($child);
+            } elseif (! ($child instanceof \DOMText && trim($child->textContent) === '')) {
+                $node->removeChild($child);
+            }
+        }
+
+        if (! $node instanceof \DOMElement) {
+            return;
+        }
+        for ($index = $node->attributes->length - 1; $index >= 0; $index--) {
+            $attribute = $node->attributes->item($index);
+            if (! $attribute) {
+                continue;
+            }
+            $validValue = $attribute->name === 'xmlns'
+                ? $attribute->value === 'http://www.w3.org/2000/svg'
+                : preg_match('/^[#A-Za-z0-9.,%\\s+-]*$/', $attribute->value) === 1;
+            if (! in_array($attribute->name, $allowedAttributes, true) || ! $validValue) {
+                $node->removeAttributeNode($attribute);
+            }
+        }
     }
 
     private function editorName(Devis $document): string
@@ -282,7 +417,7 @@ class FacturationController extends Controller
     {
         $amount = max(0, $amount);
         if ($amount === 0) {
-            return 'zéro';
+            return 'Zéro';
         }
 
         $scales = ['', 'mille', 'million', 'milliard', 'billion', 'billiard'];
@@ -305,7 +440,10 @@ class FacturationController extends Controller
             $scale++;
         }
 
-        return implode(' ', $parts);
+        $words = implode(' ', $parts);
+
+        return mb_strtoupper(mb_substr($words, 0, 1, 'UTF-8'), 'UTF-8')
+            . mb_substr($words, 1, null, 'UTF-8');
     }
 
     private function underThousandInFrench(int $number): string
@@ -551,21 +689,11 @@ class FacturationController extends Controller
 
     private function ownedDocuments(Admin|Commercial $user): Builder
     {
-        $query = Devis::query()->where('id_admin', $user->id_admin);
-        if (! $user instanceof Admin) {
-            $query->where('id_commercial', $user->id_commercial);
-        }
-
-        return $query;
+        return Devis::query()->where('id_admin', $user->id_admin);
     }
 
     private function ownedClients(Admin|Commercial $user): Builder
     {
-        $query = Client::query()->where('id_admin', $user->id_admin);
-        if (! $user instanceof Admin) {
-            $query->where('id_commercial', $user->id_commercial);
-        }
-
-        return $query;
+        return Client::query()->where('id_admin', $user->id_admin);
     }
 }

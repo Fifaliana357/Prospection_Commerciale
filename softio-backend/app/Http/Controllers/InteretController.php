@@ -6,6 +6,7 @@ use App\Models\Interet;
 use App\Models\Client;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class InteretController extends Controller
 {
@@ -15,6 +16,7 @@ class InteretController extends Controller
 
         // Récupérer les clients qui ont au moins un intérêt
         $query = Client::with(['interets'])
+            ->where('id_admin', $user->id_admin)
             ->whereHas('interets');
 
         // Filtre par produit
@@ -40,6 +42,7 @@ class InteretController extends Controller
 
         // Liste des produits distincts pour les filtres
         $produits = Interet::select('produit_concerne')
+            ->whereHas('client', fn ($clients) => $clients->where('id_admin', $user->id_admin))
             ->whereNotNull('produit_concerne')
             ->where('produit_concerne', '!=', '')
             ->distinct()
@@ -55,7 +58,7 @@ class InteretController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'id_client' => 'required|exists:client,id_client',
+            'id_client' => ['required', Rule::exists('client', 'id_client')->where('id_admin', $request->user()->id_admin)],
             'produit_concerne' => 'required|string|max:191',
             'niveau' => 'nullable|integer|min:0|max:5',
         ]);
@@ -72,9 +75,12 @@ class InteretController extends Controller
         ], 201);
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $interet = Interet::findOrFail($id);
+        Client::query()
+            ->where('id_admin', $request->user()->id_admin)
+            ->findOrFail($interet->id_client);
         $interet->delete();
 
         return response()->json(['message' => 'Intérêt supprimé']);

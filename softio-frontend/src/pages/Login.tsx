@@ -1,14 +1,8 @@
 import { useState } from "react"
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom"
-import { ArrowRight, Briefcase, Eye, EyeOff, Loader2, LockKeyhole, Mail, ShieldCheck } from "lucide-react"
+import { ArrowRight, Eye, EyeOff, Loader2, LockKeyhole, Mail } from "lucide-react"
 import api from "../services/api"
-import { cn } from "@/lib/utils"
 import AuthPageLayout from "../components/auth/AuthPageLayout"
-
-const types = [
-  { value: "admin", label: "Administrateur", icon: ShieldCheck },
-  { value: "commercial", label: "Commercial", icon: Briefcase },
-]
 
 function getApiError(error: unknown, fallback: string) {
   const response = (error as { response?: { data?: { message?: string; code?: string } } })?.response
@@ -25,7 +19,6 @@ export default function Login() {
   const emailVerified = searchParams.get("status") === "email-verified"
   const [email, setEmail] = useState(locationState?.email || "")
   const [password, setPassword] = useState("")
-  const [type, setType] = useState("admin")
   const [show, setShow] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
@@ -42,7 +35,7 @@ export default function Login() {
     setResendMessage("")
     setLoading(true)
     try {
-      const response = await api.post("/login", { email, password, type })
+      const response = await api.post("/login", { email, password })
       sessionStorage.setItem("@Softio:token", response.data.token)
       sessionStorage.setItem("@Softio:user", JSON.stringify(response.data.user))
       sessionStorage.setItem("@Softio:type", response.data.type)
@@ -75,25 +68,6 @@ export default function Login() {
   return (
       <AuthPageLayout title="Connexion" description="Heureux de vous revoir. Connectez-vous pour accéder à votre espace.">
         <form onSubmit={handleLogin} className="mt-6">
-          <div className="mb-5 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1" role="radiogroup" aria-label="Type de compte">
-            {types.map(({ value, label, icon: Icon }) => (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={type === value}
-                onClick={() => setType(value)}
-                className={cn(
-                  "flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition",
-                  type === value ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-800"
-                )}
-              >
-                <Icon size={15} />
-                {label}
-              </button>
-            ))}
-          </div>
-
           <div className="space-y-4">
             {(emailVerified || notice) && (
               <p role="status" className="rounded-lg border border-slate-300 bg-slate-50 px-3 py-3 text-sm leading-relaxed text-slate-700">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Search, Eye, Star } from 'lucide-react';
-import { getInterets, type ClientWithInterets } from '../services/interets';
+import type { FormEvent } from 'react';
+import { Search, Eye, Plus, Star, Trash2 } from 'lucide-react';
+import { createInteret, deleteInteret, getInterets, type ClientWithInterets } from '../services/interets';
 import { useToast } from '../contexts/ToastContext';
 import TablePagination from '../components/ui/TablePagination';
 import TableSummary from '../components/ui/TableSummary';
@@ -21,6 +22,9 @@ export default function Interets() {
 
   // Modal détail
   const [selectedClient, setSelectedClient] = useState<ClientWithInterets | null>(null);
+  const [deletingInteretId, setDeletingInteretId] = useState<number | null>(null);
+  const [newInterest, setNewInterest] = useState('');
+  const [addingInterest, setAddingInterest] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -44,6 +48,50 @@ export default function Interets() {
   useEffect(() => {
     fetchData();
   }, [search, produitFilter, page]);
+
+  const handleDeleteInteret = async (idInteret: number) => {
+    if (!window.confirm('Supprimer cet intérêt ?')) return;
+
+    try {
+      setDeletingInteretId(idInteret);
+      await deleteInteret(idInteret);
+      setSelectedClient((current) => current && ({
+        ...current,
+        interets: current.interets.filter((interet) => interet.id_interet !== idInteret),
+      }));
+      toast.success('Intérêt supprimé');
+      await fetchData();
+    } catch {
+      toast.error('Erreur lors de la suppression de l’intérêt');
+    } finally {
+      setDeletingInteretId(null);
+    }
+  };
+
+  const handleAddInteret = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const produitConcerne = newInterest.trim();
+    if (!selectedClient || !produitConcerne) return;
+
+    try {
+      setAddingInterest(true);
+      const response = await createInteret({
+        id_client: selectedClient.id_client,
+        produit_concerne: produitConcerne,
+      });
+      setSelectedClient((current) => current && ({
+        ...current,
+        interets: [...current.interets, response.interet],
+      }));
+      setNewInterest('');
+      toast.success('Intérêt ajouté');
+      await fetchData();
+    } catch {
+      toast.error("Erreur lors de l'ajout de l'intérêt");
+    } finally {
+      setAddingInterest(false);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-5">
@@ -222,7 +270,7 @@ export default function Interets() {
               onClick={() => setSelectedClient(null)}
               className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
             >
-              ✕
+              <span className="modal-close-symbol">✕</span>
             </button>
           </div>
 
@@ -251,14 +299,43 @@ export default function Interets() {
                 selectedClient.interets.map((i) => (
                   <span
                     key={i.id_interet}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm bg-primary/10 text-primary font-medium"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-primary" />
                     {i.produit_concerne}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteInteret(i.id_interet)}
+                      disabled={deletingInteretId === i.id_interet}
+                      className="ml-1 rounded-full p-0.5 text-muted-foreground hover:bg-red-500/10 hover:text-red-600 disabled:opacity-50"
+                      title="Supprimer cet intérêt"
+                      aria-label={`Supprimer l’intérêt ${i.produit_concerne}`}
+                    >
+                      <Trash2 size={13} />
+                    </button>
                   </span>
                 ))
               )}
             </div>
+            <form onSubmit={(event) => void handleAddInteret(event)} className="flex flex-col gap-2 sm:flex-row">
+              <input
+                type="text"
+                value={newInterest}
+                onChange={(event) => setNewInterest(event.target.value)}
+                maxLength={191}
+                placeholder="Ajouter un intérêt..."
+                aria-label="Nouvel intérêt"
+                className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+              <button
+                type="submit"
+                disabled={addingInterest || !newInterest.trim()}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Plus size={16} />
+                {addingInterest ? 'Ajout...' : 'Ajouter'}
+              </button>
+            </form>
           </div>
 
           {/* Footer */}
@@ -267,7 +344,7 @@ export default function Interets() {
               onClick={() => setSelectedClient(null)}
               className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-accent transition-colors"
             >
-              ✕ Fermer
+              <span className="modal-close-symbol">✕</span> Fermer
             </button>
           </div>
         </div>

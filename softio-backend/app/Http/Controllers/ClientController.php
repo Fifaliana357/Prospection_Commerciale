@@ -6,6 +6,7 @@ use App\Models\Client;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class ClientController extends Controller
 {
@@ -15,8 +16,6 @@ class ClientController extends Controller
         $purchaseQuery = fn () => DB::table('vente')
             ->whereIn('vente.statut', ['validee', 'payee', 'impayee'])
             ->where('vente.id_admin', $user->id_admin)
-            ->when(! $user instanceof \App\Models\Admin, fn ($query) => $query
-                ->where('vente.id_commercial', $user->id_commercial))
             ->whereColumn('vente.id_client', 'client.id_client');
 
         $query = Client::query()
@@ -34,11 +33,7 @@ class ClientController extends Controller
             ->selectSub($purchaseQuery()->selectRaw('SUM(COALESCE(vente.montant_ttc, vente.montant_total))'), 'total_achete')
             ->selectSub($purchaseQuery()->selectRaw('MAX(COALESCE(vente.date_vente, vente.created_at))'), 'dernier_achat');
 
-        if ($user instanceof \App\Models\Admin) {
-            $query->where('client.id_admin', $user->id_admin);
-        } else {
-            $query->where('client.id_commercial', $user->id_commercial);
-        }
+        $query->where('client.id_admin', $user->id_admin);
 
         $query->whereExists($purchaseQuery()->selectRaw('1'));
 
@@ -70,13 +65,7 @@ class ClientController extends Controller
 
         $query = Client::with(['commercial:id_commercial,nom,prenom']);
 
-        // Filtrage selon le type d'utilisateur
-        if ($user instanceof \App\Models\Admin) {
-            $query->where('id_admin', $user->id_admin);
-        } else {
-            // Commercial → seulement ses clients
-            $query->where('id_commercial', $user->id_commercial);
-        }
+        $query->where('id_admin', $user->id_admin);
 
         // Recherche
         if ($request->filled('search')) {
@@ -123,14 +112,15 @@ class ClientController extends Controller
             'site_web'       => 'nullable|string|max:255',
             'pays'           => 'nullable|string|max:100',
             'domaine'        => 'nullable|string|max:100',
-            'id_commercial'  => 'nullable|exists:commercial,id_commercial',
+            'id_commercial'  => [
+                'nullable',
+                Rule::exists('commercial', 'id_commercial')->where('id_admin', $user->id_admin),
+            ],
         ]);
 
         // Attribution automatique
-        if ($user instanceof \App\Models\Admin) {
-            $validated['id_admin'] = $user->id_admin;
-        } else {
-            $validated['id_admin'] = $user->id_admin;
+        $validated['id_admin'] = $user->id_admin;
+        if ($user instanceof \App\Models\Commercial) {
             $validated['id_commercial'] = $user->id_commercial;
         }
 
@@ -165,15 +155,8 @@ class ClientController extends Controller
             'interets'
         ])->findOrFail($id);
 
-        // Sécurité : vérifier que l'utilisateur a le droit de voir ce client
-        if ($user instanceof \App\Models\Admin) {
-            if ($client->id_admin !== $user->id_admin) {
-                return response()->json(['message' => 'Non autorisé'], 403);
-            }
-        } else {
-            if ($client->id_commercial !== $user->id_commercial) {
-                return response()->json(['message' => 'Non autorisé'], 403);
-            }
+        if ($client->id_admin !== $user->id_admin) {
+            return response()->json(['message' => 'Non autorisé'], 403);
         }
 
         return response()->json($client);
@@ -187,15 +170,8 @@ class ClientController extends Controller
         $user = $request->user();
         $client = Client::findOrFail($id);
 
-        // Sécurité
-        if ($user instanceof \App\Models\Admin) {
-            if ($client->id_admin !== $user->id_admin) {
-                return response()->json(['message' => 'Non autorisé'], 403);
-            }
-        } else {
-            if ($client->id_commercial !== $user->id_commercial) {
-                return response()->json(['message' => 'Non autorisé'], 403);
-            }
+        if ($client->id_admin !== $user->id_admin) {
+            return response()->json(['message' => 'Non autorisé'], 403);
         }
 
         $validated = $request->validate([
@@ -213,7 +189,10 @@ class ClientController extends Controller
             'site_web'       => 'nullable|string|max:255',
             'pays'           => 'nullable|string|max:100',
             'domaine'        => 'nullable|string|max:100',
-            'id_commercial'  => 'nullable|exists:commercial,id_commercial',
+            'id_commercial'  => [
+                'nullable',
+                Rule::exists('commercial', 'id_commercial')->where('id_admin', $user->id_admin),
+            ],
         ]);
 
         $client->update($validated);
@@ -232,15 +211,8 @@ class ClientController extends Controller
         $user = $request->user();
         $client = Client::findOrFail($id);
 
-        // Sécurité
-        if ($user instanceof \App\Models\Admin) {
-            if ($client->id_admin !== $user->id_admin) {
-                return response()->json(['message' => 'Non autorisé'], 403);
-            }
-        } else {
-            if ($client->id_commercial !== $user->id_commercial) {
-                return response()->json(['message' => 'Non autorisé'], 403);
-            }
+        if ($client->id_admin !== $user->id_admin) {
+            return response()->json(['message' => 'Non autorisé'], 403);
         }
 
         $client->delete();

@@ -8,6 +8,7 @@ import {
   updateCompanySettings,
   type CompanySettings,
 } from '../services/account';
+import { getSessionUser } from '../lib/session';
 
 type ImageField = 'logo' | 'cachet' | 'signature';
 
@@ -38,6 +39,7 @@ function errorMessage(error: unknown, fallback: string) {
 
 export default function Entreprise() {
   const toast = useToast();
+  const readOnly = getSessionUser().role !== 'admin';
   const [company, setCompany] = useState<CompanySettings>(emptyCompany);
   const [images, setImages] = useState<Partial<Record<ImageField, File>>>({});
   const [imagePreviews, setImagePreviews] = useState<Partial<Record<ImageField, string>>>({});
@@ -66,6 +68,7 @@ export default function Entreprise() {
 
   const save = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (readOnly) return;
     const formData = new FormData();
     for (const field of ['nom_entreprise', 'adresse', 'telephone', 'email', 'nif', 'stat', 'rcs'] as const) {
       formData.append(field, company[field] || '');
@@ -102,7 +105,7 @@ export default function Entreprise() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">
-      <PageHeader title="Mon entreprise" description="Informations reprises sur vos factures et devis." icon={<Building2 size={23} />} />
+      <PageHeader title="Mon entreprise" description={readOnly ? "Informations de l’entreprise (consultation uniquement)." : "Informations reprises sur vos factures et devis."} icon={<Building2 size={23} />} />
 
       <form onSubmit={save} className="grid gap-5 lg:grid-cols-[1.25fr_0.75fr]">
         <div className="space-y-5">
@@ -114,19 +117,19 @@ export default function Entreprise() {
             <div className="grid gap-4 p-5 sm:grid-cols-2">
               <label className="block space-y-1.5 text-sm font-medium sm:col-span-2">
                 <span>Nom de l’entreprise</span>
-                <input required value={company.nom_entreprise} onChange={(event) => updateField('nom_entreprise', event.target.value)} className={fieldClass} />
+                <input required disabled={readOnly} value={company.nom_entreprise} onChange={(event) => updateField('nom_entreprise', event.target.value)} className={fieldClass} />
               </label>
               <label className="block space-y-1.5 text-sm font-medium sm:col-span-2">
                 <span className="flex items-center gap-1.5"><MapPin size={14} /> Adresse</span>
-                <input value={company.adresse || ''} onChange={(event) => updateField('adresse', event.target.value)} className={fieldClass} />
+                <input disabled={readOnly} value={company.adresse || ''} onChange={(event) => updateField('adresse', event.target.value)} className={fieldClass} />
               </label>
               <label className="block space-y-1.5 text-sm font-medium">
                 <span className="flex items-center gap-1.5"><Phone size={14} /> Téléphone</span>
-                <input value={company.telephone || ''} onChange={(event) => updateField('telephone', event.target.value)} className={fieldClass} />
+                <input disabled={readOnly} value={company.telephone || ''} onChange={(event) => updateField('telephone', event.target.value)} className={fieldClass} />
               </label>
               <label className="block space-y-1.5 text-sm font-medium">
                 <span>E-mail</span>
-                <input type="email" value={company.email || ''} onChange={(event) => updateField('email', event.target.value)} className={fieldClass} />
+                <input type="email" disabled={readOnly} value={company.email || ''} onChange={(event) => updateField('email', event.target.value)} className={fieldClass} />
               </label>
             </div>
           </section>
@@ -144,7 +147,7 @@ export default function Entreprise() {
               ] as const).map(([field, label]) => (
                 <label key={field} className="block space-y-1.5 text-sm font-medium">
                   <span>{label}</span>
-                  <input value={company[field] || ''} onChange={(event) => updateField(field, event.target.value)} className={fieldClass} />
+                  <input disabled={readOnly} value={company[field] || ''} onChange={(event) => updateField(field, event.target.value)} className={fieldClass} />
                 </label>
               ))}
             </div>
@@ -176,7 +179,7 @@ export default function Entreprise() {
                       <span className="text-sm text-muted-foreground">Aucun fichier</span>
                     )}
                   </button>
-                  <label className="block space-y-2 text-sm font-medium">
+                  {!readOnly && <label className="block space-y-2 text-sm font-medium">
                     <span>{imageLabels[field]}</span>
                     <span className={`${buttonClass} w-full cursor-pointer border border-border bg-muted/30 text-foreground hover:bg-accent`}>
                       <Upload size={15} /> Remplacer
@@ -198,19 +201,19 @@ export default function Entreprise() {
                       />
                     </span>
                     {images[field] && <span className="block truncate text-xs text-muted-foreground">{images[field]?.name}</span>}
-                  </label>
+                  </label>}
                 </div>
               );
             })}
           </div>
         </section>
 
-        <div className="sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur sm:col-span-2">
+        {!readOnly && <div className="sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur sm:col-span-2">
           <span className="text-sm text-muted-foreground">Les informations seront enregistrées dans votre espace.</span>
           <button disabled={saving} className={`${buttonClass} bg-primary text-primary-foreground hover:opacity-90`}>
             <Check size={16} /> {saving ? 'Enregistrement...' : 'Enregistrer'}
           </button>
-        </div>
+        </div>}
       </form>
 
       <Modal open={imageToPreview !== null} onClose={() => setImageToPreview(null)} title="Aperçu de l’image" size="md">

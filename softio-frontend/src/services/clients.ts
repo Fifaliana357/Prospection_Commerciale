@@ -64,7 +64,7 @@ export const getClient = async (id: number) => {
 };
 
 export const createClient = async (data: Partial<Client>) => {
-  const response = await api.post('/clients', data);
+  const response = await api.post<{ message: string; client: Client }>('/clients', data);
   return response.data;
 };
 

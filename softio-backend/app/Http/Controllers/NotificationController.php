@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Notification;
-use App\Models\Admin;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
@@ -85,13 +84,7 @@ class NotificationController extends Controller
     private function visibleNotifications(Request $request): Builder
     {
         $user = $request->user();
-        $query = Notification::query()->where('notification.id_admin', $user->id_admin);
-
-        if (! $user instanceof Admin) {
-            $query->where('notification.id_commercial', $user->id_commercial);
-        }
-
-        return $query;
+        return Notification::query()->where('notification.id_admin', $user->id_admin);
     }
 
     private function actionableNotifications(Request $request): Builder

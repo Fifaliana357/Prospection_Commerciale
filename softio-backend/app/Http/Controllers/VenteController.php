@@ -48,8 +48,6 @@ class VenteController extends Controller
 
         $clients = Client::query()
             ->where('id_admin', $user->id_admin)
-            ->when(! $user instanceof Admin, fn (Builder $query) => $query
-                ->where('id_commercial', $user->id_commercial))
             ->orderBy('nom')
             ->get(['id_client', 'nom', 'prenom', 'entreprise', 'email', 'telephone']);
 
@@ -454,7 +452,7 @@ class VenteController extends Controller
                 'ancien_statut' => null,
                 'nouveau_statut' => 'a_preparer',
                 'commentaire' => 'Livraison créée à la validation de la vente.',
-                'id_admin' => $user instanceof Admin ? $user->id_admin : null,
+                'id_admin' => $sale->id_admin,
                 'id_commercial' => $user instanceof Commercial ? $user->id_commercial : null,
             ]);
         }
@@ -462,21 +460,11 @@ class VenteController extends Controller
 
     private function ownedSales(Admin|Commercial $user): Builder
     {
-        $query = Vente::query()->where('id_admin', $user->id_admin);
-        if (! $user instanceof Admin) {
-            $query->where('id_commercial', $user->id_commercial);
-        }
-
-        return $query;
+        return Vente::query()->where('id_admin', $user->id_admin);
     }
 
     private function ownedClients(Admin|Commercial $user): Builder
     {
-        $query = Client::query()->where('id_admin', $user->id_admin);
-        if (! $user instanceof Admin) {
-            $query->where('id_commercial', $user->id_commercial);
-        }
-
-        return $query;
+        return Client::query()->where('id_admin', $user->id_admin);
     }
 }

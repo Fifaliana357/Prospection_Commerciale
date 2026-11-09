@@ -49,7 +49,7 @@ const groups: Group[] = [
   {
     title: "Équipe & Savoir",
     items: [
-      { name: "Commerciaux", path: "/commerciaux", icon: UserCog, adminOnly: true },
+      { name: "Commerciaux", path: "/commerciaux", icon: UserCog },
       { name: "Bibliothèque", path: "/bibliotheque", icon: BookOpen },
       { name: "Tutoriels", path: "/tutoriels", icon: GraduationCap },
     ],

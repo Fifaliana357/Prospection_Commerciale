@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { getClients, createClient, updateClient, deleteClient, type Client } from '../services/clients';
+import { createInteret, getInterets } from '../services/interets';
 import { useToast } from '../contexts/ToastContext';
 import TablePagination from '../components/ui/TablePagination';
 import TableSummary from '../components/ui/TableSummary';
@@ -17,6 +18,7 @@ const fieldHintClass = "mt-1.5 block min-w-0 break-words text-xs font-normal lea
 
 export default function Prospects() {
   const toast = useToast();
+  const toastRef = useRef(toast);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [clients, setClients] = useState<Client[]>([]);
@@ -33,6 +35,10 @@ export default function Prospects() {
   const [entryMode, setEntryMode] = useState<'manual' | 'excel'>('manual');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [interestOptions, setInterestOptions] = useState<string[]>([]);
+  const [interestInput, setInterestInput] = useState('');
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [showInterestSuggestions, setShowInterestSuggestions] = useState(false);
 
   // Import Excel
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -75,13 +81,34 @@ export default function Prospects() {
   };
 
   useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
+
+  useEffect(() => {
     fetchClients();
   }, [search, typeFilter, page]);
+
+  useEffect(() => {
+    let active = true;
+    getInterets({ page: 1 })
+      .then((response) => {
+        if (active) setInterestOptions(response.produits || []);
+      })
+      .catch(() => {
+        if (active) toastRef.current.error('Erreur lors du chargement des intérêts');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const openCreateModal = () => {
     setEditingClient(null);
     setEntryMode('manual');
     setSelectedFile(null);
+    setInterestInput('');
+    setSelectedInterests([]);
     setForm({
       type: 'particulier',
       nom: '',
@@ -141,16 +168,53 @@ export default function Prospects() {
         await updateClient(editingClient.id_client, payload);
         toast.success('Prospect modifié avec succès');
       } else {
-        await createClient(payload);
-        toast.success('Prospect créé avec succès');
+        const response = await createClient(payload);
+        const interestsToSave = [...selectedInterests];
+        const pendingInterest = interestInput.trim();
+        if (
+          pendingInterest &&
+          !interestsToSave.some((interest) => interest.toLocaleLowerCase('fr') === pendingInterest.toLocaleLowerCase('fr'))
+        ) {
+          interestsToSave.push(pendingInterest);
+        }
+        let failedInterests = 0;
+        for (const produit_concerne of interestsToSave) {
+          try {
+            await createInteret({ id_client: response.client.id_client, produit_concerne, niveau: 3 });
+          } catch {
+            failedInterests += 1;
+          }
+        }
+        if (failedInterests > 0) {
+          toast.error(`Prospect créé, mais ${failedInterests} intérêt(s) n'ont pas pu être enregistrés`);
+        } else {
+          toast.success('Prospect créé avec succès');
+        }
       }
       setShowModal(false);
+      setSelectedInterests([]);
       fetchClients();
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Erreur lors de l\'enregistrement');
     } finally {
       setSaving(false);
     }
+  };
+
+  const filteredInterestOptions = interestOptions.filter((interest) =>
+    interest.toLocaleLowerCase('fr').includes(interestInput.toLocaleLowerCase('fr').trim())
+  );
+
+  const addInterest = (value = interestInput) => {
+    const interest = value.trim();
+    if (!interest) return;
+    setSelectedInterests((current) =>
+      current.some((existing) => existing.toLocaleLowerCase('fr') === interest.toLocaleLowerCase('fr'))
+        ? current
+        : [...current, interest]
+    );
+    setInterestInput('');
+    setShowInterestSuggestions(false);
   };
 
   const confirmDelete = async () => {
@@ -427,8 +491,8 @@ export default function Prospects() {
       {/* ==================== MODAL CRÉATION / ÉDITION ==================== */}
       {showModal && (
         <ModalPortal onClose={() => setShowModal(false)}>
-        <div className="animate-modal-overlay-enter fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/55 p-2 backdrop-blur-sm sm:p-3">
-          <div role="dialog" aria-modal="true" aria-labelledby="prospect-modal-title" className="animate-modal-dialog-enter my-auto flex max-h-[calc(100dvh-1rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+        <div className="animate-modal-overlay-enter fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/55 p-2 backdrop-blur-sm sm:p-4">
+          <div role="dialog" aria-modal="true" aria-labelledby="prospect-modal-title" className="animate-modal-dialog-enter my-auto flex max-h-[calc(100dvh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
             <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-border bg-card px-5 py-4 sm:px-7">
               <div className="flex min-w-0 items-center gap-3">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
@@ -532,7 +596,8 @@ export default function Prospects() {
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="min-h-0 space-y-4 overflow-y-auto p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:p-5">
+              <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:p-5">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3 [&>div]:min-w-0">
                   <div>
                     <label className="flex items-center gap-1.5 text-sm font-medium">
@@ -585,6 +650,84 @@ export default function Prospects() {
                     </>
                   )}
                 </div>
+
+                {!editingClient && entryMode === 'manual' && (
+                  <div>
+                    <label className="text-sm font-medium" htmlFor="prospect-interest">Intérêts :</label>
+                    <div className="relative flex items-center gap-2">
+                      <input
+                        id="prospect-interest"
+                        value={interestInput}
+                        onChange={(event) => {
+                          setInterestInput(event.target.value);
+                          setShowInterestSuggestions(true);
+                        }}
+                        onFocus={() => setShowInterestSuggestions(true)}
+                        onBlur={() => window.setTimeout(() => setShowInterestSuggestions(false), 120)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            addInterest();
+                          }
+                        }}
+                        className={`!mt-0 ${prospectInputClass}`}
+                        placeholder="Rechercher un service, produit ou saisir librement..."
+                        maxLength={191}
+                        autoComplete="off"
+                        role="combobox"
+                        aria-expanded={showInterestSuggestions && filteredInterestOptions.length > 0}
+                        aria-controls="prospect-interest-options"
+                      />
+                      <button
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => addInterest()}
+                        disabled={!interestInput.trim()}
+                        className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                        aria-label="Ajouter cet intérêt"
+                      >
+                        <Plus size={20} />
+                      </button>
+                      {showInterestSuggestions && filteredInterestOptions.length > 0 && (
+                        <ul
+                          id="prospect-interest-options"
+                          role="listbox"
+                          className="absolute left-0 top-full z-20 mt-1 max-h-56 w-[calc(100%-3.5rem)] overflow-y-auto rounded-xl border border-border bg-card p-2 shadow-xl"
+                        >
+                          {filteredInterestOptions.map((interest) => (
+                            <li key={interest} role="option" aria-selected={selectedInterests.includes(interest)}>
+                              <button
+                                type="button"
+                                onMouseDown={(event) => event.preventDefault()}
+                                onClick={() => addInterest(interest)}
+                                className="w-full rounded-lg px-2.5 py-2 text-left text-sm hover:bg-accent"
+                              >
+                                {interest}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    {selectedInterests.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {selectedInterests.map((interest) => (
+                          <span key={interest} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                            {interest}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedInterests((current) => current.filter((value) => value !== interest))}
+                              className="rounded-full p-0.5 text-destructive hover:bg-destructive/10"
+                              aria-label={`Retirer l’intérêt ${interest}`}
+                            >
+                              <X size={13} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3 [&>div]:min-w-0">
                   <div>
@@ -701,7 +844,8 @@ export default function Prospects() {
                   </div>
                 )}
 
-                <div className="mt-2 flex flex-col-reverse justify-end gap-2 border-t border-border pt-6 sm:flex-row sm:gap-3">
+                </div>
+                <div className="flex shrink-0 flex-col-reverse justify-end gap-2 border-t border-border bg-card px-4 py-3 sm:flex-row sm:gap-3 sm:px-5">
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}

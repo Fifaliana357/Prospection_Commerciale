@@ -71,6 +71,17 @@ export interface FacturationPayload {
   }>;
 }
 
+export interface FacturationPdfLayout {
+  stampWidth: number;
+  stampX: number;
+  stampY: number;
+  stampRotation: number;
+  signatureWidth: number;
+  signatureX: number;
+  signatureY: number;
+  signatureRotation: number;
+}
+
 export interface PaginatedDocuments {
   data: FacturationDocument[];
   current_page: number;
@@ -123,7 +134,30 @@ export async function deleteFacturationDocument(id: number) {
   await api.delete(`/facturation/${id}`);
 }
 
-export async function emailFacturationDocument(id: number) {
-  const response = await api.post<{ message: string }>(`/facturation/${id}/envoyer`);
+export async function downloadFacturationDocument(
+  id: number,
+  format: 'A4' | 'A5' | 'Ticket',
+  barcodeSvg?: string,
+  layout?: FacturationPdfLayout,
+) {
+  const response = await api.post<Blob>(
+    `/facturation/${id}/telecharger`,
+    { format, barcode_svg: barcodeSvg, ...layout },
+    { responseType: 'blob' },
+  );
+  return response.data;
+}
+
+export async function emailFacturationDocument(
+  id: number,
+  format: 'A4' | 'A5' | 'Ticket',
+  barcodeSvg?: string,
+  layout?: FacturationPdfLayout,
+) {
+  const response = await api.post<{ message: string }>(`/facturation/${id}/envoyer`, {
+    format,
+    barcode_svg: barcodeSvg,
+    ...layout,
+  });
   return response.data.message;
 }

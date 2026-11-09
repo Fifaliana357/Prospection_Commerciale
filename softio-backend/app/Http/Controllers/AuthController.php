@@ -14,38 +14,43 @@ use Throwable;
 
 class AuthController extends Controller
 {
-    /**
-     * Connexion Admin ou Commercial
-     */
     public function login(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'email' => 'required|email',
             'password' => 'required',
-            'type' => 'required|in:admin,commercial',
         ]);
 
-        if ($request->type === 'admin') {
-            $user = Admin::where('email', $request->email)->first();
-        } else {
-            $user = Commercial::where('email', $request->email)->first();
-        }
+        $email = trim($validated['email']);
+        $password = $validated['password'];
+        $admin = Admin::where('email', $email)->first();
+        $commercial = Commercial::where('email', $email)->first();
+        $adminMatches = $admin && Hash::check($password, $admin->password);
+        $commercialMatches = $commercial && Hash::check($password, $commercial->password);
 
-        if (! $user || ! Hash::check($request->password, $user->password)) {
+        if ($adminMatches && $commercialMatches) {
             throw ValidationException::withMessages([
                 'email' => ['Email ou mot de passe incorrect.'],
             ]);
         }
 
-        if ($request->type === 'admin' && $user->email_verification_required && ! $user->est_verifie) {
+        if (! $adminMatches && ! $commercialMatches) {
+            throw ValidationException::withMessages([
+                'email' => ['Email ou mot de passe incorrect.'],
+            ]);
+        }
+
+        $user = $adminMatches ? $admin : $commercial;
+        $type = $adminMatches ? 'admin' : 'commercial';
+
+        if ($type === 'admin' && $user->email_verification_required && ! $user->est_verifie) {
             return response()->json([
                 'code' => 'email_not_verified',
                 'message' => 'Vérifiez votre adresse e-mail avant de vous connecter.',
             ], 403);
         }
 
-        // Vérifier si le commercial est actif
-        if ($request->type === 'commercial' && ! $user->actif) {
+        if ($type === 'commercial' && ! $user->actif) {
             return response()->json([
                 'message' => 'Votre compte est désactivé.',
             ], 403);
@@ -56,7 +61,7 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Connexion réussie',
             'user' => $user,
-            'type' => $request->type,
+            'type' => $type,
             'token' => $token,
         ]);
     }

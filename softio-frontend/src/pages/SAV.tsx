@@ -24,7 +24,7 @@ import {
   type EditableDeliveryStatus,
 } from "@/services/livraisons"
 
-const statusFilters = ["tous", "a_preparer", "en_cours", "livree", "retardee", "retournee"] as const
+const statusFilters = ["tous", "a_preparer", "en_cours", "retardee", "livree", "retournee"] as const
 type StatusFilter = typeof statusFilters[number]
 
 const fieldClass = "w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -68,6 +68,12 @@ function dateLabel(value: string | null | undefined) {
   }
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("fr-FR")
+}
+
+function dateTimeLabel(value: string | null | undefined) {
+  if (!value) return "—"
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("fr-FR")
 }
 
 function dateTimeLocal(value: string | null) {
@@ -236,7 +242,7 @@ export default function SAV() {
           <label className="flex items-center gap-2 text-sm">
             <span className="whitespace-nowrap text-muted-foreground">Statut</span>
             <Select value={status} onChange={(value) => { if (isStatusFilter(value)) { setStatus(value); setPage(1) } }} options={[
-              { value: "tous", label: "Tous les statuts" },
+              { value: "tous", label: "Tous" },
               { value: "a_preparer", label: "À préparer" },
               { value: "en_cours", label: "En cours de livraison" },
               { value: "retardee", label: "Retardée" },
@@ -262,13 +268,15 @@ export default function SAV() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-left text-sm [&>tbody>tr:last-child>td]:border-b-0">
+            <table className="w-full min-w-[1320px] text-left text-sm [&>tbody>tr:last-child>td]:border-b-0">
               <thead className="bg-primary text-primary-foreground">
                 <tr>
                   <th className="px-4 py-3">Vente / Client</th>
                   <th className="px-4 py-3">Livraison</th>
                   <th className="px-4 py-3">Livreur</th>
                   <th className="px-4 py-3">Date prévue</th>
+                  <th className="px-4 py-3">Date réelle de livraison</th>
+                  <th className="px-4 py-3">Commentaire</th>
                   <th className="px-4 py-3">Statut</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
@@ -287,6 +295,8 @@ export default function SAV() {
                       </td>
                       <td className="px-4 py-3">{delivery.livreur || "À assigner"}</td>
                       <td className="px-4 py-3">{dateLabel(delivery.date_prevue)}</td>
+                      <td className="whitespace-nowrap px-4 py-3">{dateTimeLabel(delivery.date_livraison)}</td>
+                      <td className="max-w-[220px] px-4 py-3"><span className="line-clamp-2">{delivery.commentaire || "—"}</span></td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[delivery.statut_affiche]}`}>
                           {statusLabels[delivery.statut_affiche]}
@@ -299,8 +309,8 @@ export default function SAV() {
                               <Check size={14} />{deliveringId === delivery.id_livraison ? "Mise à jour..." : "Marquer comme livrée"}
                             </button>
                           )}
-                          <button type="button" onClick={() => openEditor(delivery)} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-2 text-xs font-medium hover:bg-accent" aria-label={`Modifier la livraison ${delivery.vente.numero || delivery.vente.id_vente}`}>
-                            <Pencil size={14} /><span className="sr-only sm:not-sr-only">Modifier</span>
+                          <button type="button" onClick={() => openEditor(delivery)} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border hover:bg-accent" aria-label={`Modifier la livraison ${delivery.vente.numero || delivery.vente.id_vente}`}>
+                            <Pencil size={14} />
                           </button>
                           <button type="button" onClick={() => void toggleHistory(delivery)} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-2 text-xs font-medium hover:bg-accent" aria-expanded={expandedId === delivery.id_livraison}>
                             <Eye size={14} />Historique {expandedId === delivery.id_livraison ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
@@ -310,7 +320,7 @@ export default function SAV() {
                     </tr>
                     {expandedId === delivery.id_livraison && (
                       <tr className="bg-muted/20">
-                        <td colSpan={6} className="px-5 py-4">
+                        <td colSpan={8} className="px-5 py-4">
                           <h3 className="mb-3 text-sm font-semibold">Historique des statuts</h3>
                           {historyLoadingId === delivery.id_livraison ? (
                             <p className="text-sm text-muted-foreground">Chargement...</p>
@@ -339,8 +349,7 @@ export default function SAV() {
           </div>
         )}
         {pageInfo && pageInfo.total > 0 && (
-          <div className="flex items-center justify-between gap-2">
-            <span className="px-4 text-xs text-muted-foreground">{pageInfo.total} livraison(s)</span>
+          <div className="flex justify-end">
             <TablePagination page={pageInfo.current_page} lastPage={pageInfo.last_page} onChange={setPage} />
           </div>
         )}

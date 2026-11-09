@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Admin;
 use App\Models\Produit;
 use Illuminate\Http\Request;
 
@@ -9,7 +10,7 @@ class ProduitController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Produit::query();
+        $query = Produit::query()->where('id_admin', $request->user()->id_admin);
 
         if ($request->filled('search')) {
             $s = $request->search;
@@ -28,6 +29,7 @@ class ProduitController extends Controller
 public function store(Request $request)
 {
     $user = $request->user();
+    abort_unless($user instanceof Admin, 403, 'Le catalogue est en lecture seule pour les commerciaux.');
 
     $validated = $request->validate([
         'reference'     => 'required|string|max:50',
@@ -57,7 +59,8 @@ public function store(Request $request)
 
 public function update(Request $request, int $id)
 {
-    $produit = Produit::findOrFail($id);
+    abort_unless($request->user() instanceof Admin, 403, 'Le catalogue est en lecture seule pour les commerciaux.');
+    $produit = Produit::query()->where('id_admin', $request->user()->id_admin)->findOrFail($id);
 
     $validated = $request->validate([
         'reference'     => 'sometimes|string|max:50',
@@ -90,9 +93,10 @@ public function update(Request $request, int $id)
     return response()->json(['message' => 'Produit modifié', 'produit' => $produit->fresh()]);
 }
 
-    public function destroy(int $id)
+    public function destroy(Request $request, int $id)
     {
-        Produit::findOrFail($id)->delete();
+        abort_unless($request->user() instanceof Admin, 403, 'Le catalogue est en lecture seule pour les commerciaux.');
+        Produit::query()->where('id_admin', $request->user()->id_admin)->findOrFail($id)->delete();
         return response()->json(['message' => 'Produit supprimé']);
     }
 

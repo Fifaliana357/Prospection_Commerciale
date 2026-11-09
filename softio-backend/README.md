@@ -7,6 +7,41 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Local setup
+
+The PHP GD extension must be enabled for PDF generation. On Windows, enable
+`extension=gd` in the `php.ini` used by the Laravel server, then restart it.
+
+## Prospection e-mail
+
+Outgoing prospection messages with type **Email** use Laravel's configured mail
+transport. Set `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`,
+`MAIL_ENCRYPTION`, `MAIL_FROM_ADDRESS`, and `MAIL_FROM_NAME` in the backend
+environment. For Gmail or Google Workspace, use `smtp.gmail.com`, port `587`,
+TLS, and a Google App Password; keep the sender address aligned with the
+authenticated mailbox.
+
+Automatic reply import uses Gmail IMAP. Enable IMAP for the mailbox, create an
+App Password with 2-Step Verification enabled, and set
+`PROSPECTION_IMAP_ENABLED=true`, `PROSPECTION_IMAP_USERNAME`, and
+`PROSPECTION_IMAP_PASSWORD`. Keep the credentials in the server `.env`, never
+in frontend code. Replies are matched by email thread first, then by sender
+only when there is exactly one active prospection for that client. Unmatched
+messages are flagged in Gmail for manual review. Manual incoming messages
+remain available in the prospection history.
+
+Run `php artisan migrate` when deploying the message tracking fields. To import
+new replies automatically, configure the server cron to run Laravel's scheduler
+every minute:
+
+```cron
+* * * * * cd /path/to/softio-backend && php artisan schedule:run >> /dev/null 2>&1
+```
+
+The first successful sync records the current inbox UID as a baseline and does
+not import older mail. Later messages are imported once even if they have
+already been opened in Gmail.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

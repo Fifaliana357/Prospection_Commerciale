@@ -258,22 +258,22 @@ export default function Stock() {
         icon={<Archive size={23} />}
       />
 
-      <nav className="flex w-fit items-center gap-1 border-b border-border" aria-label="Gestion du stock">
+      <nav className="page-tabs" role="tablist" aria-label="Gestion du stock">
         <button
           type="button"
+          role="tab"
+          aria-selected={tab === "approvisionnement"}
           onClick={() => setTab("approvisionnement")}
-          className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-            tab === "approvisionnement" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
+          className="page-tab"
         >
           <Archive size={16} /> Approvisionnement
         </button>
         <button
           type="button"
+          role="tab"
+          aria-selected={tab === "inventaire"}
           onClick={() => setTab("inventaire")}
-          className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-            tab === "inventaire" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
+          className="page-tab"
         >
           <ClipboardList size={16} /> Inventaire
         </button>
@@ -281,6 +281,10 @@ export default function Stock() {
 
       {tab === "approvisionnement" ? (
         <section className="space-y-4">
+          <div>
+            <h2 className="text-base font-semibold">Historique des approvisionnements</h2>
+            <p className="text-sm text-muted-foreground">Consultez et gérez les entrées de stock enregistrées.</p>
+          </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <label className="relative flex-1">
               <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -431,7 +435,7 @@ export default function Stock() {
                       <td className="px-3 py-3 text-right">{formatAmount(product.prix_unitaire)}</td>
                       <td className="px-3 py-3 text-center">{product.quantite_approvisionnee}</td>
                       <td className="px-3 py-3 text-center font-medium text-amber-600">{product.quantite_vendue}</td>
-                      <td className="px-3 py-3 text-center font-bold">{product.stock_disponible}</td>
+                      <td className={`px-3 py-3 text-center font-bold ${product.statut === "rupture" ? "text-red-600 dark:text-red-400" : ""}`}>{product.stock_disponible}</td>
                       <td className="px-3 py-3 text-right">{formatAmount(product.valeur_stock)}</td>
                       <td className="px-3 py-3 text-center">
                         <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
@@ -439,7 +443,7 @@ export default function Stock() {
                             ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
                             : product.statut === "faible"
                               ? "bg-amber-500/10 text-amber-700 dark:text-amber-300"
-                              : "bg-destructive/10 text-destructive"
+                              : "bg-red-500/10 text-red-700 dark:text-red-300"
                         }`}>
                           {product.statut === "en_stock" ? "En stock" : product.statut === "faible" ? "Stock faible" : "Rupture"}
                         </span>

@@ -182,7 +182,7 @@ export default function Comptabilite() {
       <PageHeader title="Comptabilité" description="Recettes, versements, dépenses et solde." icon={<Wallet size={23} />} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-1 border-b border-border">
+        <div className="page-tabs" role="tablist" aria-label="Vues comptables">
           {([
             ['recettes', 'Recettes'],
             ['depenses', 'Dépenses'],
@@ -190,8 +190,11 @@ export default function Comptabilite() {
           ] as const).map(([key, label]) => (
             <button
               key={key}
+              type="button"
+              role="tab"
+              aria-selected={tab === key}
               onClick={() => { setTab(key); setPage(1); }}
-              className={`border-b-2 px-4 py-3 text-sm font-medium ${tab === key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+              className="page-tab"
             >
               {label}
             </button>

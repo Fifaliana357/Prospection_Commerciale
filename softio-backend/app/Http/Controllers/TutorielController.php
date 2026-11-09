@@ -9,7 +9,7 @@ class TutorielController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Tutoriel::query();
+        $query = Tutoriel::query()->where('id_admin', $request->user()->id_admin);
 
         if ($request->filled('search')) {
             $s = $request->search;
@@ -32,7 +32,7 @@ class TutorielController extends Controller
 
         $tutoriel = Tutoriel::create([
             ...$validated,
-            'id_admin' => $user->id_admin ?? null,
+            'id_admin' => $user->id_admin,
         ]);
 
         return response()->json(['message' => 'Tutoriel créé', 'tutoriel' => $tutoriel], 201);
@@ -40,7 +40,7 @@ class TutorielController extends Controller
 
     public function update(Request $request, int $id)
     {
-        $tutoriel = Tutoriel::findOrFail($id);
+        $tutoriel = Tutoriel::query()->where('id_admin', $request->user()->id_admin)->findOrFail($id);
 
         $validated = $request->validate([
             'titre' => 'sometimes|string|max:191',
@@ -52,9 +52,9 @@ class TutorielController extends Controller
         return response()->json(['message' => 'Tutoriel modifié', 'tutoriel' => $tutoriel]);
     }
 
-    public function destroy(int $id)
+    public function destroy(Request $request, int $id)
     {
-        Tutoriel::findOrFail($id)->delete();
+        Tutoriel::query()->where('id_admin', $request->user()->id_admin)->findOrFail($id)->delete();
         return response()->json(['message' => 'Tutoriel supprimé']);
     }
 }

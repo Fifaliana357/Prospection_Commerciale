@@ -63,15 +63,27 @@ function useModalLifecycle(onClose: () => void) {
 }
 
 export function ModalPortal({ children, onClose }: ModalPortalProps) {
-  useModalLifecycle(onClose)
+  const [closing, setClosing] = useState(false)
+  const closeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const requestClose = useCallback(() => {
+    if (closing || closeTimeout.current) return
+    setClosing(true)
+    closeTimeout.current = setTimeout(onClose, 160)
+  }, [closing, onClose])
+
+  useModalLifecycle(requestClose)
+
+  useEffect(() => () => {
+    if (closeTimeout.current) clearTimeout(closeTimeout.current)
+  }, [])
 
   return createPortal(
-    <div
+    <div className={closing ? "modal-portal-exit" : ""}
       onMouseDown={(event) => {
         const target = event.target
         if (!(target instanceof Element)) return
         const backdrop = target.closest('[class~="fixed"][class~="inset-0"]')
-        if (target === backdrop) onClose()
+        if (target === backdrop) requestClose()
       }}
     >
       {children}
@@ -130,10 +142,17 @@ function ModalContent({
     <div
       className={`fixed inset-0 z-[100] flex ${topAligned ? "items-start justify-center overflow-y-auto pt-[8vh] sm:pt-[12vh]" : "items-center justify-center"} p-3 sm:p-4 ${isClosing ? "modal-overlay-exit" : "modal-overlay-enter"}`}
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !isClosing) requestClose()
+        const target = event.target
+        if (
+          !isClosing &&
+          (target === event.currentTarget ||
+            (target instanceof HTMLElement && target.dataset.modalBackdrop === "true"))
+        ) {
+          requestClose()
+        }
       }}
     >
-      <div className="absolute inset-0 bg-ink/55 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-ink/55 backdrop-blur-sm" data-modal-backdrop="true" />
       <section
         role="dialog"
         aria-modal="true"

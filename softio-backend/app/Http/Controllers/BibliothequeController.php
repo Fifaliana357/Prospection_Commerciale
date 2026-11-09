@@ -10,7 +10,7 @@ class BibliothequeController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Bibliotheque::query();
+        $query = Bibliotheque::query()->where('id_admin', $request->user()->id_admin);
 
         if ($request->filled('search')) {
             $s = $request->search;
@@ -22,7 +22,7 @@ class BibliothequeController extends Controller
         }
 
         $files = $query->orderByDesc('created_at')->paginate(20);
-        $totalSize = Bibliotheque::sum('taille'); // octets
+        $totalSize = Bibliotheque::query()->where('id_admin', $request->user()->id_admin)->sum('taille'); // octets
 
         return response()->json([
             'data' => $files->items(),
@@ -59,7 +59,7 @@ class BibliothequeController extends Controller
         $chemin = $file->store('bibliotheque', 'public');
 
         $fichier = Bibliotheque::create([
-            'id_admin'  => $user->id_admin ?? null,
+            'id_admin'  => $user->id_admin,
             'nom'       => $nom,
             'type'      => $type,
             'chemin'    => $chemin,
@@ -70,9 +70,9 @@ class BibliothequeController extends Controller
         return response()->json(['message' => 'Fichier téléversé', 'fichier' => $fichier], 201);
     }
 
-    public function download(int $id)
+    public function download(Request $request, int $id)
     {
-        $fichier = Bibliotheque::findOrFail($id);
+        $fichier = Bibliotheque::query()->where('id_admin', $request->user()->id_admin)->findOrFail($id);
 
         $path = storage_path('app/public/' . $fichier->chemin);
 
@@ -83,9 +83,9 @@ class BibliothequeController extends Controller
         return response()->download($path, $fichier->nom);
     }
 
-    public function destroy(int $id)
+    public function destroy(Request $request, int $id)
     {
-        $fichier = Bibliotheque::findOrFail($id);
+        $fichier = Bibliotheque::query()->where('id_admin', $request->user()->id_admin)->findOrFail($id);
 
         if ($fichier->chemin && Storage::disk('public')->exists($fichier->chemin)) {
             Storage::disk('public')->delete($fichier->chemin);

@@ -26,8 +26,8 @@ export default function MainLayout() {
         )}
       >
         <Header onMenuClick={() => setMenuOpen(true)} />
-        <main className="flex-1 px-3 py-4 sm:px-5 sm:py-5 lg:px-6">
-          <div key={location.pathname} className="app-page-enter mx-auto w-full max-w-[1600px]">
+        <main className="min-w-0 flex-1 px-3 py-3 sm:px-4 sm:py-4 lg:px-5">
+          <div key={location.pathname} className="app-page-enter w-full min-w-0">
             <Outlet />
           </div>
         </main>

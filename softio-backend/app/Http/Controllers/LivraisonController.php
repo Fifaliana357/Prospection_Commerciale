@@ -140,7 +140,7 @@ class LivraisonController extends Controller
                     'ancien_statut' => $previousStatus,
                     'nouveau_statut' => $nextStatus,
                     'commentaire' => $validated['commentaire'] ?? null,
-                    'id_admin' => $user instanceof Admin ? $user->id_admin : null,
+                    'id_admin' => $user->id_admin,
                     'id_commercial' => $user instanceof Commercial ? $user->id_commercial : null,
                 ]);
             }
@@ -161,12 +161,8 @@ class LivraisonController extends Controller
 
     private function ownedDeliveries(Admin|Commercial $user): Builder
     {
-        return Livraison::query()->whereHas('vente', function (Builder $sales) use ($user) {
-            $sales->where('id_admin', $user->id_admin);
-            if (! $user instanceof Admin) {
-                $sales->where('id_commercial', $user->id_commercial);
-            }
-        });
+        return Livraison::query()->whereHas('vente', fn (Builder $sales) => $sales
+            ->where('id_admin', $user->id_admin));
     }
 
     private function displayStatus(Livraison $delivery): string

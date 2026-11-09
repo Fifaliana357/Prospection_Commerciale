@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Admin;
+use App\Models\Commercial;
 use App\Models\ComptabiliteOperation;
 use App\Models\Vente;
 use Illuminate\Database\Eloquent\Builder;
@@ -147,9 +148,12 @@ class ComptabiliteController extends Controller
 
     private function admin(Request $request): Admin
     {
-        abort_unless($request->user() instanceof Admin, 403, 'Accès réservé à l’administrateur.');
+        $user = $request->user();
+        abort_unless($user instanceof Admin || $user instanceof Commercial, 403, 'Utilisateur non autorisé.');
+        $admin = $user instanceof Admin ? $user : $user->admin;
+        abort_if(! $admin, 404, 'Entreprise introuvable.');
 
-        return $request->user();
+        return $admin;
     }
 
     private function salesQuery(Admin $admin, Request $request): Builder

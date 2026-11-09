@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import axios from 'axios';
 import {
   ArrowLeft, CheckCircle2, XCircle, Send, MessageSquare,
   Star, CalendarDays, RotateCcw, History
@@ -55,6 +56,8 @@ export default function ProspectionDetail() {
   // Relance
   const [showRelance, setShowRelance] = useState(false);
   const [relanceDate, setRelanceDate] = useState('');
+  const [showLostConfirmation, setShowLostConfirmation] = useState(false);
+  const [savingLost, setSavingLost] = useState(false);
 
   // Intérêts
   const [showInterets, setShowInterets] = useState(false);
@@ -111,6 +114,15 @@ export default function ProspectionDetail() {
       toast.error('Le message est obligatoire');
       return;
     }
+    const sendsEmail = activeTab === 'sortant' && form.type_message === 'Email';
+    if (sendsEmail && !prospection.client?.email) {
+      toast.error('Ce prospect ne possède pas d’adresse e-mail');
+      return;
+    }
+    if (sendsEmail && !form.objet.trim()) {
+      toast.error('L’objet de l’e-mail est obligatoire');
+      return;
+    }
     try {
       setSaving(true);
       await addMessage(prospection.id_prospection, {
@@ -120,12 +132,15 @@ export default function ProspectionDetail() {
         type_message: form.type_message,
         note: activeTab === 'entrant' ? form.note : null,
       });
-      toast.success('Message ajouté');
+      toast.success(sendsEmail ? `E-mail envoyé à ${prospection.client?.email}` : 'Message ajouté');
       setForm({ objet: '', message: '', type_message: 'Contact', note: 0 });
       setActiveTab(null);
       fetchData();
-    } catch {
-      toast.error('Erreur lors de l\'ajout');
+    } catch (error: unknown) {
+      const message = axios.isAxiosError<{ message?: string }>(error)
+        ? error.response?.data?.message
+        : undefined;
+      toast.error(message || 'Erreur lors de l\'ajout');
     } finally {
       setSaving(false);
     }
@@ -199,11 +214,15 @@ export default function ProspectionDetail() {
   const handlePerdu = async () => {
     if (!prospection) return;
     try {
+      setSavingLost(true);
       await updateProspection(prospection.id_prospection, { est_perdu: true });
       toast.success('Marquée comme perdue');
+      setShowLostConfirmation(false);
       fetchData();
     } catch {
       toast.error('Erreur');
+    } finally {
+      setSavingLost(false);
     }
   };
 
@@ -237,6 +256,9 @@ export default function ProspectionDetail() {
     ? (prospection.client.entreprise || `${prospection.client.nom} ${prospection.client.prenom || ''}`.trim())
     : 'Prospect';
   const messages = prospection.propositions || [];
+  const scoredIncomingMessages = messages.filter(
+    (message) => message.type === 'entrant' && (message.note || 0) > 0
+  );
   const isClosed = prospection.etat === 'cloture' || prospection.est_perdu;
 
   return (
@@ -288,7 +310,7 @@ export default function ProspectionDetail() {
               <button onClick={openInterets} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-blue-500/10 text-blue-600 hover:bg-blue-500/20">
                 <Star size={13} /> Intérêts
               </button>
-              <button onClick={handlePerdu} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-600 hover:bg-red-500/20">
+              <button onClick={() => setShowLostConfirmation(true)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-600 hover:bg-red-500/20">
                 <XCircle size={13} /> Perdu
               </button>
               <button onClick={() => setShowScore(true)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-violet-500/10 text-violet-600 hover:bg-violet-500/20">
@@ -327,11 +349,12 @@ export default function ProspectionDetail() {
           </h3>
           <form onSubmit={handleAddMessage} className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {activeTab === 'entrant' && (
+              {(activeTab === 'entrant' || (activeTab === 'sortant' && form.type_message === 'Email')) && (
                 <div>
-                  <label className="text-xs font-medium">Objet</label>
+                  <label className="text-xs font-medium">Objet{activeTab === 'sortant' ? ' *' : ''}</label>
                   <input value={form.objet} onChange={(e) => setForm({ ...form, objet: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 border border-border rounded-lg bg-background text-sm" placeholder="Objet" />
+                    required={activeTab === 'sortant'}
+                    className="mt-1 w-full px-3 py-2 border border-border rounded-lg bg-background text-sm" placeholder="Objet de l’e-mail" />
                 </div>
               )}
               <div>
@@ -349,6 +372,13 @@ export default function ProspectionDetail() {
                 />
               </div>
             </div>
+            {activeTab === 'sortant' && form.type_message === 'Email' && (
+              <p className="rounded-lg bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+                {prospection.client?.email
+                  ? `Cet e-mail sera envoyé à ${prospection.client.email} et ajouté à l’historique.`
+                  : 'Ajoutez une adresse e-mail à ce prospect avant de lui écrire.'}
+              </p>
+            )}
             <div>
               <label className="text-xs font-medium">{activeTab === 'sortant' ? 'Message' : 'Réponse du prospect'}</label>
               <textarea required value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })}
@@ -357,10 +387,19 @@ export default function ProspectionDetail() {
             </div>
             {activeTab === 'entrant' && (
               <div>
-                <label className="text-xs font-medium mb-1 block">Note</label>
-                <div className="flex gap-1">
+                <label className="text-xs font-medium mb-1 block">Note manuelle (facultative)</label>
+                <div className="flex gap-1" role="radiogroup" aria-label="Note du message entrant">
                   {[1, 2, 3, 4, 5].map((n) => (
-                    <button key={n} type="button" onClick={() => setForm({ ...form, note: n })} className="p-0.5">
+                    <button
+                      key={n}
+                      type="button"
+                      role="radio"
+                      aria-checked={form.note === n}
+                      aria-label={`${n} sur 5 étoiles`}
+                      title={`${n} sur 5`}
+                      onClick={() => setForm({ ...form, note: n })}
+                      className="p-0.5"
+                    >
                       <Star size={18} className={n <= form.note ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground'} />
                     </button>
                   ))}
@@ -431,7 +470,7 @@ export default function ProspectionDetail() {
           <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-xl">
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
               <h2 className="font-semibold">Clôture de la prospection</h2>
-              <button onClick={() => setShowClosing(false)} className="p-1 rounded-lg hover:bg-accent">✕</button>
+              <button onClick={() => setShowClosing(false)} className="p-1 rounded-lg hover:bg-accent"><span className="modal-close-symbol">✕</span></button>
             </div>
             <form onSubmit={handleClosing} className="p-5 space-y-3">
               <div>
@@ -474,7 +513,7 @@ export default function ProspectionDetail() {
           <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-border sticky top-0 bg-card">
               <h2 className="font-semibold">Fixer un rendez-vous</h2>
-              <button onClick={() => setShowRdv(false)} className="p-1 rounded-lg hover:bg-accent">✕</button>
+              <button onClick={() => setShowRdv(false)} className="p-1 rounded-lg hover:bg-accent"><span className="modal-close-symbol">✕</span></button>
             </div>
             <form onSubmit={handleRdv} className="p-5 space-y-3">
               <div className="grid grid-cols-2 gap-3">
@@ -561,7 +600,7 @@ export default function ProspectionDetail() {
                   toast.success(`Relance planifiée pour le ${new Date(`${relanceDate}T00:00:00`).toLocaleDateString('fr-FR')}`);
                   setShowRelance(false);
                   setRelanceDate('');
-                  fetchData();
+                  navigate('/prospections?tab=relance');
                 } catch {
                   toast.error('Erreur lors de la planification de la relance');
                 }
@@ -580,7 +619,7 @@ export default function ProspectionDetail() {
           <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-xl">
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
               <h2 className="font-semibold flex items-center gap-2"><Star size={16} /> Intérêts du prospect</h2>
-              <button onClick={openInterets} className="p-1 rounded-lg hover:bg-accent">✕</button>
+              <button type="button" onClick={() => setShowInterets(false)} className="p-1 rounded-lg hover:bg-accent" aria-label="Fermer les intérêts"><span className="modal-close-symbol">✕</span></button>
             </div>
             <div className="p-5 space-y-3">
               <div className="flex gap-2">
@@ -619,31 +658,88 @@ export default function ProspectionDetail() {
         </ModalPortal>
       )}
 
-      {/* Score (simplifié) */}
+      {/* Historique des notes manuelles */}
       {showScore && (
         <ModalPortal onClose={() => setShowScore(false)}>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-xl p-5">
+          <div className="bg-card border border-border rounded-xl w-full max-w-lg shadow-xl p-5">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold">Historique du score</h2>
-              <button onClick={() => setShowScore(false)} className="p-1 rounded-lg hover:bg-accent">✕</button>
+              <h2 className="font-semibold">Historique des notes</h2>
+              <button onClick={() => setShowScore(false)} className="p-1 rounded-lg hover:bg-accent"><span className="modal-close-symbol">✕</span></button>
             </div>
             <p className="text-sm text-muted-foreground mb-3">
-              {clientName} · {messages.filter(m => m.type === 'entrant').length} message(s) entrant(s)
+              {clientName} · Notes attribuées manuellement aux messages entrants
             </p>
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
-              <div className="text-2xl font-bold text-primary">
-                {messages.filter(m => m.note).length > 0
-                  ? Math.round((messages.filter(m => m.note).reduce((s, m) => s + (m.note || 0), 0) / messages.filter(m => m.note).length) * 20)
-                  : 0}%
-              </div>
-              <div className="text-sm text-muted-foreground">Score de message global</div>
+            <div className="max-h-80 space-y-3 overflow-y-auto">
+              {scoredIncomingMessages.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                  Aucun message entrant noté pour le moment.
+                </p>
+              ) : (
+                scoredIncomingMessages.map((message) => (
+                    <article key={message.id_proposition} className="rounded-xl border border-border bg-muted/30 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(message.date_proposition).toLocaleString('fr-FR')}
+                          </p>
+                          {message.objet && <p className="mt-1 text-sm font-medium">{message.objet}</p>}
+                        </div>
+                        <div className="flex shrink-0 gap-0.5" aria-label={`Note : ${message.note} sur 5`}>
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <Star
+                              key={n}
+                              size={14}
+                              className={n <= (message.note || 0) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground'}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">
+                        {message.message}
+                      </p>
+                    </article>
+                  ))
+              )}
             </div>
             <div className="flex justify-end mt-4">
               <button onClick={() => setShowScore(false)} className="px-4 py-2 border border-border rounded-lg text-sm hover:bg-accent">Fermer</button>
             </div>
           </div>
         </div>
+        </ModalPortal>
+      )}
+
+      {showLostConfirmation && (
+        <ModalPortal onClose={() => {
+          if (!savingLost) setShowLostConfirmation(false);
+        }}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-sm rounded-xl border border-border bg-card p-5 shadow-xl">
+              <h2 className="font-semibold">Marquer comme perdu ?</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Cette prospection sera marquée comme perdue. Voulez-vous continuer ?
+              </p>
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={savingLost}
+                  onClick={() => setShowLostConfirmation(false)}
+                  className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  disabled={savingLost}
+                  onClick={handlePerdu}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  {savingLost ? 'Enregistrement...' : 'Confirmer'}
+                </button>
+              </div>
+            </div>
+          </div>
         </ModalPortal>
       )}
     </div>

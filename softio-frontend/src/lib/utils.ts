@@ -42,7 +42,7 @@ function underThousand(value: number): string {
 
 export function amountInFrenchWords(value: number) {
   let amount = Math.max(0, Math.trunc(Number.isFinite(value) ? value : 0))
-  if (!amount) return "zéro"
+  if (!amount) return "Zéro"
 
   const scales = ["", "mille", "million", "milliard", "billion", "billiard"]
   const parts: string[] = []
@@ -59,5 +59,6 @@ export function amountInFrenchWords(value: number) {
     amount = Math.floor(amount / 1000)
     scale += 1
   }
-  return parts.join(" ")
+  const words = parts.join(" ")
+  return words.charAt(0).toLocaleUpperCase("fr-FR") + words.slice(1)
 }

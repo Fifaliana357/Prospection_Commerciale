@@ -11,6 +11,7 @@ import Barcode from "@/components/Barcode"
 import Modal from "@/components/ui/Modal"
 import Select from "@/components/ui/Select"
 import {
+  downloadFacturationDocument,
   emailFacturationDocument,
   getFacturationDocument,
   updateFacturationDocument,
@@ -20,6 +21,7 @@ import {
 } from "@/services/facturation"
 import { getCompanySettings } from "@/services/account"
 import { amountInFrenchWords, formatAR, formatMGA } from "@/lib/utils"
+import JsBarcode from "jsbarcode"
 
 type PaperFormat = "A4" | "A5" | "Ticket"
 type IssuerDetails = Pick<PreviewSettings, "companyName" | "companyEmail" | "companyPhone" | "companyAddress" | "companyNif" | "companyStat" | "companyRcs">
@@ -146,6 +148,22 @@ function clientLabel(document: FacturationDocument) {
   return document.client.entreprise || [document.client.prenom, document.client.nom].filter(Boolean).join(" ")
 }
 
+function ticketBarcodeValue(document: FacturationDocument) {
+  return `SOFTIO-${document.id_devis}`
+}
+
+function createTicketBarcodeSvg(value: string) {
+  const svg = window.document.createElementNS("http://www.w3.org/2000/svg", "svg")
+  JsBarcode(svg, value, {
+    format: "CODE128",
+    width: 1,
+    height: 32,
+    displayValue: false,
+    margin: 2,
+  })
+  return svg.outerHTML
+}
+
 function isPreviewSettings(value: unknown): value is PreviewSettings {
   if (!value || typeof value !== "object") return false
   const settings = value as Record<string, unknown>
@@ -234,6 +252,7 @@ export default function FacturationApercu() {
   const [savingSettings, setSavingSettings] = useState(false)
   const [savingDocument, setSavingDocument] = useState(false)
   const [validatingDocument, setValidatingDocument] = useState(false)
+  const [downloadingDocument, setDownloadingDocument] = useState(false)
   const [sendingEmail, setSendingEmail] = useState(false)
 
   useEffect(() => {
@@ -437,29 +456,44 @@ export default function FacturationApercu() {
 
   const validateAndDownload = async () => {
     if (!document) return
-    if (document.statut === "brouillon") {
-      if (!await saveDocument()) return
-      try {
-        setValidatingDocument(true)
-        const validated = await validateFacturationDocument(document.id_devis)
-        setDocument(validated)
-        toast.success("Document validé. Préparation du téléchargement.")
-        window.setTimeout(() => window.print(), 100)
-      } catch {
-        toast.error("Impossible de valider le document.")
-      } finally {
-        setValidatingDocument(false)
+    try {
+      setValidatingDocument(true)
+      let documentToDownload = document
+      if (document.statut === "brouillon") {
+        if (!await saveDocument()) return
+        documentToDownload = await validateFacturationDocument(document.id_devis)
+        setDocument(documentToDownload)
       }
-      return
+      const barcodeSvg = format === "Ticket"
+        ? createTicketBarcodeSvg(ticketBarcodeValue(documentToDownload))
+        : undefined
+      setDownloadingDocument(true)
+      const pdf = await downloadFacturationDocument(documentToDownload.id_devis, format, barcodeSvg, settings)
+      const url = URL.createObjectURL(pdf)
+      const link = window.document.createElement("a")
+      link.href = url
+      link.download = `${documentTypeLabel(documentToDownload.type)}-${documentToDownload.numero}.pdf`
+      window.document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+      toast.success(document.statut === "brouillon" ? "Document validé et PDF téléchargé." : "PDF téléchargé.")
+    } catch {
+      toast.error(document.statut === "brouillon" ? "Le document n’a pas pu être validé ou téléchargé." : "Impossible de télécharger le PDF.")
+    } finally {
+      setValidatingDocument(false)
+      setDownloadingDocument(false)
     }
-    window.print()
   }
 
   const sendByEmail = async () => {
     if (!document || document.statut !== "valide") return
     try {
       setSendingEmail(true)
-      toast.success(await emailFacturationDocument(document.id_devis))
+      const barcodeSvg = format === "Ticket"
+        ? createTicketBarcodeSvg(ticketBarcodeValue(document))
+        : undefined
+      toast.info(await emailFacturationDocument(document.id_devis, format, barcodeSvg, settings))
     } catch (error: unknown) {
       toast.error(getEmailErrorMessage(error))
     } finally {
@@ -477,6 +511,14 @@ export default function FacturationApercu() {
   const paperWidth = format === "A4" ? "794px" : format === "A5" ? "559px" : "302px"
   const paperPadding = format === "Ticket" ? "18px" : format === "A5" ? "34px" : "52px"
   const pageSize = format === "Ticket" ? "auto" : format
+  const recipient = document ? {
+    name: recipientOverrides?.name ?? clientLabel(document),
+    email: recipientOverrides?.email ?? document.client.email ?? "",
+    phone: recipientOverrides?.phone ?? document.client.telephone ?? "",
+    address: recipientOverrides?.address ?? "",
+  } : null
+  const placeDate = `${settings.companyAddress.trim() ? `${settings.companyAddress.trim()} le ` : ""}${document ? formatDate(document.date_devis) : ""}`
+  const barcodeValue = document ? ticketBarcodeValue(document) : ""
   const companyLines = [
     settings.companyEmail,
     settings.companyPhone,
@@ -485,13 +527,6 @@ export default function FacturationApercu() {
     settings.companyStat && `STAT : ${settings.companyStat}`,
     settings.companyRcs && `RCS : ${settings.companyRcs}`,
   ].filter(Boolean)
-  const recipient = document ? {
-    name: recipientOverrides?.name ?? clientLabel(document),
-    email: recipientOverrides?.email ?? document.client.email ?? "",
-    phone: recipientOverrides?.phone ?? document.client.telephone ?? "",
-    address: recipientOverrides?.address ?? "",
-  } : null
-
   return (
     <div className="space-y-5">
       <style>{`@media print { @page { size: ${pageSize}; margin: ${format === "Ticket" ? "4mm" : "12mm"}; } }`}</style>
@@ -506,7 +541,7 @@ export default function FacturationApercu() {
           </button>
           <h1 className="font-display text-2xl font-bold">Aperçu de document</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Personnalisez la mise en page, puis imprimez ou enregistrez en PDF.
+            Personnalisez la mise en page, puis téléchargez ou envoyez le PDF.
           </p>
         </div>
       </div>
@@ -561,6 +596,7 @@ export default function FacturationApercu() {
                 onChange={(value) => {
                   if (value === "facture" || value === "devis" || value === "proforma") setDocumentType(value)
                 }}
+                disabled={document.statut !== "brouillon"}
                 options={[
                   { value: "proforma", label: "Proforma" },
                   { value: "devis", label: "Devis" },
@@ -644,7 +680,7 @@ export default function FacturationApercu() {
             </label>
 
             <button type="button" onClick={() => void validateAndDownload()} disabled={savingDocument || validatingDocument} className={`${buttonClass} bg-amber-400 text-slate-900 hover:bg-amber-300`}>
-              <Download size={16} /> {validatingDocument ? "Validation..." : "Télécharger et valider"}
+              <Download size={16} /> {downloadingDocument ? "Téléchargement..." : validatingDocument ? "Validation..." : "Télécharger et valider"}
             </button>
             <button type="button" onClick={() => void sendByEmail()} disabled={document.statut !== "valide" || sendingEmail} className={`${buttonClass} border border-[#176a70] text-[#176a70] hover:bg-[#176a70]/5`}>
               <Mail size={16} /> {sendingEmail ? "Envoi..." : "Envoyer par mail"}
@@ -692,8 +728,7 @@ export default function FacturationApercu() {
                     <p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                       {documentTypeLabel(documentType)}{document.statut === "brouillon" ? " · Brouillon" : ""}
                     </p>
-                    <p className="text-xs font-semibold">N° {document.numero}</p>
-                    <p className="text-[10px] text-slate-600">Date : {formatDate(document.date_devis)}</p>
+                    <p className="text-[10px] text-slate-600">{placeDate}</p>
                     <div className="group relative mt-1 border-t border-dashed border-slate-300 pt-2">
                       <button
                         type="button"
@@ -737,10 +772,10 @@ export default function FacturationApercu() {
                       {companyLines.map((line) => <p key={line} className="break-words text-xs leading-5 text-slate-500">{line}</p>)}
                     </div>
                     <div className="group relative min-w-[38%]">
-                      <p className="text-right text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{document.statut === "brouillon" ? "Brouillon" : "Document validé"}</p>
+                      {document.statut === "brouillon" && <p className="text-right text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Brouillon</p>}
                       <h2 className="mt-2 text-right text-xl font-bold uppercase" style={{ color: settings.accent }}>{documentTypeLabel(documentType)}</h2>
                       <p className="mt-1 text-right text-sm font-semibold">N° {document.numero}</p>
-                      <p className="mt-1 text-right text-xs text-slate-500">Date : {formatDate(document.date_devis)}</p>
+                      <p className="mt-1 text-right text-xs text-slate-500">{placeDate}</p>
                       <div className="relative mt-3 min-h-24 border border-dashed border-slate-300 p-3 text-left">
                         <button
                           type="button"
@@ -795,9 +830,9 @@ export default function FacturationApercu() {
                       {(document.lignes ?? []).map((line) => (
                         <tr key={line.id_ligne_devis} className="border-b border-slate-100 last:border-0">
                           <td className="break-words border border-slate-900 px-2 py-2 sm:px-3">{line.designation}</td>
-                          <td className="whitespace-nowrap border border-slate-900 px-2 py-2 text-right sm:px-3">{formatPaperAmount(line.prix_unitaire)} {documentType === "facture" ? "AR" : "MGA"}</td>
+                          <td className="whitespace-nowrap border border-slate-900 px-2 py-2 text-right sm:px-3">{formatPaperAmount(line.prix_unitaire)}</td>
                           <td className="border border-slate-900 px-2 py-2 text-center sm:px-3">{line.quantite}</td>
-                          <td className="whitespace-nowrap border border-slate-900 px-2 py-2 text-right sm:px-3">{formatPaperAmount(line.montant)} {documentType === "facture" ? "AR" : "MGA"}</td>
+                          <td className="whitespace-nowrap border border-slate-900 px-2 py-2 text-right sm:px-3">{formatPaperAmount(line.montant)}</td>
                         </tr>
                       ))}
                       {appliedDiscount > 0 && (
@@ -851,7 +886,7 @@ export default function FacturationApercu() {
                 ? "mt-4 space-y-2 text-center text-[10px] text-slate-600"
                 : "mt-8 flex items-end justify-between gap-4 border-t border-slate-200 pt-4 text-xs text-slate-500"}
               >
-                {format === "Ticket" && <Barcode value={document.numero || String(document.id_devis)} height={32} />}
+                {format === "Ticket" && <Barcode value={barcodeValue} height={48} displayValue={false} />}
                 <div className="flex w-full flex-col items-start gap-2 text-slate-800">
                   {format !== "Ticket" && <p className="font-medium">Le responsable</p>}
                   {format !== "Ticket" && (companyCachetUrl || companySignatureUrl) && (

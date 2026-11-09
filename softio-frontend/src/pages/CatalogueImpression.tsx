@@ -5,6 +5,13 @@ import JsBarcode from 'jsbarcode';
 import { getProduits, type Produit } from '../services/catalogue';
 import { useToast } from '../contexts/ToastContext';
 
+function getBarcodeValue(reference: string) {
+  return reference
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x20-\x7e]/g, '');
+}
+
 function BarcodeCard({
   reference,
   designation,
@@ -17,66 +24,56 @@ function BarcodeCard({
   useEffect(() => {
     if (canvasRef.current && reference) {
       try {
-        JsBarcode(canvasRef.current, reference, {
+        JsBarcode(canvasRef.current, getBarcodeValue(reference), {
           format: 'CODE128',
-          width: 2,
-          height: 60,
-          displayValue: true,
-          fontSize: 12,
-          margin: 8,
+          width: 1.4,
+          height: 40,
+          displayValue: false,
+          margin: 0,
           background: '#ffffff',
         });
       } catch {
         // ignore
       }
     }
-  }, [reference]);
+  }, [reference, designation]);
 
   const handleDownload = () => {
     const src = canvasRef.current;
     if (!src) return;
 
-    // Canvas final = barcode + texte désignation en dessous
-    const padding = 16;
-    const textHeight = 36;
+    const padding = 8;
     const finalCanvas = document.createElement('canvas');
-    finalCanvas.width = src.width + padding * 2;
-    finalCanvas.height = src.height + textHeight + padding;
+    finalCanvas.width = 320;
+    finalCanvas.height = 100;
     const ctx = finalCanvas.getContext('2d');
     if (!ctx) return;
 
-    // Fond blanc
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
-
-    // Code-barre (avec référence déjà affichée par JsBarcode)
-    ctx.drawImage(src, padding, padding / 2);
-
-    // Désignation sous le code-barre
+    ctx.drawImage(src, padding, padding, finalCanvas.width - padding * 2, 54);
     ctx.fillStyle = '#333333';
     ctx.font = '12px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
 
     const maxWidth = finalCanvas.width - padding * 2;
-    const text = designation || '';
-    // Tronque si trop long
-    let display = text;
-    while (ctx.measureText(display).width > maxWidth && display.length > 0) {
-      display = display.slice(0, -1);
-    }
-    if (display.length < text.length) display = display.trim() + '…';
+    const drawLabel = (text: string, y: number) => {
+      let display = text;
+      while (ctx.measureText(display).width > maxWidth && display.length > 0) {
+        display = display.slice(0, -1);
+      }
+      if (display.length < text.length) display = `${display.trim()}…`;
+      ctx.fillText(display, finalCanvas.width / 2, y);
+    };
 
-    ctx.fillText(
-      display,
-      finalCanvas.width / 2,
-      src.height + padding / 2 + 6
-    );
+    drawLabel(reference, 66);
+    drawLabel(designation || '', 82);
 
     const url = finalCanvas.toDataURL('image/png');
     const a = document.createElement('a');
     a.href = url;
-    a.download = `barcode-${reference}.png`;
+    a.download = `Code barre ${reference.replace(/[\\/:*?"<>|]/g, '-')}.png`;
     a.click();
   };
 
@@ -84,11 +81,14 @@ function BarcodeCard({
     <button
       type="button"
       onClick={handleDownload}
-      className="bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow text-center w-full"
+      className="barcode-print-card bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow text-center w-full"
       title="Cliquer pour télécharger en PNG"
     >
-      <canvas ref={canvasRef} className="mx-auto max-w-full" />
-      <p className="text-[11px] mt-1 text-gray-600 leading-tight line-clamp-2">
+      <canvas ref={canvasRef} className="barcode-print-code mx-auto h-[44px] w-[220px] max-w-full" />
+      <p className="barcode-print-reference text-[11px] mt-1 text-gray-800 font-medium leading-tight">
+        {reference}
+      </p>
+      <p className="barcode-print-designation text-[11px] mt-1 text-gray-600 leading-tight line-clamp-2">
         {designation}
       </p>
     </button>
@@ -98,8 +98,13 @@ function BarcodeCard({
 export default function CatalogueImpression() {
   const navigate = useNavigate();
   const toast = useToast();
+  const toastRef = useRef(toast);
   const [produits, setProduits] = useState<Produit[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
 
   useEffect(() => {
     (async () => {
@@ -115,23 +120,16 @@ export default function CatalogueImpression() {
         } while (page <= last);
         setProduits(all);
       } catch {
-        toast.error('Erreur de chargement');
+        toastRef.current.error('Erreur de chargement');
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  const downloadPng = (canvas: HTMLCanvasElement, name: string) => {
-    const url = canvas.toDataURL('image/png');
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `barcode-${name}.png`;
-    a.click();
-  };
-
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
+    <div className="catalogue-impression-page p-4 sm:p-6 max-w-6xl mx-auto">
+      <style>{'@media print { @page { size: A4 portrait; margin: 8mm; } }'}</style>
       {/* Actions (cachées à l'impression) */}
       <div className="flex items-center justify-between mb-4 print:hidden">
         <button
@@ -144,7 +142,7 @@ export default function CatalogueImpression() {
           onClick={() => window.print()}
           className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm"
         >
-          <Printer size={16} /> Imprimer
+          <Printer size={16} /> Imprimer tous les codes-barres
         </button>
       </div>
 
@@ -168,14 +166,14 @@ export default function CatalogueImpression() {
           <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
             {produits.length} produit(s)
           </span>
-          <span>Cliquez sur une étiquette pour télécharger son image (PNG).</span>
+          <span>Cliquez sur une étiquette pour télécharger « Code barre [référence] » (PNG).</span>
         </div>
       </div>
 
       {loading ? (
         <p className="text-center text-muted-foreground py-12">Chargement...</p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        <div className="barcode-print-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
         {produits.map((p) => (
           <BarcodeCard
             key={p.id_produit}

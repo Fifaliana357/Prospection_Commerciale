@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Admin;
 use App\Models\Offre;
 use Illuminate\Http\Request;
 
@@ -9,7 +10,7 @@ class OffreController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Offre::query();
+        $query = Offre::query()->where('id_admin', $request->user()->id_admin);
 
         if ($request->filled('search')) {
             $s = $request->search;
@@ -27,6 +28,7 @@ class OffreController extends Controller
     public function store(Request $request)
     {
         $user = $request->user();
+        abort_unless($user instanceof Admin, 403, 'Le catalogue est en lecture seule pour les commerciaux.');
 
         $validated = $request->validate([
             'denomination' => 'required|string|max:191',
@@ -45,7 +47,8 @@ class OffreController extends Controller
 
     public function update(Request $request, int $id)
     {
-        $offre = Offre::findOrFail($id);
+        abort_unless($request->user() instanceof Admin, 403, 'Le catalogue est en lecture seule pour les commerciaux.');
+        $offre = Offre::query()->where('id_admin', $request->user()->id_admin)->findOrFail($id);
 
         $validated = $request->validate([
             'denomination' => 'sometimes|string|max:191',
@@ -59,9 +62,10 @@ class OffreController extends Controller
         return response()->json(['message' => 'Service modifié', 'offre' => $offre]);
     }
 
-    public function destroy(int $id)
+    public function destroy(Request $request, int $id)
     {
-        Offre::findOrFail($id)->delete();
+        abort_unless($request->user() instanceof Admin, 403, 'Le catalogue est en lecture seule pour les commerciaux.');
+        Offre::query()->where('id_admin', $request->user()->id_admin)->findOrFail($id)->delete();
         return response()->json(['message' => 'Service supprimé']);
     }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Search, Trash2, Trophy } from 'lucide-react';
 import {
   getClosings,
@@ -22,27 +22,29 @@ export default function ClosingPage() {
   const [lastPage, setLastPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-
-  const fetchClosings = async () => {
-    try {
-      setLoading(true);
-      const res = await getClosings({
-        search: search || undefined,
-        page,
-      });
-      setClosings(res.data);
-      setLastPage(res.last_page);
-      setTotal(res.total);
-    } catch {
-      toast.error('Erreur lors du chargement des closings');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [refreshKey, setRefreshKey] = useState(0);
+  const toastRef = useRef(toast);
 
   useEffect(() => {
-    fetchClosings();
-  }, [search, page]);
+    let active = true;
+    getClosings({
+      search: search || undefined,
+      page,
+    })
+      .then((res) => {
+        if (!active) return;
+        setClosings(res.data);
+        setLastPage(res.last_page);
+        setTotal(res.total);
+      })
+      .catch(() => {
+        if (active) toastRef.current.error('Erreur lors du chargement des closings');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, [search, page, refreshKey]);
 
   const confirmDelete = async () => {
     if (!deleteId) return;
@@ -50,7 +52,8 @@ export default function ClosingPage() {
       await deleteClosing(deleteId);
       toast.success('Closing supprimé');
       setDeleteId(null);
-      fetchClosings();
+      setLoading(true);
+      setRefreshKey((key) => key + 1);
     } catch {
       toast.error('Erreur lors de la suppression');
     }
@@ -93,6 +96,7 @@ export default function ClosingPage() {
             onChange={(e) => {
               setSearch(e.target.value);
               setPage(1);
+              setLoading(true);
             }}
             className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
@@ -110,7 +114,7 @@ export default function ClosingPage() {
                 <th className="px-3 py-3 text-left font-medium">Description</th>
                 <th className="px-3 py-3 text-left font-medium">Montant</th>
                 <th className="px-3 py-3 text-left font-medium">Client</th>
-                <th className="px-3 py-3 text-left font-medium">Email Client</th>
+                <th className="px-3 py-3 text-left font-medium">Email ou Contact</th>
                 <th className="px-3 py-3 text-left font-medium">Éditeur</th>
                 <th className="px-3 py-3 text-right font-medium">Actions</th>
               </tr>
@@ -139,7 +143,7 @@ export default function ClosingPage() {
                       {formatMontant(Number(c.montant))}
                     </td>
                     <td className="px-3 py-2.5">{getClientName(c)}</td>
-                    <td className="px-3 py-2.5">{c.client?.email || '—'}</td>
+                    <td className="px-3 py-2.5">{c.client?.email || c.client?.telephone || '—'}</td>
                     <td className="px-3 py-2.5">{getEditeur(c)}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center justify-end">
@@ -160,7 +164,10 @@ export default function ClosingPage() {
         </div>
 
         {/* Pagination */}
-        <TablePagination page={page} lastPage={lastPage} onChange={setPage} />
+        <TablePagination page={page} lastPage={lastPage} onChange={(nextPage) => {
+          setLoading(true);
+          setPage(nextPage);
+        }} />
       </div>
 
       {/* Modal suppression */}

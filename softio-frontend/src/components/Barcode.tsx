@@ -1,17 +1,34 @@
 import { useEffect, useRef } from 'react';
 import JsBarcode from 'jsbarcode';
 
-export default function Barcode({ value, height = 40 }: { value: string; height?: number }) {
+function getBarcodeValue(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x20-\x7e]/g, '');
+}
+
+export default function Barcode({
+  value,
+  designation,
+  height = 40,
+  displayValue = true,
+}: {
+  value: string;
+  designation?: string;
+  height?: number;
+  displayValue?: boolean;
+}) {
   const ref = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
     if (ref.current && value) {
       try {
-        JsBarcode(ref.current, value, {
+        JsBarcode(ref.current, getBarcodeValue(value), {
           format: 'CODE128',
           width: 1.4,
           height,
-          displayValue: true,
+          displayValue: displayValue && !designation,
           fontSize: 10,
           margin: 0,
         });
@@ -19,7 +36,20 @@ export default function Barcode({ value, height = 40 }: { value: string; height?
         // ignore invalid value
       }
     }
-  }, [value, height]);
+  }, [value, designation, height, displayValue]);
 
-  return <svg ref={ref} />;
+  return (
+    <span className="inline-flex flex-col items-center">
+      <svg
+        ref={ref}
+        className="w-[180px] max-w-full"
+        style={{ height }}
+      />
+      {designation && (
+        <span className="max-w-40 truncate text-[10px] text-muted-foreground">
+          {value} · {designation}
+        </span>
+      )}
+    </span>
+  );
 }

@@ -12,9 +12,11 @@ import TablePagination from '../components/ui/TablePagination';
 import TableSummary from '../components/ui/TableSummary';
 import PageHeader from '../components/ui/PageHeader';
 import { ModalPortal } from '../components/ui/Modal';
+import { getSessionUser } from '../lib/session';
 
 export default function Commerciaux() {
   const toast = useToast();
+  const canManageCommercials = getSessionUser().role === 'admin';
   const [items, setItems] = useState<Commercial[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -98,7 +100,9 @@ export default function Commerciaux() {
         toast.success(
           res.password_temporaire
             ? `Créé. MDP temporaire : ${res.password_temporaire}`
-            : 'Commercial créé'
+            : 'Commercial créé',
+          undefined,
+          res.password_temporaire ? 5000 : undefined,
         );
       }
       setShowModal(false);
@@ -124,7 +128,7 @@ export default function Commerciaux() {
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
-      <PageHeader title="Commerciaux" description="Gérez les commerciaux de votre équipe." icon={<UserCog size={23} />} />
+      <PageHeader title="Commerciaux" description={canManageCommercials ? "Gérez les commerciaux de votre équipe." : "Consultez les commerciaux de votre entreprise."} icon={<UserCog size={23} />} />
 
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-1">
@@ -137,12 +141,12 @@ export default function Commerciaux() {
           />
         </div>
         <TableSummary total={total} label="commerciaux" />
-        <button
+        {canManageCommercials && <button
           onClick={openCreate}
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90"
         >
           <Plus size={18} /> Nouveau commercial
-        </button>
+        </button>}
       </div>
 
       <div className="rounded-xl bg-card shadow-sm overflow-hidden">
@@ -155,14 +159,14 @@ export default function Commerciaux() {
                 <th className="px-3 py-3 text-left font-medium">Email</th>
                 <th className="px-3 py-3 text-left font-medium">Contact</th>
                 <th className="px-3 py-3 text-left font-medium">Éditeur</th>
-                <th className="px-3 py-3 text-right font-medium">Actions</th>
+                {canManageCommercials && <th className="px-3 py-3 text-right font-medium">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {loading ? (
-                <tr><td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">Chargement...</td></tr>
+                <tr><td colSpan={canManageCommercials ? 6 : 5} className="px-4 py-12 text-center text-muted-foreground">Chargement...</td></tr>
               ) : items.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">Aucun commercial</td></tr>
+                <tr><td colSpan={canManageCommercials ? 6 : 5} className="px-4 py-12 text-center text-muted-foreground">Aucun commercial</td></tr>
               ) : (
                 items.map((c) => (
                   <tr key={c.id_commercial} className="hover:bg-accent/40">
@@ -175,7 +179,7 @@ export default function Commerciaux() {
                         ? [c.admin.prenom, c.admin.nom].filter(Boolean).join(' ')
                         : '—'}
                     </td>
-                    <td className="px-3 py-2.5">
+                    {canManageCommercials && <td className="px-3 py-2.5">
                       <div className="flex justify-end gap-1.5">
                         <button onClick={() => openEdit(c)} className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 hover:bg-blue-500/20">
                           <Pencil size={15} />
@@ -184,7 +188,7 @@ export default function Commerciaux() {
                           <Trash2 size={15} />
                         </button>
                       </div>
-                    </td>
+                    </td>}
                   </tr>
                 ))
               )}
@@ -201,7 +205,7 @@ export default function Commerciaux() {
           <div className="bg-card rounded-xl w-full max-w-lg shadow-xl">
             <div className="flex items-center justify-between px-5 py-4 shadow-sm">
               <h2 className="font-semibold">{editItem ? 'Modifier le commercial' : 'Nouveau commercial'}</h2>
-              <button onClick={() => setShowModal(false)} className="p-1.5 rounded-lg hover:bg-accent">✕</button>
+              <button onClick={() => setShowModal(false)} className="p-1.5 rounded-lg hover:bg-accent"><span className="modal-close-symbol">✕</span></button>
             </div>
             <form onSubmit={handleSave} className="p-5 space-y-3">
               <div className="grid grid-cols-2 gap-3">

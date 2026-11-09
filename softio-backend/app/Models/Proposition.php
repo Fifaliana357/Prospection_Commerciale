@@ -12,6 +12,11 @@ class Proposition extends Model
 
     public $timestamps = false; // on utilise date_proposition + created_at
 
+    protected $hidden = [
+        'mail_uid',
+        'mail_message_id',
+    ];
+
     protected $fillable = [
         'id_prospection',
         'id_commercial',
@@ -24,6 +29,7 @@ class Proposition extends Model
         'note',
         'lu',
         'mail_uid',
+        'mail_message_id',
         'score_ia',
         'label_ia',
     ];

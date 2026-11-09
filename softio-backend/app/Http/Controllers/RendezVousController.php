@@ -6,6 +6,7 @@ use App\Models\Notification;
 use App\Models\RendezVous;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Validation\Rule;
 
 class RendezVousController extends Controller
 {
@@ -23,11 +24,7 @@ class RendezVousController extends Controller
             'commercial:id_commercial,nom,prenom'
         ]);
 
-        if ($user instanceof \App\Models\Admin) {
-            $query->where('id_admin', $user->id_admin);
-        } else {
-            $query->where('id_commercial', $user->id_commercial);
-        }
+        $query->where('id_admin', $user->id_admin);
 
         if (isset($validated['date_debut'])) {
             $query->whereDate('date_rdv', '>=', $validated['date_debut']);
@@ -86,10 +83,6 @@ class RendezVousController extends Controller
             'commercial:id_commercial,nom,prenom',
         ])->where('id_admin', $user->id_admin);
 
-        if (! $user instanceof \App\Models\Admin) {
-            $query->where('id_commercial', $user->id_commercial);
-        }
-
         return response()->json([
             'rendez_vous' => $query->findOrFail($id),
         ]);
@@ -100,7 +93,7 @@ class RendezVousController extends Controller
         $user = $request->user();
 
         $validated = $request->validate([
-            'id_client'   => 'required|exists:client,id_client',
+            'id_client'   => ['required', Rule::exists('client', 'id_client')->where('id_admin', $user->id_admin)],
             'date_rdv'    => 'required|date|after_or_equal:today',
             'lieu'        => 'nullable|string|max:191',
             'type_rdv'    => 'nullable|string|max:191',
@@ -110,7 +103,7 @@ class RendezVousController extends Controller
         ]);
 
         $rdv = RendezVous::create([
-            'id_admin'      => $user instanceof \App\Models\Admin ? $user->id_admin : $user->id_admin,
+            'id_admin'      => $user->id_admin,
             'id_commercial' => $user instanceof \App\Models\Commercial ? $user->id_commercial : null,
             'id_client'     => $validated['id_client'],
             'date_rdv'      => $validated['date_rdv'],
@@ -147,10 +140,12 @@ class RendezVousController extends Controller
 
     public function update(Request $request, $id)
     {
+        $user = $request->user();
         $rdv = RendezVous::findOrFail($id);
+        abort_unless($rdv->id_admin === $user->id_admin, 403, 'Non autorisé.');
 
         $validated = $request->validate([
-            'id_client'   => 'sometimes|exists:client,id_client',
+            'id_client'   => ['sometimes', Rule::exists('client', 'id_client')->where('id_admin', $user->id_admin)],
             'date_rdv'    => [
                 'sometimes',
                 'date',
@@ -181,9 +176,10 @@ class RendezVousController extends Controller
         ]);
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $rdv = RendezVous::findOrFail($id);
+        abort_unless($rdv->id_admin === $request->user()->id_admin, 403, 'Non autorisé.');
         $rdv->delete();
 
         return response()->json(['message' => 'Rendez-vous supprimé']);

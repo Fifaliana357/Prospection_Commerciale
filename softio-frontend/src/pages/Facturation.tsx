@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   CalendarDays, Check, ClipboardList, Eye, FileText,
-  Mail, Minus, Plus, Search, Trash2, X,
+  Minus, Plus, Search, Trash2, X,
 } from "lucide-react"
 import Modal from "@/components/ui/Modal"
 import DatePicker from "@/components/ui/DatePicker"
@@ -17,12 +17,10 @@ import type { Offre, Produit } from "@/services/catalogue"
 import {
   createFacturationDocument,
   deleteFacturationDocument,
-  emailFacturationDocument,
   getFacturationCatalog,
   getFacturationDocument,
   getFacturationDocuments,
   updateFacturationDocument,
-  validateFacturationDocument,
   type DocumentType,
   type FacturationDocument,
   type FacturationLine,
@@ -50,6 +48,10 @@ const today = () => new Date().toISOString().slice(0, 10)
 
 function formatAmount(value: number, type: DocumentType = "proforma") {
   return type === "facture" ? formatAR(value) : formatMGA(value)
+}
+
+function formatTableAmount(value: number) {
+  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(Number(value) || 0)
 }
 
 function formatDate(value: string) {
@@ -296,7 +298,7 @@ export default function Facturation() {
     })),
   })
 
-  const saveDocument = async (validate = false) => {
+  const saveDocument = async () => {
     if (!documentForm.clientId) {
       toast.error("Sélectionnez un client")
       return
@@ -315,19 +317,10 @@ export default function Facturation() {
       const saved = editingId
         ? await updateFacturationDocument(editingId, createPayload())
         : await createFacturationDocument(createPayload())
-      setEditingId(saved.id_devis)
-
-      if (validate) {
-        await validateFacturationDocument(saved.id_devis)
-        toast.success(`${documentTypeLabel(saved.type)} validé${saved.type === "facture" ? "e" : ""}`)
-      } else {
-        toast.success("Brouillon enregistré")
-      }
+      toast.success("Brouillon enregistré. Choisissez son type dans l’aperçu.")
       setMode(null)
-      setLoadingList(true)
-      setView(validate ? "liste" : "brouillon")
-      setPage(1)
       resetDocumentForm()
+      navigate(`/facturation/${saved.id_devis}/apercu`)
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, "Erreur lors de l’enregistrement du document"))
     } finally {
@@ -339,19 +332,6 @@ export default function Facturation() {
     setLoadingList(true)
     setPage(1)
     setRefreshKey((key) => key + 1)
-  }
-
-  const validateDraft = async (document: FacturationDocument) => {
-    try {
-      setSaving(true)
-      await validateFacturationDocument(document.id_devis)
-      toast.success(`${documentTypeLabel(document.type)} validé`)
-      refreshDocuments()
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Impossible de valider le document"))
-    } finally {
-      setSaving(false)
-    }
   }
 
   const deleteDraft = async () => {
@@ -381,19 +361,6 @@ export default function Facturation() {
       setMode(null)
     } finally {
       setLoadingDetail(false)
-    }
-  }
-
-  const sendEmail = async () => {
-    if (!selectedDocument) return
-    try {
-      setSaving(true)
-      const message = await emailFacturationDocument(selectedDocument.id_devis)
-      toast.success(message)
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Erreur lors de l’envoi de l’e-mail"))
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -434,7 +401,7 @@ export default function Facturation() {
         icon={<FileText size={23} />}
       />
 
-      <nav className="flex w-fit items-center gap-1 border-b border-border" aria-label="Facturation">
+      <nav className="page-tabs" role="tablist" aria-label="Facturation">
         {([
           ["enregistrement", "Enregistrement", Plus],
           ["liste", "Liste", ClipboardList],
@@ -443,10 +410,10 @@ export default function Facturation() {
           <button
             key={value}
             type="button"
+            role="tab"
+            aria-selected={view === value}
             onClick={() => changeView(value)}
-            className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-              view === value ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
+            className="page-tab"
           >
             <Icon size={16} /> {label}
           </button>
@@ -502,9 +469,6 @@ export default function Facturation() {
                 ["tous", "Tous"],
                 ["produit", "Produit"],
                 ["service", "Service"],
-                ["devis", "Devis"],
-                ["proforma", "Proforma"],
-                ["facture", "Facture"],
               ].map(([value, label]) => (
                 <button
                   type="button"
@@ -552,22 +516,31 @@ export default function Facturation() {
                     </td></tr>
                   ) : documents.map((document) => (
                     <tr key={document.id_devis} className="hover:bg-accent/30">
-                      <td className="px-3 py-3">{documentTypeLabel(document.type)}</td>
+                      <td className="px-3 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {[...new Set((document.lignes ?? []).map((line) => line.type_ligne))].map((type) => (
+                            <span key={type} className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">
+                              {type === "produit" ? "Produit" : "Service"}
+                            </span>
+                          ))}
+                          {(document.lignes ?? []).length === 0 && "—"}
+                        </div>
+                      </td>
                       <td className="px-3 py-3 font-medium text-primary">{document.numero}</td>
                       <td className="px-3 py-3 font-medium">{document.client ? clientLabel(document.client) : "—"}</td>
-                      <td className="px-3 py-3 text-right font-semibold">{formatAmount(document.montant_ttc, document.type)}</td>
+                      <td className="px-3 py-3 text-right font-semibold">{formatTableAmount(document.montant_ttc)}</td>
                       <td className="px-3 py-3 text-muted-foreground">{formatDate(document.date_devis)}</td>
                       <td className="max-w-40 truncate px-3 py-3 text-muted-foreground">{document.remarque || "—"}</td>
-                      <td className="px-3 py-3">{document.commercial ? [document.commercial.prenom, document.commercial.nom].filter(Boolean).join(" ") : "Administrateur"}</td>
+                      <td className="px-3 py-3">{document.editor_name || "Administrateur"}</td>
                       <td className="px-3 py-3">
                         <div className="flex justify-center gap-1.5">
                           {view === "brouillon" ? (
                             <>
+                              <button type="button" onClick={() => navigate(`/facturation/${document.id_devis}/apercu`)} className="rounded-full bg-primary p-2 text-primary-foreground hover:opacity-80" aria-label="Choisir le type et prévisualiser le brouillon" title="Aperçu">
+                                <Eye size={14} />
+                              </button>
                               <button type="button" onClick={() => void openEditDocument(document)} disabled={loadingDetail} className="rounded-full bg-amber-500 p-2 text-white hover:opacity-80" aria-label="Modifier le brouillon" title="Modifier">
                                 <FileText size={14} />
-                              </button>
-                              <button type="button" onClick={() => void validateDraft(document)} disabled={saving} className="rounded-full bg-emerald-600 p-2 text-white hover:opacity-80" aria-label="Valider le brouillon" title="Valider">
-                                <Check size={14} />
                               </button>
                               <button type="button" onClick={() => { setSelectedDocument(document); setMode("delete") }} disabled={saving} className="rounded-full bg-destructive p-2 text-white hover:opacity-80" aria-label="Supprimer le brouillon" title="Supprimer">
                                 <Trash2 size={14} />
@@ -575,8 +548,8 @@ export default function Facturation() {
                             </>
                           ) : (
                             <>
-                              <button type="button" onClick={() => void showDetails(document)} className="rounded-full bg-primary p-2 text-primary-foreground hover:opacity-80" aria-label="Afficher le document" title="Détail et impression">
-                                <FileText size={14} />
+                              <button type="button" onClick={() => void showDetails(document)} className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:opacity-80" aria-label="Détail du document" title="Détail et impression">
+                                <Eye size={14} /> Détail
                               </button>
                               <button type="button" onClick={() => { setSelectedDocument(document); setMode("delete") }} disabled={saving || Boolean(document.vente)} className="rounded-full bg-destructive p-2 text-white hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40" aria-label="Supprimer le document" title={document.vente ? "Document lié à une vente" : "Supprimer le document"}>
                                 <Trash2 size={14} />
@@ -601,14 +574,6 @@ export default function Facturation() {
       <Modal open={mode === "document"} onClose={closeModal} title={editingId ? "Modifier le brouillon" : "Nouveau document"} size="2xl">
         <div className="space-y-5">
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block space-y-1.5 text-sm font-medium">
-              <span>Type de document</span>
-              <Select value={documentForm.type} onChange={(type) => setDocumentForm({ ...documentForm, type: type as DocumentType })} options={[
-                { value: "proforma", label: "Proforma" },
-                { value: "devis", label: "Devis" },
-                { value: "facture", label: "Facture" },
-              ]} />
-            </label>
             <label className="block space-y-1.5 text-sm font-medium">
               <span>Date</span>
               <DatePicker value={documentForm.date} onChange={(date) => setDocumentForm({ ...documentForm, date })} />
@@ -731,11 +696,8 @@ export default function Facturation() {
             </div>
             <div className="flex flex-wrap justify-end gap-2">
               <button type="button" onClick={closeModal} className={`${buttonClass} border border-border hover:bg-accent`}>Annuler</button>
-              <button type="button" onClick={() => void saveDocument(false)} disabled={saving || loadingCatalog} className={`${buttonClass} border border-primary text-primary hover:bg-primary/5`}>
-                <FileText size={15} /> {saving ? "Enregistrement..." : "Enregistrer brouillon"}
-              </button>
-              <button type="button" onClick={() => void saveDocument(true)} disabled={saving || loadingCatalog} className={`${buttonClass} bg-primary text-primary-foreground hover:opacity-90`}>
-                <Check size={15} /> {saving ? "Validation..." : "Valider"}
+              <button type="button" onClick={() => void saveDocument()} disabled={saving || loadingCatalog} className={`${buttonClass} bg-primary text-primary-foreground hover:opacity-90`}>
+                <FileText size={15} /> {saving ? "Enregistrement..." : "Enregistrer et choisir le type"}
               </button>
             </div>
           </div>
@@ -790,11 +752,6 @@ export default function Facturation() {
                 >
                   <Eye size={15} /> Aperçu du document
                 </button>
-                {selectedDocument.statut === "valide" && (
-                  <button type="button" onClick={() => void sendEmail()} disabled={saving} className={`${buttonClass} border border-primary text-primary hover:bg-primary/5`}>
-                    <Mail size={15} /> {saving ? "Envoi..." : "Envoyer par e-mail"}
-                  </button>
-                )}
               </div>
             </div>
           </div>

@@ -12,7 +12,10 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        $schedule->command('prospections:sync-emails')
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->when(fn () => config('prospection_mail.imap.enabled'));
     }
 
     /**

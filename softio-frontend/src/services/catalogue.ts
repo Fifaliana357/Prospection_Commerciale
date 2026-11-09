@@ -8,6 +8,8 @@ export interface Produit {
   prix_unitaire: number;
   photo?: string | null;
   actif?: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface Offre {

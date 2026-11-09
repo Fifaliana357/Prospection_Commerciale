@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Search, Plus, Trash2, MessageSquare, CheckCircle2, Target, CalendarDays
 } from 'lucide-react';
@@ -24,9 +24,12 @@ import { getLocalDateInputValue } from '../lib/date';
 export default function Prospections() {
   const toast = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [prospections, setProspections] = useState<Prospection[]>([]);
-  const [listTab, setListTab] = useState<'enregistrement' | 'relance'>('enregistrement');
+  const [listTab, setListTab] = useState<'enregistrement' | 'relance'>(
+    searchParams.get('tab') === 'relance' ? 'relance' : 'enregistrement'
+  );
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [etatFilter, setEtatFilter] = useState('');
@@ -188,12 +191,12 @@ export default function Prospections() {
     <div className="p-6 max-w-[1600px] mx-auto">
       <PageHeader title="Prospections" description="Gérez vos actions de prospection." icon={<Target size={23} />} />
 
-      <nav className="flex gap-1 border-b border-border" aria-label="Vues des prospections">
+      <nav className="page-tabs" role="tablist" aria-label="Vues des prospections">
         {([
           ['enregistrement', 'Enregistrement'],
           ['relance', 'Relance'],
         ] as const).map(([key, label]) => (
-          <button key={key} type="button" onClick={() => { setListTab(key); setPage(1); setEtatFilter(''); }} className={`rounded-t-lg px-4 py-2.5 text-sm transition-colors ${listTab === key ? 'bg-card font-semibold text-primary shadow-sm' : 'text-muted-foreground hover:bg-accent'}`}>
+          <button key={key} type="button" role="tab" aria-selected={listTab === key} onClick={() => { setListTab(key); setPage(1); setEtatFilter(''); }} className="page-tab">
             {label}
           </button>
         ))}
@@ -406,7 +409,7 @@ export default function Prospections() {
           <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-xl">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <h2 className="text-lg font-semibold">Clôture de la prospection</h2>
-              <button onClick={() => setShowClosingModal(false)} className="p-1.5 rounded-lg hover:bg-accent">✕</button>
+              <button onClick={() => setShowClosingModal(false)} className="p-1.5 rounded-lg hover:bg-accent"><span className="modal-close-symbol">✕</span></button>
             </div>
             <form onSubmit={handleClosing} className="p-6 space-y-4">
               <div>
@@ -463,7 +466,7 @@ export default function Prospections() {
                 <CalendarDays size={18} />
                 Fixer un rendez-vous
               </h2>
-              <button onClick={() => setShowRdvModal(false)} className="p-1.5 rounded-lg hover:bg-accent">✕</button>
+              <button onClick={() => setShowRdvModal(false)} className="p-1.5 rounded-lg hover:bg-accent"><span className="modal-close-symbol">✕</span></button>
             </div>
             <form onSubmit={handleCreateRdv} className="p-6 space-y-4">
               <div className="text-sm text-muted-foreground">

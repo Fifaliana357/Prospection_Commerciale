@@ -81,7 +81,7 @@ export default function ProspectionCreate() {
   const filteredCatalogueItems = catalogueItems.filter((item) =>
     item.label.toLocaleLowerCase('fr').includes(form.produit_prospecte.toLocaleLowerCase('fr').trim())
   );
-
+  const selectedClient = clients.find((client) => String(client.id_client) === form.id_client);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -100,7 +100,7 @@ export default function ProspectionCreate() {
         type_message: form.type_message,
       });
 
-      toast.success('Prospection créée avec succès');
+      toast.success(res.message || 'Prospection créée avec succès');
       navigate(`/prospections/${res.prospection.id_prospection}`);
     } catch (error: unknown) {
       const message = axios.isAxiosError<{ message?: string }>(error)
@@ -231,6 +231,13 @@ export default function ProspectionCreate() {
             placeholder="Écrivez le premier message envoyé au prospect..."
           />
         </div>
+        {form.type_message === 'Email' && form.message.trim() && (
+          <p className="rounded-lg bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+            {selectedClient?.email
+              ? `L’e-mail initial sera envoyé à ${selectedClient.email} à la création de la prospection.`
+              : 'Ce prospect ne possède pas d’adresse e-mail; ajoutez-en une pour envoyer le message initial.'}
+          </p>
+        )}
 
         <div className="flex justify-end gap-3 pt-2">
           <button

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, Plus, Pencil, Trash2, Package, Download, Printer, ImageIcon,
@@ -17,8 +17,9 @@ import PageHeader from '../components/ui/PageHeader';
 import { ModalPortal } from '../components/ui/Modal';
 import { useToast } from '../contexts/ToastContext';
 import { formatMGA } from '../lib/utils';
+import { getSessionUser } from '../lib/session';
 
-type Tab = 'produit' | 'service';
+type Tab = 'produit' | 'service' | 'historique';
 
 const API_URL = 'http://127.0.0.1:8000';
 
@@ -31,10 +32,14 @@ function photoUrl(photo?: string | null) {
 
 export default function Catalogue() {
   const toast = useToast();
+  const toastRef = useRef(toast);
   const navigate = useNavigate();
+  const canEditCatalog = getSessionUser().role === 'admin';
   const [tab, setTab] = useState<Tab>('produit');
 
   const [produits, setProduits] = useState<Produit[]>([]);
+  const [productHistory, setProductHistory] = useState<Produit[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [pTotal, setPTotal] = useState(0);
   const [pPage, setPPage] = useState(1);
   const [pLast, setPLast] = useState(1);
@@ -59,8 +64,6 @@ export default function Catalogue() {
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [viewPhoto, setViewPhoto] = useState<string | null>(null);
-
   // Modal service
   const [showOModal, setShowOModal] = useState(false);
   const [editOffre, setEditOffre] = useState<Offre | null>(null);
@@ -79,7 +82,11 @@ export default function Catalogue() {
     reference?: string;
   }>({ open: false, url: null, title: '' });
 
-  const fetchProduits = async () => {
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
+
+  const fetchProduits = useCallback(async () => {
     try {
       setLoading(true);
       const res = await getProduits({ search: search || undefined, page: pPage });
@@ -87,13 +94,13 @@ export default function Catalogue() {
       setPTotal(res.total || 0);
       setPLast(res.last_page || 1);
     } catch {
-      toast.error('Erreur chargement produits');
+      toastRef.current.error('Erreur chargement produits');
     } finally {
       setLoading(false);
     }
-  };
+  }, [pPage, search]);
 
-  const fetchOffres = async () => {
+  const fetchOffres = useCallback(async () => {
     try {
       setLoading(true);
       const res = await getOffres({ search: search || undefined, page: oPage });
@@ -101,16 +108,51 @@ export default function Catalogue() {
       setOTotal(res.total || 0);
       setOLast(res.last_page || 1);
     } catch {
-      toast.error('Erreur chargement services');
+      toastRef.current.error('Erreur chargement services');
     } finally {
       setLoading(false);
     }
-  };
+  }, [oPage, search]);
+
+  const fetchProductHistory = useCallback(async () => {
+    try {
+      setHistoryLoading(true);
+      let all: Produit[] = [];
+      let page = 1;
+      let last = 1;
+      do {
+        const res = await getProduits({ search: search || undefined, page });
+        all = [...all, ...(res.data || [])];
+        last = res.last_page || 1;
+        page++;
+      } while (page <= last);
+      setProductHistory(
+        all.sort((a, b) => {
+          const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+          const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+          return dateB - dateA;
+        }),
+      );
+    } catch {
+      toastRef.current.error('Erreur chargement de l’historique des produits');
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [search]);
 
   useEffect(() => {
-    if (tab === 'produit') fetchProduits();
-    else fetchOffres();
-  }, [tab, search, pPage, oPage]);
+    const timer = window.setTimeout(() => {
+      if (tab === 'produit') void fetchProduits();
+      else if (tab === 'service') void fetchOffres();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [tab, fetchProduits, fetchOffres]);
+
+  useEffect(() => {
+    if (tab !== 'historique') return;
+    const timer = window.setTimeout(() => void fetchProductHistory(), 0);
+    return () => window.clearTimeout(timer);
+  }, [tab, fetchProductHistory]);
 
   const openCreateProduit = () => {
     setEditProduit(null);
@@ -248,22 +290,22 @@ export default function Catalogue() {
       <PageHeader title="Services et produits" description="Gérez votre catalogue." icon={<Package size={23} />} />
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-4 p-1 rounded-xl bg-muted/50 w-fit">
+      <div className="page-tabs mb-4" role="tablist" aria-label="Catalogue">
         {([
           { key: 'produit' as Tab, label: 'Produit' },
           { key: 'service' as Tab, label: 'Service' },
+          { key: 'historique' as Tab, label: 'Historique' },
         ]).map((t) => (
           <button
             key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.key}
             onClick={() => {
               setTab(t.key);
               setSearch('');
             }}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              tab === t.key
-                ? 'bg-card text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
+            className="page-tab"
           >
             {t.label}
           </button>
@@ -278,7 +320,8 @@ export default function Catalogue() {
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
-              tab === 'produit' ? setPPage(1) : setOPage(1);
+              if (tab === 'produit') setPPage(1);
+              else if (tab === 'service') setOPage(1);
             }}
             placeholder="Rechercher..."
             className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-card shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -302,14 +345,20 @@ export default function Catalogue() {
           </>
         )}
 
-        <button
-          onClick={tab === 'produit' ? openCreateProduit : openCreateOffre}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90"
-        >
-          <Plus size={18} />
-          {tab === 'produit' ? 'Nouveau produit' : 'Nouveau service'}
-        </button>
-        <TableSummary total={tab === 'produit' ? pTotal : oTotal} label={tab === 'produit' ? 'produits' : 'services'} />
+        {canEditCatalog && tab !== 'historique' && (
+          <button
+            onClick={tab === 'produit' ? openCreateProduit : openCreateOffre}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90"
+          >
+            <Plus size={18} />
+            {tab === 'produit' ? 'Nouveau produit' : 'Nouveau service'}
+          </button>
+        )}
+        {tab !== 'historique' ? (
+          <TableSummary total={tab === 'produit' ? pTotal : oTotal} label={tab === 'produit' ? 'produits' : 'services'} />
+        ) : (
+          <TableSummary total={productHistory.length} label="produits dans l’historique" />
+        )}
       </div>
 
       {/* Table Produits */}
@@ -324,7 +373,7 @@ export default function Catalogue() {
                   <th className="px-3 py-3 text-left font-medium">Description</th>
                   <th className="px-3 py-3 text-left font-medium">Montant</th>
                   <th className="px-3 py-3 text-left font-medium">Code-barre</th>
-                  <th className="px-3 py-3 text-right font-medium">Actions</th>
+                  <th className="px-3 py-3 text-right font-medium">{canEditCatalog ? 'Actions' : 'Photo'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -351,18 +400,18 @@ export default function Catalogue() {
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="bg-white rounded px-1 py-0.5 inline-block">
-                          <Barcode value={p.reference} height={36} />
+                          <Barcode value={p.reference} designation={p.designation} height={36} />
                         </div>
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex justify-end gap-1.5">
-                          <button
+                          {canEditCatalog && <button
                             onClick={() => openEditProduit(p)}
                             className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 hover:bg-blue-500/20"
                             title="Modifier"
                           >
                             <Pencil size={15} />
-                          </button>
+                          </button>}
                           <button
                             onClick={() =>
                               setPhotoModal({
@@ -381,13 +430,13 @@ export default function Catalogue() {
                           >
                             <ImageIcon size={15} />
                           </button>
-                          <button
+                          {canEditCatalog && <button
                             onClick={() => setDeleteTarget({ type: 'produit', id: p.id_produit })}
                             className="p-1.5 rounded-lg bg-red-500/10 text-red-600 hover:bg-red-500/20"
                             title="Supprimer"
                           >
                             <Trash2 size={15} />
-                          </button>
+                          </button>}
                         </div>
                       </td>
                     </tr>
@@ -397,6 +446,41 @@ export default function Catalogue() {
             </table>
           </div>
           <TablePagination page={pPage} lastPage={pLast} onChange={setPPage} />
+        </div>
+      )}
+
+      {tab === 'historique' && (
+        <div className="rounded-xl bg-card shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-primary text-primary-foreground">
+                  <th className="px-3 py-3 text-left font-medium">Référence</th>
+                  <th className="px-3 py-3 text-left font-medium">Désignation</th>
+                  <th className="px-3 py-3 text-right font-medium">Créé le</th>
+                  <th className="px-3 py-3 text-right font-medium">Dernière modification</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {historyLoading ? (
+                  <tr><td colSpan={4} className="px-4 py-12 text-center text-muted-foreground">Chargement...</td></tr>
+                ) : productHistory.length === 0 ? (
+                  <tr><td colSpan={4} className="px-4 py-12 text-center text-muted-foreground">Aucun produit dans l’historique</td></tr>
+                ) : productHistory.map((product) => (
+                  <tr key={product.id_produit} className="hover:bg-accent/40">
+                    <td className="px-3 py-2.5 font-medium whitespace-nowrap">{product.reference}</td>
+                    <td className="px-3 py-2.5">{product.designation}</td>
+                    <td className="px-3 py-2.5 text-right text-muted-foreground">
+                      {product.created_at ? new Date(product.created_at).toLocaleString('fr-FR') : '—'}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-muted-foreground">
+                      {product.updated_at ? new Date(product.updated_at).toLocaleString('fr-FR') : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -410,19 +494,19 @@ export default function Catalogue() {
                   <th className="px-3 py-3 text-left font-medium">Dénomination</th>
                   <th className="px-3 py-3 text-left font-medium">Description</th>
                   <th className="px-3 py-3 text-left font-medium">Montant</th>
-                  <th className="px-3 py-3 text-right font-medium">Actions</th>
+                  {canEditCatalog && <th className="px-3 py-3 text-right font-medium">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {loading ? (
                   <tr>
-                    <td colSpan={4} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={canEditCatalog ? 4 : 3} className="px-4 py-12 text-center text-muted-foreground">
                       Chargement...
                     </td>
                   </tr>
                 ) : offres.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={canEditCatalog ? 4 : 3} className="px-4 py-12 text-center text-muted-foreground">
                       Aucun service
                     </td>
                   </tr>
@@ -434,7 +518,7 @@ export default function Catalogue() {
                       <td className="px-3 py-2.5 whitespace-nowrap">
                         {formatMoney(Number(o.tarif))}
                       </td>
-                      <td className="px-3 py-2.5">
+                      {canEditCatalog && <td className="px-3 py-2.5">
                         <div className="flex justify-end gap-1.5">
                           <button
                             onClick={() => openEditOffre(o)}
@@ -449,7 +533,7 @@ export default function Catalogue() {
                             <Trash2 size={15} />
                           </button>
                         </div>
-                      </td>
+                      </td>}
                     </tr>
                   ))
                 )}
@@ -470,18 +554,19 @@ export default function Catalogue() {
                 {editProduit ? 'Modifier le produit' : 'Nouveau produit'}
               </h2>
               <button onClick={() => setShowPModal(false)} className="p-1.5 rounded-lg hover:bg-accent">
-                ✕
+                <span className="modal-close-symbol">✕</span>
               </button>
             </div>
           <form onSubmit={saveProduit} className="p-5 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-medium">Désignation *</label>
+                <label className="text-sm font-medium">Référence *</label>
                 <input
                   required
-                  value={pForm.designation}
-                  onChange={(e) => setPForm({ ...pForm, designation: e.target.value })}
+                  value={pForm.reference}
+                  onChange={(e) => setPForm({ ...pForm, reference: e.target.value })}
                   className="mt-1 w-full px-3 py-2.5 rounded-lg bg-background shadow-sm text-sm"
+                  disabled={!!editProduit}
                 />
               </div>
               <div>
@@ -497,15 +582,13 @@ export default function Catalogue() {
               </div>
             </div>
 
-            {/* Référence (utile à la création ; en édition on la garde) */}
             <div>
-              <label className="text-sm font-medium">Référence *</label>
+              <label className="text-sm font-medium">Désignation *</label>
               <input
                 required
-                value={pForm.reference}
-                onChange={(e) => setPForm({ ...pForm, reference: e.target.value })}
+                value={pForm.designation}
+                onChange={(e) => setPForm({ ...pForm, designation: e.target.value })}
                 className="mt-1 w-full px-3 py-2.5 rounded-lg bg-background shadow-sm text-sm"
-                disabled={!!editProduit}
               />
             </div>
 
@@ -609,7 +692,7 @@ export default function Catalogue() {
                 {editOffre ? 'Modifier le service' : 'Nouveau service'}
               </h2>
               <button onClick={() => setShowOModal(false)} className="p-1.5 rounded-lg hover:bg-accent">
-                ✕
+                <span className="modal-close-symbol">✕</span>
               </button>
             </div>
             <form onSubmit={saveOffre} className="p-5 space-y-3">
@@ -718,7 +801,7 @@ export default function Catalogue() {
               onClick={() => setPhotoModal({ open: false, url: null, title: '' })}
               className="p-1 rounded-lg hover:bg-accent"
             >
-              ✕
+              <span className="modal-close-symbol">✕</span>
             </button>
           </div>
           <div className="p-4">

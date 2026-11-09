@@ -13,6 +13,7 @@ export interface Closing {
     nom: string;
     prenom?: string;
     email?: string;
+    telephone?: string;
     entreprise?: string;
   };
   commercial?: {
@@ -35,7 +36,13 @@ export const getClosings = async (params?: {
   return response.data;
 };
 
-export const createClosing = async (data: any) => {
+export const createClosing = async (data: {
+  id_prospection?: number | null;
+  id_client: number;
+  produit: string;
+  description?: string | null;
+  montant: number;
+}) => {
   const response = await api.post('/closings', data);
   return response.data;
 };

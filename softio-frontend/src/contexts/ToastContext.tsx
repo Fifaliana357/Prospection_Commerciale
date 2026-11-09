@@ -12,10 +12,10 @@ export interface ToastItem {
 
 interface ToastContextType {
   toast: {
-    success: (message: string, title?: string) => void
-    error: (message: string, title?: string) => void
-    info: (message: string, title?: string) => void
-    warning: (message: string, title?: string) => void
+    success: (message: string, title?: string, duration?: number) => void
+    error: (message: string, title?: string, duration?: number) => void
+    info: (message: string, title?: string, duration?: number) => void
+    warning: (message: string, title?: string, duration?: number) => void
   }
 }
 
@@ -36,20 +36,20 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
-  const addToast = useCallback((type: ToastType, message: string, title?: string) => {
+  const addToast = useCallback((type: ToastType, message: string, title?: string, duration = 3800) => {
     const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     setToasts((prev) => [...prev, { id, type, message, title }])
 
     setTimeout(() => {
       removeToast(id)
-    }, 3800)
+    }, duration)
   }, [removeToast])
 
   const toast = {
-    success: (message: string, title?: string) => addToast("success", message, title),
-    error: (message: string, title?: string) => addToast("error", message, title),
-    info: (message: string, title?: string) => addToast("info", message, title),
-    warning: (message: string, title?: string) => addToast("warning", message, title),
+    success: (message: string, title?: string, duration?: number) => addToast("success", message, title, duration),
+    error: (message: string, title?: string, duration?: number) => addToast("error", message, title, duration),
+    info: (message: string, title?: string, duration?: number) => addToast("info", message, title, duration),
+    warning: (message: string, title?: string, duration?: number) => addToast("warning", message, title, duration),
   }
 
   return (

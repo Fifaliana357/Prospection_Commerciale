@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Closing;
 use App\Models\Prospection;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class ClosingController extends Controller
 {
@@ -13,16 +14,15 @@ class ClosingController extends Controller
         $user = $request->user();
 
         $query = Closing::with([
-            'client:id_client,nom,prenom,email,entreprise',
+            'client:id_client,nom,prenom,email,telephone,entreprise',
             'commercial:id_commercial,nom,prenom',
             'admin:id_admin,nom,prenom'
         ]);
 
-        if ($user instanceof \App\Models\Admin) {
-            $query->where('id_admin', $user->id_admin);
-        } else {
-            $query->where('id_commercial', $user->id_commercial);
-        }
+        $query->where(function ($builder) use ($user) {
+            $builder->where('id_admin', $user->id_admin)
+                ->orWhereHas('commercial', fn ($commercial) => $commercial->where('id_admin', $user->id_admin));
+        });
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -47,8 +47,8 @@ class ClosingController extends Controller
         $user = $request->user();
 
         $validated = $request->validate([
-            'id_prospection' => 'nullable|exists:prospection,id_prospection',
-            'id_client'      => 'required|exists:client,id_client',
+            'id_prospection' => ['nullable', Rule::exists('prospection', 'id_prospection')->where('id_admin', $user->id_admin)],
+            'id_client'      => ['required', Rule::exists('client', 'id_client')->where('id_admin', $user->id_admin)],
             'produit'        => 'required|string|max:191',
             'description'    => 'nullable|string',
             'montant'        => 'required|numeric|min:0',
@@ -57,7 +57,7 @@ class ClosingController extends Controller
         $closing = Closing::create([
             'id_prospection' => $validated['id_prospection'] ?? null,
             'id_client'      => $validated['id_client'],
-            'id_admin'       => $user instanceof \App\Models\Admin ? $user->id_admin : null,
+            'id_admin'       => $user->id_admin,
             'id_commercial'  => $user instanceof \App\Models\Commercial ? $user->id_commercial : null,
             'produit'        => $validated['produit'],
             'description'    => $validated['description'] ?? null,
@@ -76,9 +76,12 @@ class ClosingController extends Controller
         ], 201);
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $closing = Closing::findOrFail($id);
+        $belongsToCompany = $closing->id_admin === $request->user()->id_admin
+            || $closing->commercial?->id_admin === $request->user()->id_admin;
+        abort_unless($belongsToCompany, 403, 'Non autorisé.');
         $closing->delete();
 
         return response()->json(['message' => 'Closing supprimé']);
