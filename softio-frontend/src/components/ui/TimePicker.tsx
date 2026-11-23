@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { Check, Clock3 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useAnchoredPopover } from "./useAnchoredPopover"
 
 function parseTime(value: string) {
   const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value)
@@ -27,6 +29,8 @@ export default function TimePicker({
   const inputRef = useRef<HTMLInputElement>(null)
   const current = parseTime(value)
   const [open, setOpen] = useState(false)
+  const popoverRef = useRef<HTMLDivElement>(null)
+  const popoverPosition = useAnchoredPopover(open, rootRef, popoverRef)
   const [hour, setHour] = useState(current?.hour ?? "09")
   const [minute, setMinute] = useState(current?.minute ?? "00")
   const parsedHour = Number(hour)
@@ -37,16 +41,17 @@ export default function TimePicker({
 
   useEffect(() => {
     if (!open) return
-    const handlePointerDown = (event: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false)
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (!rootRef.current?.contains(target) && !popoverRef.current?.contains(target)) setOpen(false)
     }
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false)
     }
-    document.addEventListener("mousedown", handlePointerDown)
+    document.addEventListener("pointerdown", handlePointerDown)
     document.addEventListener("keydown", handleKeyDown)
     return () => {
-      document.removeEventListener("mousedown", handlePointerDown)
+      document.removeEventListener("pointerdown", handlePointerDown)
       document.removeEventListener("keydown", handleKeyDown)
     }
   }, [open])
@@ -137,11 +142,13 @@ export default function TimePicker({
           <Clock3 size={16} />
         </button>
       </div>
-      {open && (
+      {open && createPortal(
         <div
+          ref={popoverRef}
           role="dialog"
           aria-label="Sélecteur d’heure"
-          className="animate-modal-dialog-enter absolute left-0 top-[calc(100%+8px)] z-[120] w-[min(14rem,calc(100vw-2rem))] rounded-2xl border border-primary/15 bg-card p-2.5 text-foreground shadow-[0_20px_55px_rgba(15,35,40,0.2)]"
+          style={popoverPosition}
+          className="animate-modal-dialog-enter w-[min(14rem,calc(100vw-24px))] rounded-2xl border border-primary/15 bg-card p-2.5 text-foreground shadow-[0_20px_55px_rgba(15,35,40,0.2)]"
         >
           <div className="mb-2.5 flex items-center justify-center gap-1.5">
             <label className="sr-only" htmlFor={`${inputId}-hour`}>Heure</label>
@@ -191,7 +198,8 @@ export default function TimePicker({
               <Check size={16} /> Valider
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )

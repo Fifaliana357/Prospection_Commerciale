@@ -200,41 +200,44 @@ export default function Comptabilite() {
             </button>
           ))}
         </div>
-        {operationTab && (
-          <button onClick={openOperationForm} className={`${buttonClass} bg-primary text-primary-foreground hover:opacity-90`}>
-            <Plus size={16} /> Ajouter {tab === 'depenses' ? 'une dépense' : 'un versement'}
-          </button>
-        )}
       </div>
 
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="block space-y-1 text-sm">
+      <div className="list-toolbar items-end">
+        <label className="block w-full space-y-1 text-sm sm:w-64">
           <span className="text-muted-foreground">Du</span>
           <DatePicker value={dateFrom} onChange={setDateFrom} />
         </label>
-        <label className="block space-y-1 text-sm">
+        <label className="block w-full space-y-1 text-sm sm:w-64">
           <span className="text-muted-foreground">Au</span>
           <DatePicker value={dateTo} onChange={setDateTo} />
         </label>
         <button
+          type="button"
           onClick={() => { setAppliedDates({ from: dateFrom, to: dateTo }); setPage(1); }}
-          className={`${buttonClass} bg-primary text-primary-foreground hover:opacity-90`}
+          className={`${buttonClass} h-11 rounded-full bg-primary text-primary-foreground shadow-sm hover:opacity-90`}
         >
           <CalendarDays size={15} /> Filtrer
         </button>
         <button
+          type="button"
           onClick={() => { setDateFrom(''); setDateTo(''); setAppliedDates({ from: '', to: '' }); setPage(1); }}
-          className={`${buttonClass} border border-border text-muted-foreground hover:bg-accent`}
+          className={`${buttonClass} h-11 rounded-full border border-border text-muted-foreground hover:bg-accent`}
         >
           Effacer
         </button>
         <button
+          type="button"
           onClick={() => void handleExport()}
           disabled={exporting}
-          className={`${buttonClass} border border-primary/20 bg-primary/5 text-primary hover:bg-primary/10`}
+          className={`${buttonClass} h-11 rounded-full border border-primary/20 bg-primary/5 text-primary hover:bg-primary/10`}
         >
           <FileSpreadsheet size={16} /> {exporting ? 'Export...' : 'Exporter'}
         </button>
+        {operationTab && (
+          <button type="button" onClick={openOperationForm} className="list-add-button">
+            <Plus size={16} /> Ajouter {tab === 'depenses' ? 'une dépense' : 'un versement'}
+          </button>
+        )}
         <TableSummary
           total={tab === 'recettes' ? (data?.sales.total || 0) : (data?.operations.total || 0)}
           label={tab === 'recettes' ? 'recettes' : tab === 'depenses' ? 'dépenses' : 'versements'}

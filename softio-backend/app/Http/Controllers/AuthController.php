@@ -95,6 +95,7 @@ class AuthController extends Controller
             'password' => Hash::make($validated['password']),
             'est_verifie' => false,
             'email_verification_required' => true,
+            'is_first_login' => true,
         ]);
 
         try {
@@ -243,6 +244,15 @@ class AuthController extends Controller
         return response()->json([
             'user' => $request->user(),
             'type' => $request->user() instanceof Admin ? 'admin' : 'commercial',
+        ]);
+    }
+
+    public function completeOnboarding(Request $request)
+    {
+        $request->user()->forceFill(['is_first_login' => false])->save();
+
+        return response()->json([
+            'message' => 'Visite guidée terminée.',
         ]);
     }
 }

@@ -15,16 +15,18 @@ import { useToast } from '../contexts/ToastContext';
 import TablePagination from '../components/ui/TablePagination';
 import TableSummary from '../components/ui/TableSummary';
 import PageHeader from '../components/ui/PageHeader';
+import FilterPills from '../components/ui/FilterPills';
 import { ModalPortal } from '../components/ui/Modal';
 import DatePicker from '../components/ui/DatePicker';
 import TimePicker from '../components/ui/TimePicker';
 import Select from '../components/ui/Select';
 import { getLocalDateInputValue } from '../lib/date';
+import ProspectionCreateModal from './ProspectionCreate';
 
 export default function Prospections() {
   const toast = useToast();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [prospections, setProspections] = useState<Prospection[]>([]);
   const [listTab, setListTab] = useState<'enregistrement' | 'relance'>(
@@ -37,6 +39,7 @@ export default function Prospections() {
   const [lastPage, setLastPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(searchParams.get('create') === '1');
 
   // Modal Closing
   const [showClosingModal, setShowClosingModal] = useState(false);
@@ -61,6 +64,15 @@ export default function Prospections() {
     commentaire: '',
   });
   const [savingRdv, setSavingRdv] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('create') !== '1') return;
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete('create');
+      return next;
+    }, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const fetchProspections = async () => {
     try {
@@ -202,49 +214,35 @@ export default function Prospections() {
         ))}
       </nav>
 
-      {/* Search + Actions */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+      <div className="list-toolbar mb-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
           <input
-            type="text"
+            type="search"
             placeholder="Rechercher..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
         </div>
-        {listTab === 'enregistrement' && <button
-          onClick={() => navigate('/prospections/create')}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground hover:opacity-90 rounded-lg font-medium"
-        >
-          <Plus size={18} />
-          Nouvelle prospection
-        </button>}
-      </div>
-
-      {/* Filtres + Total */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        {listTab === 'enregistrement' && <div className="flex flex-wrap gap-2">
-          {[
+        {listTab === 'enregistrement' && <FilterPills
+          value={etatFilter}
+          options={[
             { value: '', label: 'Tout' },
             { value: 'non_cloture', label: 'Non clôturé' },
             { value: 'cloture', label: 'Clôturé' },
             { value: 'perdu', label: 'Perdu' },
-          ].map((f) => (
-            <button
-              key={f.value}
-              onClick={() => { setEtatFilter(f.value); setPage(1); }}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                etatFilter === f.value
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary text-secondary-foreground hover:bg-accent'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>}
+          ]}
+          onChange={(value) => { setEtatFilter(value); setPage(1); }}
+        />}
+        {listTab === 'enregistrement' && <button
+          type="button"
+          onClick={() => setShowCreateModal(true)}
+          className="list-add-button"
+        >
+          <Plus size={18} />
+          Nouvelle prospection
+        </button>}
         <TableSummary total={total} label={listTab === 'relance' ? 'relances' : 'prospections'} />
       </div>
 
@@ -291,7 +289,7 @@ export default function Prospections() {
                     <td className="px-3 py-2.5 whitespace-nowrap font-medium">{p.date_relance ? new Date(`${p.date_relance.slice(0, 10)}T00:00:00`).toLocaleDateString('fr-FR') : '—'}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button type="button" onClick={() => navigate(`/prospections/${p.id_prospection}`)} className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 hover:bg-blue-500/20" title="Voir la prospection" aria-label="Voir la prospection"><MessageSquare size={15} /></button>
+                        <button type="button" onClick={() => navigate(`/prospections/${p.id_prospection}`)} className="action-icon-button bg-blue-600 hover:bg-blue-700" title="Voir la prospection" aria-label="Voir la prospection"><MessageSquare size={15} /></button>
                         <button type="button" onClick={() => void clearRelance(p.id_prospection)} className="p-1.5 rounded-lg bg-red-500/10 text-red-600 hover:bg-red-500/20" title="Supprimer la relance" aria-label="Supprimer la relance"><Trash2 size={15} /></button>
                       </div>
                     </td>
@@ -337,8 +335,9 @@ export default function Prospections() {
                               });
                               setShowClosingModal(true);
                             }}
-                            className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
+                            className="action-icon-button bg-emerald-600 hover:bg-emerald-700"
                             title="Closing"
+                            aria-label="Clôturer la prospection"
                           >
                             <CheckCircle2 size={15} />
                           </button>
@@ -359,8 +358,9 @@ export default function Prospections() {
                               });
                               setShowRdvModal(true);
                             }}
-                            className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
+                            className="action-icon-button bg-amber-500 hover:bg-amber-600"
                             title="Fixer un rendez-vous"
+                            aria-label="Fixer un rendez-vous"
                           >
                             <CalendarDays size={15} />
                           </button>
@@ -566,6 +566,16 @@ export default function Prospections() {
           </div>
         </div>
         </ModalPortal>
+      )}
+      {showCreateModal && (
+        <ProspectionCreateModal
+          open={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onCreated={() => {
+            setShowCreateModal(false);
+            fetchProspections();
+          }}
+        />
       )}
     </div>
   );

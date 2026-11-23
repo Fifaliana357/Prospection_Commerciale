@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Search, Upload, Trash2, FileText, Image, FileSpreadsheet, File,
-  RefreshCw, FolderOpen, Download,
+  RefreshCw, FolderOpen, Download, Layers, ChevronDown, ChevronUp, HardDrive,
 } from 'lucide-react';
 import {
   getFichiers, uploadFichier, deleteFichier, type Fichier,
@@ -10,16 +10,16 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import PageHeader from '../components/ui/PageHeader';
 import { ModalPortal } from '../components/ui/Modal';
-
-const API_URL = 'http://127.0.0.1:8000';
+import FilterPills from '../components/ui/FilterPills';
+import ProtectedImage from '../components/ui/ProtectedImage';
 
 const TYPE_FILTERS = [
-  { key: 'tous', label: 'Tous' },
-  { key: 'pdf', label: 'PDF' },
-  { key: 'image', label: 'Images' },
-  { key: 'word', label: 'Word' },
-  { key: 'excel', label: 'Excel' },
-  { key: 'powerpoint', label: 'PowerPoint' },
+  { value: 'tous', label: 'Tous', icon: <Layers size={14} /> },
+  { value: 'pdf', label: 'PDF', icon: <FileText size={14} /> },
+  { value: 'image', label: 'Images', icon: <Image size={14} /> },
+  { value: 'word', label: 'Word', icon: <FileText size={14} /> },
+  { value: 'excel', label: 'Excel', icon: <FileSpreadsheet size={14} /> },
+  { value: 'powerpoint', label: 'PowerPoint', icon: <File size={14} /> },
 ];
 
 function formatSize(bytes: number) {
@@ -54,8 +54,10 @@ export default function Bibliotheque() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [totalSize, setTotalSize] = useState(0);
+  const [totalFiles, setTotalFiles] = useState(0);
   const [maxSize] = useState(5 * 1024 * 1024 * 1024);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [storageExpanded, setStorageExpanded] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -66,6 +68,7 @@ export default function Bibliotheque() {
       });
       setFiles(res.data || []);
       setTotalSize(res.total_size || 0);
+      setTotalFiles(res.total || res.data?.length || 0);
     } catch {
       toast.error('Erreur de chargement');
     } finally {
@@ -129,24 +132,28 @@ export default function Bibliotheque() {
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <PageHeader title="Bibliothèque" description="Gérez vos fichiers et documents." icon={<FolderOpen size={23} />} />
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        <div className="relative flex-1">
+      <div className="list-toolbar mb-4">
+        <div className="relative min-w-[14rem] flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Rechercher un dossier ou un fichier"
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-card shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="w-full rounded-xl bg-card py-2.5 pl-10 pr-4 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            aria-label="Rechercher un fichier"
           />
         </div>
+        <FilterPills value={type} options={TYPE_FILTERS} onChange={setType} />
         <button
+          type="button"
           onClick={fetchData}
-          className="p-2.5 rounded-lg bg-card shadow-sm hover:bg-accent"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card shadow-sm hover:bg-accent"
           title="Actualiser"
+          aria-label="Actualiser les fichiers"
         >
           <RefreshCw size={18} />
         </button>
-        <label className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium cursor-pointer hover:opacity-90">
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-primary px-4 py-2.5 font-medium text-primary-foreground hover:opacity-90">
           <Upload size={18} />
           {uploading ? 'Envoi...' : 'Téléverser'}
           <input
@@ -157,26 +164,12 @@ export default function Bibliotheque() {
             disabled={uploading}
           />
         </label>
+        <span className="whitespace-nowrap text-xs text-muted-foreground" data-toolbar-total>
+          {totalFiles} fichier{totalFiles === 1 ? '' : 's'}
+        </span>
       </div>
 
-      <div className="flex flex-wrap gap-1.5 mb-4">
-        {TYPE_FILTERS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setType(t.key)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              type === t.key
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-card shadow-sm text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_180px] gap-4">
-        <div className="rounded-xl bg-card shadow-sm min-h-[240px] p-4">
+      <div className="rounded-xl bg-card shadow-sm min-h-[240px] p-4">
           {loading ? (
             <p className="text-center text-muted-foreground py-16">Chargement...</p>
           ) : files.length === 0 ? (
@@ -185,7 +178,6 @@ export default function Bibliotheque() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {files.map((f) => {
                 const isImage = f.type === 'image';
-                const url = `${API_URL}/storage/${f.chemin}`;
                 return (
                   <div
                     key={f.id_fichier}
@@ -195,27 +187,28 @@ export default function Bibliotheque() {
                       <button
                         type="button"
                         onClick={() => handleDownload(f.id_fichier, f.nom)}
-                        className="p-1.5 rounded-full bg-white/90 shadow text-primary hover:bg-primary hover:text-white transition-colors"
+                        className="library-file-action inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/90 p-1 shadow text-primary hover:bg-primary hover:text-white transition-colors"
                         title="Télécharger"
                       >
-                        <Download size={14} />
+                        <Download size={13} />
                       </button>
                       <button
                         type="button"
                         onClick={() => setDeleteId(f.id_fichier)}
-                        className="p-1.5 rounded-full bg-white/90 shadow text-red-500 hover:bg-red-500 hover:text-white transition-colors"
-                        title="Supprimer"
+                        className="library-file-action inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/90 p-1 shadow text-red-500 hover:bg-red-500 hover:text-white transition-colors"
+                        title="Supprimer le fichier"
+                        aria-label={`Supprimer ${f.nom}`}
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={13} />
                       </button>
                     </div>
 
                     <div className="pt-1">
                       {isImage ? (
-                        <img
-                          src={url}
+                        <ProtectedImage
+                          endpoint={`/bibliotheque/${f.id_fichier}/preview`}
                           alt={f.nom}
-                          className="w-full h-24 object-contain rounded-lg mb-2"
+                          className="mb-2 h-24 w-full rounded-lg object-contain"
                         />
                       ) : (
                         <div className="w-full h-24 flex items-center justify-center rounded-lg bg-muted/40 mb-2">
@@ -232,39 +225,48 @@ export default function Bibliotheque() {
               })}
             </div>
           )}
-        </div>
+      </div>
 
-        <div className="rounded-xl bg-card shadow-sm p-4 h-fit">
-          <div className="flex flex-col items-center">
-            <div className="relative w-24 h-24 mb-2">
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="15.5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  className="text-muted/40"
-                />
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="15.5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeDasharray={`${usagePct} ${100 - usagePct}`}
-                  className="text-primary"
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-[10px] font-semibold">{formatSize(totalSize)}</span>
-                <span className="text-[9px] text-muted-foreground">/ 5 Go</span>
+      <div className="fixed bottom-4 right-4 z-40">
+        <div className="min-w-[13rem] rounded-2xl border border-primary/15 bg-card p-3 shadow-[0_8px_24px_rgba(15,35,40,0.14)]">
+          {storageExpanded && (
+            <div className="flex justify-center pb-2">
+              <div className="relative h-36 w-36">
+                <svg className="h-full w-full -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
+                  <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" strokeWidth="3" className="text-primary/15" />
+                  <circle
+                    cx="18"
+                    cy="18"
+                    r="15.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeDasharray={`${usagePct} ${100 - usagePct}`}
+                    className="text-primary"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                  <HardDrive size={30} className="mb-1 text-primary" />
+                  <span className="text-xs font-semibold">{formatSize(totalSize)} / 5 Go</span>
+                </div>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">Espace de stockage</p>
-            <p className="text-sm font-medium">{usagePct}%</p>
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setStorageExpanded((expanded) => !expanded)}
+              className="flex min-w-0 flex-1 items-center gap-2 text-sm font-semibold text-primary"
+              aria-expanded={storageExpanded}
+              aria-label={storageExpanded ? "Masquer l’espace de stockage" : "Afficher l’espace de stockage"}
+            >
+              {storageExpanded ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+              <HardDrive size={15} />
+              <span className="whitespace-nowrap">Espace de stockage</span>
+            </button>
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border-4 border-primary/15 text-sm font-semibold text-foreground">
+              {usagePct}%
+            </span>
           </div>
         </div>
       </div>

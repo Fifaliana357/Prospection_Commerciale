@@ -65,6 +65,24 @@ class EntrepriseController extends Controller
         ]);
     }
 
+    public function image(Request $request, string $field)
+    {
+        abort_unless(in_array($field, ['logo', 'cachet', 'signature'], true), 404);
+
+        $user = $request->user();
+        $admin = $user instanceof Admin ? $user : $user->admin;
+        abort_if(! $admin, 404, 'Entreprise introuvable.');
+
+        $company = Entreprise::query()->where('id_admin', $admin->id_admin)->firstOrFail();
+        $relativePath = $company->{$field};
+        abort_unless($relativePath && Storage::disk('public')->exists($relativePath), 404, 'Image introuvable.');
+
+        return response()->file(
+            Storage::disk('public')->path($relativePath),
+            ['Cache-Control' => 'private, max-age=300']
+        );
+    }
+
     private function admin(Request $request): Admin
     {
         abort_unless($request->user() instanceof Admin, 403, 'Accès réservé à l’administrateur.');

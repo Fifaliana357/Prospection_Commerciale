@@ -11,6 +11,7 @@ import Select from "@/components/ui/Select"
 import TablePagination from "@/components/ui/TablePagination"
 import TableSummary from "@/components/ui/TableSummary"
 import PageHeader from "@/components/ui/PageHeader"
+import FilterPills from "@/components/ui/FilterPills"
 import { useToast } from "@/contexts/ToastContext"
 import { useSearchParams } from "react-router-dom"
 import {
@@ -232,24 +233,25 @@ export default function SAV() {
       </section>
 
       <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
-        <div className="flex flex-col gap-3 md:flex-row">
+        <div className="list-toolbar">
           <div className="flex min-w-0 flex-1">
             <label className="relative min-w-0 flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
               <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1) }} placeholder="Vente, client ou livreur..." className={`${fieldClass} pl-9`} aria-label="Rechercher une livraison" />
             </label>
           </div>
-          <label className="flex items-center gap-2 text-sm">
-            <span className="whitespace-nowrap text-muted-foreground">Statut</span>
-            <Select value={status} onChange={(value) => { if (isStatusFilter(value)) { setStatus(value); setPage(1) } }} options={[
+          <FilterPills
+            value={status}
+            options={[
               { value: "tous", label: "Tous" },
               { value: "a_preparer", label: "À préparer" },
               { value: "en_cours", label: "En cours de livraison" },
               { value: "retardee", label: "Retardée" },
               { value: "livree", label: "Livrée" },
               { value: "retournee", label: "Retournée" },
-            ]} />
-          </label>
+            ]}
+            onChange={(value) => { if (isStatusFilter(value)) { setStatus(value); setPage(1) } }}
+          />
           <button type="button" onClick={() => setRefresh((value) => value + 1)} disabled={loading} className="inline-flex h-10 items-center justify-center rounded-lg border border-border px-3 text-muted-foreground hover:bg-accent disabled:opacity-50" aria-label="Actualiser les livraisons">
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
           </button>

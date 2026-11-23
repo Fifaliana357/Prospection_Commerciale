@@ -12,6 +12,7 @@ import TableSummary from '../components/ui/TableSummary';
 import PageHeader from '../components/ui/PageHeader';
 import { ModalPortal } from '../components/ui/Modal';
 import Select from '../components/ui/Select';
+import FilterPills from '../components/ui/FilterPills';
 
 const prospectInputClass = "mt-1 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm shadow-sm transition focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10";
 const fieldHintClass = "mt-1.5 block min-w-0 break-words text-xs font-normal leading-relaxed text-muted-foreground";
@@ -323,8 +324,7 @@ export default function Prospects() {
     <div className="p-6 max-w-[1600px] mx-auto">
       <PageHeader title="Prospects" description="Gérez vos contacts et prospects" icon={<User size={23} />} />
 
-      {/* Search + Export */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+      <div className="list-toolbar mb-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
           <input
@@ -338,47 +338,27 @@ export default function Prospects() {
             className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
         </div>
+        <FilterPills
+          value={typeFilter}
+          options={[
+            { value: '', label: 'Tout' },
+            { value: 'particulier', label: 'Particulier' },
+            { value: 'entreprise', label: 'Entreprise' },
+          ]}
+          onChange={(value) => { setTypeFilter(value); setPage(1); }}
+        />
         <button
+          type="button"
           onClick={handleExport}
-          className="inline-flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-foreground hover:bg-accent transition-colors"
+          className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
         >
           <Download size={16} />
           Exporter
         </button>
-        <button
-          onClick={openCreateModal}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground hover:opacity-90 rounded-lg font-medium transition-opacity"
-        >
+        <button type="button" onClick={openCreateModal} className="list-add-button">
           <Plus size={18} />
           Nouveau prospect
         </button>
-      </div>
-
-
-      {/* Filters */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div className="flex flex-wrap gap-2">
-          {[
-            { value: '', label: 'Tout' },
-            { value: 'particulier', label: 'Particulier' },
-            { value: 'entreprise', label: 'Entreprise' },
-          ].map((f) => (
-            <button
-              key={f.value}
-              onClick={() => {
-                setTypeFilter(f.value);
-                setPage(1);
-              }}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                typeFilter === f.value
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary text-secondary-foreground hover:bg-accent'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
         <TableSummary total={total} label="prospects" />
       </div>
 
@@ -597,7 +577,11 @@ export default function Prospects() {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:p-5">
+                <div
+                  tabIndex={0}
+                  aria-label="Formulaire du prospect"
+                  className="prospect-modal-scroll min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5"
+                >
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3 [&>div]:min-w-0">
                   <div>
                     <label className="flex items-center gap-1.5 text-sm font-medium">

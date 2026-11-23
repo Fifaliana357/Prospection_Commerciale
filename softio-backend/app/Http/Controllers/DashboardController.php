@@ -346,7 +346,7 @@ class DashboardController extends Controller
                 ->selectRaw('SUM(CASE WHEN prospection.note_actuelle = 1 THEN 1 ELSE 0 END) as not_interested')
                 ->selectRaw('SUM(CASE WHEN COALESCE(prospection.note_actuelle, 0) = 0 THEN 1 ELSE 0 END) as not_rated')
                 ->selectRaw('COUNT(*) as total')
-                ->groupByRaw("COALESCE(NULLIF(offre.denomination, ''), NULLIF(prospection.produit_prospecte, ''), 'Sans offre')")
+                ->groupBy('label')
                 ->orderBy('label')
                 ->get();
             $prospectionStarSummary['by_responsible'] = (clone $starQuery)

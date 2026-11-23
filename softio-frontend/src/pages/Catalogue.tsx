@@ -18,16 +18,12 @@ import { ModalPortal } from '../components/ui/Modal';
 import { useToast } from '../contexts/ToastContext';
 import { formatMGA } from '../lib/utils';
 import { getSessionUser } from '../lib/session';
+import ProtectedImage from '../components/ui/ProtectedImage';
 
 type Tab = 'produit' | 'service' | 'historique';
 
-const API_URL = 'http://127.0.0.1:8000';
-
-function photoUrl(photo?: string | null) {
-  if (!photo) return null;
-  if (photo.startsWith('http')) return photo;
-  const clean = photo.replace(/^\/+/, '').replace(/^storage\//, '');
-  return `${API_URL}/storage/${clean}`;
+function photoUrl(photo: string | null | undefined, productId: number) {
+  return photo ? `/produits/${productId}/photo` : null;
 }
 
 export default function Catalogue() {
@@ -171,7 +167,7 @@ export default function Catalogue() {
       prix_unitaire: String(p.prix_unitaire ?? ''),
     });
     setPhotoFile(null);
-    setPhotoPreview(photoUrl(p.photo));
+    setPhotoPreview(photoUrl(p.photo, p.id_produit));
     setShowPModal(true);
   };
 
@@ -313,7 +309,7 @@ export default function Catalogue() {
       </div>
 
       {/* Search + actions */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+      <div className="list-toolbar mb-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
           <input
@@ -347,8 +343,9 @@ export default function Catalogue() {
 
         {canEditCatalog && tab !== 'historique' && (
           <button
+            type="button"
             onClick={tab === 'produit' ? openCreateProduit : openCreateOffre}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90"
+            className="list-add-button"
           >
             <Plus size={18} />
             {tab === 'produit' ? 'Nouveau produit' : 'Nouveau service'}
@@ -413,10 +410,11 @@ export default function Catalogue() {
                             <Pencil size={15} />
                           </button>}
                           <button
+                            type="button"
                             onClick={() =>
                               setPhotoModal({
                                 open: true,
-                                url: photoUrl(p.photo),
+                                url: photoUrl(p.photo, p.id_produit),
                                 title: p.designation,
                                 reference: p.reference,
                               })
@@ -521,14 +519,20 @@ export default function Catalogue() {
                       {canEditCatalog && <td className="px-3 py-2.5">
                         <div className="flex justify-end gap-1.5">
                           <button
+                            type="button"
                             onClick={() => openEditOffre(o)}
                             className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 hover:bg-blue-500/20"
+                            title="Modifier le service"
+                            aria-label={`Modifier le service ${o.denomination}`}
                           >
                             <Pencil size={15} />
                           </button>
                           <button
+                            type="button"
                             onClick={() => setDeleteTarget({ type: 'service', id: o.id_offre })}
                             className="p-1.5 rounded-lg bg-red-500/10 text-red-600 hover:bg-red-500/20"
+                            title="Supprimer le service"
+                            aria-label={`Supprimer le service ${o.denomination}`}
                           >
                             <Trash2 size={15} />
                           </button>
@@ -599,7 +603,11 @@ export default function Catalogue() {
                 {photoPreview ? (
                   <div className="flex items-center gap-2">
                     <label className="flex-1 flex items-center gap-3 px-3 py-2.5 rounded-xl border border-dashed border-border cursor-pointer hover:bg-accent/50">
-                      <img src={photoPreview} alt="" className="w-10 h-10 object-cover rounded-lg" />
+                      {photoPreview.startsWith('/produits/') ? (
+                        <ProtectedImage endpoint={photoPreview} alt={pForm.designation || 'Photo du produit'} className="h-10 w-10 rounded-lg object-cover" />
+                      ) : (
+                        <img src={photoPreview} alt="" className="h-10 w-10 rounded-lg object-cover" />
+                      )}
                       <span className="text-sm text-muted-foreground">
                         {photoFile ? photoFile.name : 'Remplacer la photo'}
                       </span>
@@ -806,10 +814,10 @@ export default function Catalogue() {
           </div>
           <div className="p-4">
             {photoModal.url ? (
-              <img
-                src={photoModal.url}
+              <ProtectedImage
+                endpoint={photoModal.url}
                 alt={photoModal.title}
-                className="w-full rounded-xl object-contain max-h-[60vh]"
+                className="max-h-[60vh] w-full rounded-xl object-contain"
               />
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">

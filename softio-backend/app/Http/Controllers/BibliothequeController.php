@@ -83,6 +83,19 @@ class BibliothequeController extends Controller
         return response()->download($path, $fichier->nom);
     }
 
+    public function preview(Request $request, int $id)
+    {
+        $fichier = Bibliotheque::query()
+            ->where('id_admin', $request->user()->id_admin)
+            ->where('type', 'image')
+            ->findOrFail($id);
+        $path = Storage::disk('public')->path($fichier->chemin);
+
+        abort_unless(is_file($path), 404, 'Image introuvable.');
+
+        return response()->file($path, ['Cache-Control' => 'private, max-age=300']);
+    }
+
     public function destroy(Request $request, int $id)
     {
         $fichier = Bibliotheque::query()->where('id_admin', $request->user()->id_admin)->findOrFail($id);

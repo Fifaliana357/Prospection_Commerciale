@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
-  CalendarDays, Check, ClipboardList, Eye, FileText,
+  CalendarDays, ClipboardList, Eye, FileText,
   Minus, Plus, Search, Trash2, X,
 } from "lucide-react"
 import Modal from "@/components/ui/Modal"
+import DateRangeModal from "@/components/ui/DateRangeModal"
 import DatePicker from "@/components/ui/DatePicker"
 import Select from "@/components/ui/Select"
 import TablePagination from "@/components/ui/TablePagination"
 import TableSummary from "@/components/ui/TableSummary"
 import PageHeader from "@/components/ui/PageHeader"
+import FilterPills from "@/components/ui/FilterPills"
 import { useToast } from "@/contexts/ToastContext"
 import { formatAR, formatMGA } from "@/lib/utils"
 import type { Client } from "@/services/clients"
@@ -88,7 +90,7 @@ export default function Facturation() {
   const navigate = useNavigate()
   const toast = useToast()
   const toastRef = useRef(toast)
-  const [view, setView] = useState<View>("enregistrement")
+  const [view, setView] = useState<View>("liste")
   const [mode, setMode] = useState<ModalMode>(null)
   const [clients, setClients] = useState<Client[]>([])
   const [products, setProducts] = useState<Produit[]>([])
@@ -106,8 +108,6 @@ export default function Facturation() {
   const [filterType, setFilterType] = useState("tous")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
-  const [draftDateFrom, setDraftDateFrom] = useState("")
-  const [draftDateTo, setDraftDateTo] = useState("")
   const [selectedDocument, setSelectedDocument] = useState<FacturationDocument | null>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [documentForm, setDocumentForm] = useState({
@@ -317,7 +317,7 @@ export default function Facturation() {
       const saved = editingId
         ? await updateFacturationDocument(editingId, createPayload())
         : await createFacturationDocument(createPayload())
-      toast.success("Brouillon enregistré. Choisissez son type dans l’aperçu.")
+      toast.success("Brouillon enregistré. Vous pouvez ajuster son type dans l’aperçu.")
       setMode(null)
       resetDocumentForm()
       navigate(`/facturation/${saved.id_devis}/apercu`)
@@ -365,28 +365,13 @@ export default function Facturation() {
   }
 
   const openDateFilter = () => {
-    setDraftDateFrom(dateFrom)
-    setDraftDateTo(dateTo)
     setMode("dates")
-  }
-
-  const applyDateFilter = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (draftDateFrom && draftDateTo && draftDateFrom > draftDateTo) {
-      toast.error("La date de début doit précéder la date de fin")
-      return
-    }
-    setDateFrom(draftDateFrom)
-    setDateTo(draftDateTo)
-    setPage(1)
-    setLoadingList(true)
-    setMode(null)
   }
 
   const changeView = (nextView: View) => {
     setView(nextView)
     setPage(1)
-    setLoadingList(nextView !== "enregistrement")
+    setLoadingList(true)
   }
 
   return (
@@ -403,7 +388,6 @@ export default function Facturation() {
 
       <nav className="page-tabs" role="tablist" aria-label="Facturation">
         {([
-          ["enregistrement", "Enregistrement", Plus],
           ["liste", "Liste", ClipboardList],
           ["brouillon", "Brouillon", FileText],
         ] as const).map(([value, label, Icon]) => (
@@ -448,7 +432,7 @@ export default function Facturation() {
         </section>
       ) : (
         <section className="space-y-4">
-          <div className="flex flex-col gap-3 lg:flex-row">
+          <div className="list-toolbar">
             <label className="relative flex-1">
               <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -464,29 +448,25 @@ export default function Facturation() {
                 aria-label="Rechercher une facture"
               />
             </label>
-            <div className="flex flex-wrap gap-2">
-              {[
+            <FilterPills
+              value={filterType}
+              options={[
                 ["tous", "Tous"],
                 ["produit", "Produit"],
                 ["service", "Service"],
-              ].map(([value, label]) => (
-                <button
-                  type="button"
-                  key={value}
-                  onClick={() => {
-                    setFilterType(value)
-                    setPage(1)
-                    setLoadingList(true)
-                  }}
-                  className={`${buttonClass} rounded-full border border-border px-3 py-2 text-xs ${
-                    filterType === value ? "bg-primary text-primary-foreground" : "bg-card hover:bg-accent"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-              <button type="button" onClick={openDateFilter} className={`${buttonClass} rounded-full border border-border bg-card px-3 py-2 text-xs hover:bg-accent`}>
+              ].map(([value, label]) => ({ value, label }))}
+              onChange={(value) => {
+                setFilterType(value)
+                setPage(1)
+                setLoadingList(true)
+              }}
+            />
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={openDateFilter} className="date-filter-button">
                 <CalendarDays size={14} /> Dates
+              </button>
+              <button type="button" onClick={openNewDocument} disabled={loadingCatalog} className="list-add-button">
+                <Plus size={16} /> {loadingCatalog ? "Chargement..." : "Nouveau document"}
               </button>
             </div>
             <TableSummary total={documentsTotal} label="documents" />
@@ -551,7 +531,7 @@ export default function Facturation() {
                               <button type="button" onClick={() => void showDetails(document)} className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:opacity-80" aria-label="Détail du document" title="Détail et impression">
                                 <Eye size={14} /> Détail
                               </button>
-                              <button type="button" onClick={() => { setSelectedDocument(document); setMode("delete") }} disabled={saving || Boolean(document.vente)} className="rounded-full bg-destructive p-2 text-white hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40" aria-label="Supprimer le document" title={document.vente ? "Document lié à une vente" : "Supprimer le document"}>
+                              <button type="button" onClick={() => { setSelectedDocument(document); setMode("delete") }} disabled={saving} className="rounded-full bg-destructive p-2 text-white hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40" aria-label="Supprimer le document" title={document.vente ? "Supprimer le document (la vente sera conservée)" : "Supprimer le document"}>
                                 <Trash2 size={14} />
                               </button>
                             </>
@@ -577,6 +557,22 @@ export default function Facturation() {
             <label className="block space-y-1.5 text-sm font-medium">
               <span>Date</span>
               <DatePicker value={documentForm.date} onChange={(date) => setDocumentForm({ ...documentForm, date })} />
+            </label>
+            <label className="block space-y-1.5 text-sm font-medium">
+              <span>Type de document</span>
+              <Select
+                value={documentForm.type}
+                onChange={(value) => {
+                  if (value === "devis" || value === "proforma" || value === "facture") {
+                    setDocumentForm({ ...documentForm, type: value })
+                  }
+                }}
+                options={[
+                  ...(documentForm.type === "facture" ? [{ value: "facture", label: "Facture" }] : []),
+                  { value: "devis", label: "Devis" },
+                  { value: "proforma", label: "Proforma" },
+                ]}
+              />
             </label>
             <label className="block space-y-1.5 text-sm font-medium sm:col-span-2">
               <span>Client</span>
@@ -697,7 +693,7 @@ export default function Facturation() {
             <div className="flex flex-wrap justify-end gap-2">
               <button type="button" onClick={closeModal} className={`${buttonClass} border border-border hover:bg-accent`}>Annuler</button>
               <button type="button" onClick={() => void saveDocument()} disabled={saving || loadingCatalog} className={`${buttonClass} bg-primary text-primary-foreground hover:opacity-90`}>
-                <FileText size={15} /> {saving ? "Enregistrement..." : "Enregistrer et choisir le type"}
+                <FileText size={15} /> {saving ? "Enregistrement..." : "Enregistrer le brouillon"}
               </button>
             </div>
           </div>
@@ -762,6 +758,7 @@ export default function Facturation() {
         <div className="space-y-5">
           <p className="text-sm text-muted-foreground">
             Supprimer le document <strong className="text-foreground">{selectedDocument?.numero}</strong> ? Cette action est définitive.
+            {selectedDocument?.vente && " La vente associée sera conservée."}
           </p>
           <div className="flex justify-end gap-2 border-t border-border pt-4">
             <button type="button" onClick={closeModal} className={`${buttonClass} border border-border hover:bg-accent`}>Annuler</button>
@@ -772,22 +769,26 @@ export default function Facturation() {
         </div>
       </Modal>
 
-      <Modal open={mode === "dates"} onClose={closeModal} title="Filtrer par dates" size="sm">
-        <form onSubmit={applyDateFilter} className="space-y-5">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block space-y-1.5 text-sm font-medium"><span>Du</span><DatePicker value={draftDateFrom} onChange={setDraftDateFrom} /></label>
-            <label className="block space-y-1.5 text-sm font-medium"><span>Au</span><DatePicker value={draftDateTo} onChange={setDraftDateTo} /></label>
-          </div>
-          <div className="flex justify-between gap-2 border-t border-border pt-4">
-            <button type="button" onClick={() => { setDraftDateFrom(""); setDraftDateTo(""); setDateFrom(""); setDateTo(""); setPage(1); setLoadingList(true); setMode(null) }} className={`${buttonClass} text-muted-foreground hover:bg-accent`}>
-              <X size={15} /> Effacer
-            </button>
-            <button type="submit" className={`${buttonClass} bg-primary text-primary-foreground hover:opacity-90`}>
-              <Check size={15} /> Valider
-            </button>
-          </div>
-        </form>
-      </Modal>
+      {mode === "dates" && <DateRangeModal
+        open={mode === "dates"}
+        onClose={closeModal}
+        initialFrom={dateFrom}
+        initialTo={dateTo}
+        onApply={(from, to) => {
+          setDateFrom(from)
+          setDateTo(to)
+          setPage(1)
+          setLoadingList(true)
+          setMode(null)
+        }}
+        onClear={() => {
+          setDateFrom("")
+          setDateTo("")
+          setPage(1)
+          setLoadingList(true)
+          setMode(null)
+        }}
+      />}
     </div>
   )
 }

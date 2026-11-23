@@ -16,6 +16,7 @@ import { useToast } from '../contexts/ToastContext';
 import TablePagination from '../components/ui/TablePagination';
 import TableSummary from '../components/ui/TableSummary';
 import PageHeader from '../components/ui/PageHeader';
+import FilterPills from '../components/ui/FilterPills';
 import Modal from '../components/ui/Modal';
 import RendezVousCalendar from '../components/ui/RendezVousCalendar';
 import DatePicker from '../components/ui/DatePicker';
@@ -269,69 +270,57 @@ export default function RendezVousPage() {
         icon={<CalendarDays size={23} />}
       />
 
-      {/* Search + Bouton */}
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-          <input
-            type="text"
-            placeholder="Rechercher..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
-          />
-        </div>
-        <button
-          onClick={openCreate}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 font-medium"
-        >
-          <Plus size={18} />
-          Nouveau rendez-vous
+      <div className="page-tabs" role="tablist" aria-label="Affichage des rendez-vous">
+        <button type="button" role="tab" aria-selected={view === 'calendar'} onClick={() => setView('calendar')} className="page-tab">
+          <CalendarDays size={16} /> Calendrier
+        </button>
+        <button type="button" role="tab" aria-selected={view === 'list'} onClick={() => setView('list')} className="page-tab">
+          <List size={16} /> Liste
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="page-tabs" role="tablist" aria-label="Affichage des rendez-vous">
-          <button type="button" role="tab" aria-selected={view === 'calendar'} onClick={() => setView('calendar')} className="page-tab">
-            <CalendarDays size={16} /> Calendrier
-          </button>
-          <button type="button" role="tab" aria-selected={view === 'list'} onClick={() => setView('list')} className="page-tab">
-            <List size={16} /> Liste
-          </button>
-        </div>
-        {view === 'list' && (
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div className="flex flex-wrap gap-2">
-          {[
+      {view === 'list' && (
+        <div className="list-toolbar mb-4">
+          <label className="relative min-w-[14rem] flex-1 basis-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+            <input
+              type="search"
+              placeholder="Rechercher..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              aria-label="Rechercher un rendez-vous"
+              className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </label>
+          <FilterPills
+            value={filtre}
+            options={[
             { value: '', label: 'Tout' },
             { value: 'aujourdhui', label: "Aujourd'hui" },
             { value: 'demain', label: 'Demain' },
             { value: 'semaine', label: 'Cette semaine' },
             { value: 'mois', label: 'Ce mois' },
-          ].map((f) => (
-            <button
-              key={f.value}
-              onClick={() => {
-                setFiltre(f.value);
-                setPage(1);
-              }}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                filtre === f.value
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary text-secondary-foreground hover:bg-accent'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
+            ]}
+            onChange={(value) => { setFiltre(value); setPage(1); }}
+          />
+          <button type="button" onClick={openCreate} className="list-add-button">
+            <Plus size={18} />
+            Nouveau rendez-vous
+          </button>
           <TableSummary total={total} label="rendez-vous" />
         </div>
-      </div>
-        )}
-      </div>
+      )}
+      {view === 'calendar' && (
+        <div className="list-toolbar justify-end">
+          <button type="button" onClick={openCreate} className="list-add-button">
+            <Plus size={18} />
+            Nouveau rendez-vous
+          </button>
+        </div>
+      )}
 
       {view === 'calendar' ? (
         <RendezVousCalendar
@@ -413,14 +402,20 @@ export default function RendezVousPage() {
                     <td className="px-3 py-2.5">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
+                          type="button"
                           onClick={() => openEdit(rdv)}
                           className="p-1.5 rounded-lg bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
+                          title="Modifier le rendez-vous"
+                          aria-label={`Modifier le rendez-vous ${rdv.id_rendez_vous}`}
                         >
                           <Pencil size={15} />
                         </button>
                         <button
+                          type="button"
                           onClick={() => setDeleteId(rdv.id_rendez_vous)}
                           className="p-1.5 rounded-lg bg-red-500/10 text-red-600 hover:bg-red-500/20"
+                          title="Supprimer le rendez-vous"
+                          aria-label={`Supprimer le rendez-vous ${rdv.id_rendez_vous}`}
                         >
                           <Trash2 size={15} />
                         </button>

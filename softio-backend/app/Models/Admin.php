@@ -33,12 +33,16 @@ class Admin extends Authenticatable
         'signature',
         'signature_width',
         'signature_height',
+        'softio_user_id',
+        'softio_organisation_id',
     ];
 
     protected $hidden = [
         'password',
         'token',
         'pass_token',
+        'softio_user_id',
+        'softio_organisation_id',
     ];
 
     protected $casts = [
@@ -46,6 +50,8 @@ class Admin extends Authenticatable
         'email_verification_required' => 'boolean',
         'is_first_login' => 'boolean',
         'est_admin_site' => 'boolean',
+        'softio_user_id' => 'integer',
+        'softio_organisation_id' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

@@ -27,13 +27,15 @@ class Commercial extends Authenticatable
         'signature_width',
         'signature_height',
         'actif',
+        'softio_user_id',
     ];
 
-    protected $hidden = ['password', 'pass_token'];
+    protected $hidden = ['password', 'pass_token', 'softio_user_id'];
 
     protected $casts = [
         'actif' => 'boolean',
         'is_first_login' => 'boolean',
+        'softio_user_id' => 'integer',
     ];
 
     public function admin()

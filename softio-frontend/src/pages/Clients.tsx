@@ -80,7 +80,7 @@ export default function Clients() {
     <div className="mx-auto max-w-[1600px] space-y-5">
       <PageHeader title="Clients" description="Les personnes qui ont déjà acheté un produit ou un service." icon={<UserRoundCheck size={23} />} />
 
-      <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="list-toolbar">
         <label className="relative flex-1">
           <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -137,9 +137,7 @@ export default function Clients() {
             </tbody>
           </table>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground">
-          <TablePagination page={page} lastPage={lastPage} onChange={setPage} />
-        </div>
+        <TablePagination page={page} lastPage={lastPage} onChange={setPage} />
       </section>
     </div>
   )

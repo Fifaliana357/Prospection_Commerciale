@@ -2,7 +2,7 @@ import { NavLink } from "react-router-dom"
 import {
   LayoutDashboard, UserSearch, Target, CalendarDays, Sparkles, Trophy,
   Users, ShoppingCart, FileText, LifeBuoy, Package, Boxes, UserCog, BookOpen, GraduationCap,
-  X, ChevronLeft, ChevronRight,
+  X, ChevronLeft, ChevronRight, UserRound,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -87,7 +87,7 @@ export default function Sidebar({
         )}
       >
         {/* Header */}
-        <div className="flex h-[68px] shrink-0 items-center justify-between border-b border-white/10 px-4">
+        <div data-tour="brand" className="flex h-[68px] shrink-0 items-center justify-between border-b border-white/10 px-4">
           {!collapsed ? (
             <div className="flex min-w-0 items-center px-1">
               <img src={softioLogo} alt="Softio — Prospection commerciale" className="h-auto w-[124px] max-w-full object-contain" />
@@ -133,6 +133,7 @@ export default function Sidebar({
                       <NavLink
                         to={path}
                         onClick={onClose}
+                        data-tour={`navigation-${path.slice(1)}`}
                         title={collapsed ? name : undefined}
                         className={({ isActive }) =>
                           cn(
@@ -173,19 +174,27 @@ export default function Sidebar({
         <NavLink
           to="/profil"
           onClick={onClose}
+          data-tour="sidebar-profile"
           title={collapsed ? user.nom : undefined}
-          className={cn("mx-3 mb-3 flex shrink-0 flex-col items-center gap-2 rounded-xl border-t border-white/10 px-2 pt-4 text-center transition-colors hover:bg-white/[0.06]")}
+          className={cn(
+            "mx-3 mb-3 flex shrink-0 items-center gap-3 rounded-xl border-t border-white/10 px-3 pt-4 transition-colors hover:bg-white/[0.06]",
+            collapsed ? "justify-center" : "justify-start"
+          )}
         >
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-semibold text-white">
-            {user.initiale}
-          </span>
-          {!collapsed && (
-            <span className="min-w-0 py-1">
-              <span className="block truncate text-xs font-semibold text-white">{user.nom}</span>
-              <span className="block text-[10px] text-slate-400">
-                {user.role === "admin" ? "Administrateur" : "Commercial"}
+          {collapsed ? (
+            <UserRound size={18} className="shrink-0 text-slate-300" />
+          ) : (
+            <>
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-semibold text-white">
+                {user.initiale}
               </span>
-            </span>
+              <span className="min-w-0 py-1">
+                <span className="block truncate text-xs font-semibold text-white">{user.nom}</span>
+                <span className="block text-[10px] text-slate-400">
+                  {user.role === "admin" ? "Admin" : "Commercial"}
+                </span>
+              </span>
+            </>
           )}
         </NavLink>
       </aside>

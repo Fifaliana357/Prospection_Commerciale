@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useAnchoredPopover } from "./useAnchoredPopover"
 
 const weekDays = ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"]
 
@@ -51,19 +53,22 @@ export default function DatePicker({
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const calendarRef = useRef<HTMLDivElement>(null)
+  const calendarPosition = useAnchoredPopover(open, rootRef, calendarRef)
 
   useEffect(() => {
     if (!open) return
-    const handlePointerDown = (event: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false)
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (!rootRef.current?.contains(target) && !calendarRef.current?.contains(target)) setOpen(false)
     }
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false)
     }
-    document.addEventListener("mousedown", handlePointerDown)
+    document.addEventListener("pointerdown", handlePointerDown)
     document.addEventListener("keydown", handleKeyDown)
     return () => {
-      document.removeEventListener("mousedown", handlePointerDown)
+      document.removeEventListener("pointerdown", handlePointerDown)
       document.removeEventListener("keydown", handleKeyDown)
     }
   }, [open])
@@ -158,12 +163,14 @@ export default function DatePicker({
         </button>
       </div>
 
-      {open && (
+      {open && createPortal(
         <div
+          ref={calendarRef}
           role="dialog"
           aria-label="Calendrier"
+          style={calendarPosition}
           className={cn(
-            "animate-modal-dialog-enter absolute left-0 top-[calc(100%+8px)] z-[120] w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-primary/15 bg-card p-4 text-foreground shadow-[0_20px_55px_rgba(15,35,40,0.2)]",
+            "animate-modal-dialog-enter max-h-[calc(100dvh-24px)] w-[min(20rem,calc(100vw-24px))] overflow-y-auto rounded-2xl border border-primary/15 bg-card p-4 text-foreground shadow-[0_20px_55px_rgba(15,35,40,0.2)]",
             calendarClassName,
           )}
         >
@@ -241,7 +248,8 @@ export default function DatePicker({
               Aujourd’hui
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )

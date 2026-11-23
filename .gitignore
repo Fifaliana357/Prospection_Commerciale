@@ -1,0 +1,11 @@
+**/.env
+**/.env.*
+!**/.env.example
+**/.phpunit.result.cache
+**/.phpunit.cache/
+**/node_modules/
+**/vendor/
+**/dist/
+**/public/build/
+**/*.zip
+**/*.tsbuildinfo

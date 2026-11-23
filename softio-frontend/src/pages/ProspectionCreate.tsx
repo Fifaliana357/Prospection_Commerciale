@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, MessageSquare } from 'lucide-react';
+import { Check, MessageSquare } from 'lucide-react';
 import axios from 'axios';
 import { createProspection } from '../services/prospections';
 import { getClients, type Client } from '../services/clients';
 import { useToast } from '../contexts/ToastContext';
-import PageHeader from '../components/ui/PageHeader';
+import Modal from '../components/ui/Modal';
 import Select from '../components/ui/Select';
 import { getFacturationCatalog } from '../services/facturation';
 
@@ -14,8 +13,15 @@ type CatalogueItem = {
   type: 'Produit' | 'Service';
 };
 
-export default function ProspectionCreate() {
-  const navigate = useNavigate();
+export default function ProspectionCreate({
+  open,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
   const toast = useToast();
   const toastRef = useRef(toast);
 
@@ -101,7 +107,7 @@ export default function ProspectionCreate() {
       });
 
       toast.success(res.message || 'Prospection créée avec succès');
-      navigate(`/prospections/${res.prospection.id_prospection}`);
+      onCreated();
     } catch (error: unknown) {
       const message = axios.isAxiosError<{ message?: string }>(error)
         ? error.response?.data?.message
@@ -113,22 +119,8 @@ export default function ProspectionCreate() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl px-2 py-4 sm:px-4 sm:py-5">
-      <button
-        onClick={() => navigate('/prospections')}
-        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
-      >
-        <ArrowLeft size={16} />
-        Retour aux prospections
-      </button>
-
-      <PageHeader
-        title="Nouvelle prospection"
-        description="Enregistrez une nouvelle action de prospection."
-        icon={<MessageSquare size={23} />}
-      />
-
-      <form onSubmit={handleSubmit} className="bg-card border border-border rounded-xl p-6 space-y-5">
+    <Modal open={open} onClose={onClose} title="Nouvelle prospection" titleIcon={<MessageSquare size={18} />} size="lg">
+      <form onSubmit={handleSubmit} className="space-y-5">
         {/* Prospect */}
         <div>
           <label className="text-sm font-medium">Prospect *</label>
@@ -239,24 +231,24 @@ export default function ProspectionCreate() {
           </p>
         )}
 
-        <div className="flex justify-end gap-3 pt-2">
+        <div className="flex flex-col-reverse justify-end gap-2 border-t border-border pt-4 sm:flex-row">
           <button
             type="button"
-            onClick={() => navigate('/prospections')}
-            className="px-4 py-2 border border-border rounded-lg hover:bg-accent"
+            onClick={onClose}
+            className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium hover:bg-accent"
           >
             Annuler
           </button>
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
             <Check size={16} />
             {saving ? 'Création...' : 'Créer la prospection'}
           </button>
         </div>
       </form>
-    </div>
+    </Modal>
   );
 }

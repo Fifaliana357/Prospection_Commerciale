@@ -9,6 +9,7 @@ import {
   type CompanySettings,
 } from '../services/account';
 import { getSessionUser } from '../lib/session';
+import ProtectedImage from '../components/ui/ProtectedImage';
 
 type ImageField = 'logo' | 'cachet' | 'signature';
 
@@ -44,7 +45,7 @@ export default function Entreprise() {
   const [images, setImages] = useState<Partial<Record<ImageField, File>>>({});
   const [imagePreviews, setImagePreviews] = useState<Partial<Record<ImageField, string>>>({});
   const [saving, setSaving] = useState(false);
-  const [imageToPreview, setImageToPreview] = useState<string | null>(null);
+  const [imageToPreview, setImageToPreview] = useState<{ field: ImageField; previewUrl?: string } | null>(null);
   const imageUrlsRef = useRef<Partial<Record<ImageField, string>>>({});
 
   useEffect(() => () => {
@@ -97,10 +98,6 @@ export default function Entreprise() {
 
   const updateField = (field: keyof CompanySettings, value: string) => {
     setCompany((current) => ({ ...current, [field]: value }));
-  };
-
-  const displayImage = (field: ImageField) => {
-    return imagePreviews[field] || company[`${field}_url`];
   };
 
   return (
@@ -164,17 +161,20 @@ export default function Entreprise() {
           </div>
           <div className="space-y-4 p-5">
             {(['logo', 'cachet', 'signature'] as const).map((field) => {
-              const preview = displayImage(field);
+              const localPreview = imagePreviews[field];
+              const hasStoredImage = Boolean(company[`${field}_url`]);
               return (
                 <div key={field} className="grid gap-3 rounded-lg border border-dashed border-border p-3 sm:grid-cols-[1fr_1.2fr] sm:items-center">
                   <button
                     type="button"
-                    onClick={() => preview && setImageToPreview(preview)}
+                    onClick={() => (localPreview || hasStoredImage) && setImageToPreview({ field, previewUrl: localPreview })}
                     className="flex h-24 items-center justify-center overflow-hidden rounded-lg bg-muted/40"
                     aria-label={`Aperçu ${imageLabels[field]}`}
                   >
-                    {preview ? (
-                      <img src={preview} alt={imageLabels[field]} className="max-h-full max-w-full object-contain" />
+                    {localPreview ? (
+                      <img src={localPreview} alt={imageLabels[field]} className="max-h-full max-w-full object-contain" />
+                    ) : hasStoredImage ? (
+                      <ProtectedImage endpoint={`/entreprise/images/${field}`} alt={imageLabels[field]} className="h-full w-full object-contain" />
                     ) : (
                       <span className="text-sm text-muted-foreground">Aucun fichier</span>
                     )}
@@ -217,7 +217,11 @@ export default function Entreprise() {
       </form>
 
       <Modal open={imageToPreview !== null} onClose={() => setImageToPreview(null)} title="Aperçu de l’image" size="md">
-        {imageToPreview && <img src={imageToPreview} alt="Aperçu" className="mx-auto max-h-[65vh] max-w-full object-contain" />}
+        {imageToPreview && (imageToPreview.previewUrl ? (
+          <img src={imageToPreview.previewUrl} alt={imageLabels[imageToPreview.field]} className="mx-auto max-h-[65vh] max-w-full object-contain" />
+        ) : (
+          <ProtectedImage endpoint={`/entreprise/images/${imageToPreview.field}`} alt={imageLabels[imageToPreview.field]} className="mx-auto max-h-[65vh] max-w-full object-contain" />
+        ))}
       </Modal>
     </div>
   );

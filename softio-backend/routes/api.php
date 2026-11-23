@@ -20,6 +20,7 @@ use App\Http\Controllers\ProspectionController;
 use App\Http\Controllers\RendezVousController;
 use App\Http\Controllers\SavTicketController;
 use App\Http\Controllers\StockController;
+use App\Http\Controllers\SoftioSsoController;
 use App\Http\Controllers\VenteController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TutorielController;
@@ -42,18 +43,23 @@ Route::post('/email/verification-notification', [AuthController::class, 'resendV
 Route::get('/email/verify/{type}/{id}/{hash}', [AuthController::class, 'verifyEmail'])
     ->middleware(['signed', 'throttle:10,1'])
     ->name('verification.verify');
+Route::post('/sso', [SoftioSsoController::class, 'exchange'])
+    ->middleware('throttle:5,1')
+    ->name('api.sso.exchange');
 
 // --- ROUTES PROTÉGÉES (Nécessite d'être connecté avec un Token) ---
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'softio'])->group(function () {
 
     // 1. Authentification
     Route::get('/me', [AuthController::class, 'me']);
+    Route::post('/onboarding/complete', [AuthController::class, 'completeOnboarding']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/account/profile', [AccountController::class, 'show']);
     Route::put('/account/profile', [AccountController::class, 'update']);
     Route::put('/account/email', [AccountController::class, 'updateEmail']);
     Route::put('/account/password', [AccountController::class, 'updatePassword']);
     Route::get('/entreprise', [EntrepriseController::class, 'show']);
+    Route::get('/entreprise/images/{field}', [EntrepriseController::class, 'image']);
     Route::post('/entreprise', [EntrepriseController::class, 'update']);
     Route::get('/comptabilite', [ComptabiliteController::class, 'index']);
     Route::get('/comptabilite/export', [ComptabiliteController::class, 'export']);
@@ -69,6 +75,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // 3. Catalogue & Stock
     Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/produits/{id}/photo', [ProduitController::class, 'photo']);
         Route::apiResource('produits', ProduitController::class);
         Route::apiResource('offres', OffreController::class);
     });
@@ -124,6 +131,7 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/bibliotheque', [BibliothequeController::class, 'index']);
     Route::post('/bibliotheque', [BibliothequeController::class, 'store']);
+Route::get('/bibliotheque/{id}/preview', [BibliothequeController::class, 'preview']);
     Route::get('/bibliotheque/{id}/download', [BibliothequeController::class, 'download']);
     Route::delete('/bibliotheque/{id}', [BibliothequeController::class, 'destroy']);
 

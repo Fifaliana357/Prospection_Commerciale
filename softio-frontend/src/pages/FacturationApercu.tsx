@@ -9,6 +9,7 @@ import { useToast } from "@/contexts/ToastContext"
 import { getSessionUser } from "@/lib/session"
 import Barcode from "@/components/Barcode"
 import Modal from "@/components/ui/Modal"
+import ProtectedImage from "@/components/ui/ProtectedImage"
 import Select from "@/components/ui/Select"
 import {
   downloadFacturationDocument,
@@ -282,10 +283,10 @@ export default function FacturationApercu() {
           companyNif: company.nif || current.companyNif,
           companyStat: company.stat || current.companyStat,
           companyRcs: company.rcs || current.companyRcs,
-          logo: company.logo_url || current.logo,
+          logo: company.logo_url ? "/entreprise/images/logo" : "",
         }))
-        setCompanyCachetUrl(company.cachet_url)
-        setCompanySignatureUrl(company.signature_url)
+        setCompanyCachetUrl(company.cachet_url ? "/entreprise/images/cachet" : null)
+        setCompanySignatureUrl(company.signature_url ? "/entreprise/images/signature" : null)
       } catch {
         if (active) toastRef.current.error("Impossible de charger les informations de l’entreprise.")
       }
@@ -716,7 +717,7 @@ export default function FacturationApercu() {
                         <Pencil size={12} />
                       </button>
                       {settings.logo ? (
-                        <img src={settings.logo} alt="Logo" className="mx-auto mb-2 max-h-12 max-w-full object-contain" />
+                        <ProtectedImage endpoint={settings.logo} alt="Logo" className="mx-auto mb-2 max-h-12 max-w-full object-contain" />
                       ) : (
                         <div className="mb-1 break-words text-lg font-bold" style={{ color: settings.accent }}>
                           {settings.companyName || "Votre entreprise"}
@@ -757,8 +758,8 @@ export default function FacturationApercu() {
                         <Pencil size={13} />
                       </button>
                       {settings.logo ? (
-                        <img
-                          src={settings.logo}
+                        <ProtectedImage
+                          endpoint={settings.logo}
                           alt="Logo"
                           onPointerDown={(event) => startImageDrag(event, "logo")}
                           onPointerMove={moveImage}
@@ -891,8 +892,8 @@ export default function FacturationApercu() {
                   {format !== "Ticket" && <p className="font-medium">Le responsable</p>}
                   {format !== "Ticket" && (companyCachetUrl || companySignatureUrl) && (
                     <div className="relative grid min-h-32 w-full max-w-[320px] place-items-center print:min-h-24">
-                      {companyCachetUrl && <img
-                        src={companyCachetUrl}
+                      {companyCachetUrl && <ProtectedImage
+                        endpoint={companyCachetUrl}
                         alt="Cachet de l’entreprise"
                         onPointerDown={(event) => startImageDrag(event, "stamp")}
                         onPointerMove={moveImage}
@@ -901,8 +902,8 @@ export default function FacturationApercu() {
                         style={{ width: `${settings.stampWidth}px`, maxWidth: "90%", position: "absolute", left: "50%", top: "50%", transform: `translate(calc(-50% + ${settings.stampX}px), calc(-50% + ${settings.stampY}px)) rotate(${settings.stampRotation}deg)`, touchAction: "none" }}
                         className="cursor-move object-contain"
                       />}
-                      {companySignatureUrl && <img
-                        src={companySignatureUrl}
+                      {companySignatureUrl && <ProtectedImage
+                        endpoint={companySignatureUrl}
                         alt="Signature de l’entreprise"
                         onPointerDown={(event) => startImageDrag(event, "signature")}
                         onPointerMove={moveImage}

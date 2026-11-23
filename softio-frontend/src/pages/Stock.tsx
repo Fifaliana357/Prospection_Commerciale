@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react"
 import {
   Archive, CalendarDays, Check, ClipboardList,
-  Minus, Pencil, Plus, Search, Trash2, X,
+  Minus, Pencil, Plus, Search, Trash2,
 } from "lucide-react"
 import Modal from "@/components/ui/Modal"
+import DateRangeModal from "@/components/ui/DateRangeModal"
 import DatePicker from "@/components/ui/DatePicker"
 import Select from "@/components/ui/Select"
 import TablePagination from "@/components/ui/TablePagination"
@@ -85,8 +86,6 @@ export default function Stock() {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
-  const [draftDateFrom, setDraftDateFrom] = useState("")
-  const [draftDateTo, setDraftDateTo] = useState("")
 
   useEffect(() => {
     toastRef.current = toast
@@ -230,22 +229,7 @@ export default function Stock() {
   }
 
   const openDateModal = () => {
-    setDraftDateFrom(dateFrom)
-    setDraftDateTo(dateTo)
     setMode("dates")
-  }
-
-  const applyDateFilter = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (draftDateFrom && draftDateTo && draftDateFrom > draftDateTo) {
-      toast.error("La date de début doit précéder la date de fin")
-      return
-    }
-    setDateFrom(draftDateFrom)
-    setDateTo(draftDateTo)
-    setMovementPage(1)
-    setLoadingMovements(true)
-    setMode(null)
   }
 
   return (
@@ -281,11 +265,7 @@ export default function Stock() {
 
       {tab === "approvisionnement" ? (
         <section className="space-y-4">
-          <div>
-            <h2 className="text-base font-semibold">Historique des approvisionnements</h2>
-            <p className="text-sm text-muted-foreground">Consultez et gérez les entrées de stock enregistrées.</p>
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="list-toolbar">
             <label className="relative flex-1">
               <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -305,7 +285,7 @@ export default function Stock() {
               <CalendarDays size={16} /> Dates
               {(dateFrom || dateTo) && <span className="h-2 w-2 rounded-full bg-primary" />}
             </button>
-            <button type="button" onClick={openCreateModal} className={`${buttonClass} bg-primary text-primary-foreground hover:opacity-90`}>
+            <button type="button" onClick={openCreateModal} className="list-add-button">
               <Plus size={17} /> Approvisionner
             </button>
             <TableSummary total={movementTotal} label="approvisionnements" />
@@ -389,7 +369,7 @@ export default function Stock() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="list-toolbar">
             <label className="relative block flex-1">
               <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -576,40 +556,26 @@ export default function Stock() {
         </div>
       </Modal>
 
-      <Modal open={mode === "dates"} onClose={() => setMode(null)} title="Filtrer par dates" size="sm">
-        <form onSubmit={applyDateFilter} className="space-y-5">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block space-y-1.5 text-sm font-medium">
-              <span>Du</span>
-              <DatePicker value={draftDateFrom} onChange={setDraftDateFrom} ariaLabel="Date de début" />
-            </label>
-            <label className="block space-y-1.5 text-sm font-medium">
-              <span>Au</span>
-              <DatePicker value={draftDateTo} onChange={setDraftDateTo} ariaLabel="Date de fin" />
-            </label>
-          </div>
-          <div className="flex justify-between gap-2 border-t border-border pt-4">
-            <button
-              type="button"
-              onClick={() => {
-                setDraftDateFrom("")
-                setDraftDateTo("")
-                setDateFrom("")
-                setDateTo("")
-                setMovementPage(1)
-                setLoadingMovements(true)
-                setMode(null)
-              }}
-              className={`${buttonClass} text-muted-foreground hover:bg-accent`}
-            >
-              <X size={15} /> Effacer
-            </button>
-            <button type="submit" className={`${buttonClass} bg-primary text-primary-foreground hover:opacity-90`}>
-              <Check size={15} /> Valider
-            </button>
-          </div>
-        </form>
-      </Modal>
+      {mode === "dates" && <DateRangeModal
+        open={mode === "dates"}
+        onClose={() => setMode(null)}
+        initialFrom={dateFrom}
+        initialTo={dateTo}
+        onApply={(from, to) => {
+          setDateFrom(from)
+          setDateTo(to)
+          setMovementPage(1)
+          setLoadingMovements(true)
+          setMode(null)
+        }}
+        onClear={() => {
+          setDateFrom("")
+          setDateTo("")
+          setMovementPage(1)
+          setLoadingMovements(true)
+          setMode(null)
+        }}
+      />}
     </div>
   )
 }

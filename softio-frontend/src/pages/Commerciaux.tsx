@@ -130,23 +130,24 @@ export default function Commerciaux() {
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <PageHeader title="Commerciaux" description={canManageCommercials ? "Gérez les commerciaux de votre équipe." : "Consultez les commerciaux de votre entreprise."} icon={<UserCog size={23} />} />
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+      <div className="list-toolbar mb-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
           <input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder="Rechercher..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-card shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="w-full rounded-xl border border-border bg-card py-2.5 pl-10 pr-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
-        <TableSummary total={total} label="commerciaux" />
         {canManageCommercials && <button
+          type="button"
           onClick={openCreate}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90"
+          className="list-add-button"
         >
           <Plus size={18} /> Nouveau commercial
         </button>}
+        <TableSummary total={total} label="commerciaux" />
       </div>
 
       <div className="rounded-xl bg-card shadow-sm overflow-hidden">
@@ -181,10 +182,10 @@ export default function Commerciaux() {
                     </td>
                     {canManageCommercials && <td className="px-3 py-2.5">
                       <div className="flex justify-end gap-1.5">
-                        <button onClick={() => openEdit(c)} className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 hover:bg-blue-500/20">
+                        <button type="button" onClick={() => openEdit(c)} className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 hover:bg-blue-500/20" title="Modifier le commercial" aria-label={`Modifier ${c.prenom} ${c.nom}`}>
                           <Pencil size={15} />
                         </button>
-                        <button onClick={() => setDeleteId(c.id_commercial)} className="p-1.5 rounded-lg bg-red-500/10 text-red-600 hover:bg-red-500/20">
+                        <button type="button" onClick={() => setDeleteId(c.id_commercial)} className="p-1.5 rounded-lg bg-red-500/10 text-red-600 hover:bg-red-500/20" title="Supprimer le commercial" aria-label={`Supprimer ${c.prenom} ${c.nom}`}>
                           <Trash2 size={15} />
                         </button>
                       </div>

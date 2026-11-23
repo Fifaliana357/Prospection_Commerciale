@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Admin;
 use App\Models\Produit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ProduitController extends Controller
 {
@@ -91,6 +92,19 @@ public function update(Request $request, int $id)
     $produit->update($data);
 
     return response()->json(['message' => 'Produit modifié', 'produit' => $produit->fresh()]);
+}
+
+public function photo(Request $request, int $id)
+{
+    $produit = Produit::query()
+        ->where('id_admin', $request->user()->id_admin)
+        ->findOrFail($id);
+    abort_unless($produit->photo && Storage::disk('public')->exists($produit->photo), 404, 'Photo introuvable.');
+
+    return response()->file(
+        Storage::disk('public')->path($produit->photo),
+        ['Cache-Control' => 'private, max-age=300']
+    );
 }
 
     public function destroy(Request $request, int $id)

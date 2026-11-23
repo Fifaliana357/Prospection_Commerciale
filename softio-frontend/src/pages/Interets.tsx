@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Search, Eye, Plus, Star, Trash2 } from 'lucide-react';
+import { Eye, Plus, Star, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { createInteret, deleteInteret, getInterets, type ClientWithInterets } from '../services/interets';
 import { useToast } from '../contexts/ToastContext';
 import TablePagination from '../components/ui/TablePagination';
 import TableSummary from '../components/ui/TableSummary';
 import PageHeader from '../components/ui/PageHeader';
+import FilterPills from '../components/ui/FilterPills';
 import { ModalPortal } from '../components/ui/Modal';
 
 export default function Interets() {
@@ -14,8 +15,8 @@ export default function Interets() {
   const [clients, setClients] = useState<ClientWithInterets[]>([]);
   const [produits, setProduits] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
   const [produitFilter, setProduitFilter] = useState('');
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -30,7 +31,6 @@ export default function Interets() {
     try {
       setLoading(true);
       const res = await getInterets({
-        search: search || undefined,
         produit: produitFilter || undefined,
         page,
       });
@@ -47,7 +47,7 @@ export default function Interets() {
 
   useEffect(() => {
     fetchData();
-  }, [search, produitFilter, page]);
+  }, [produitFilter, page]);
 
   const handleDeleteInteret = async (idInteret: number) => {
     if (!window.confirm('Supprimer cet intérêt ?')) return;
@@ -94,56 +94,35 @@ export default function Interets() {
   };
 
   return (
-    <div className="mx-auto max-w-[1600px] space-y-5">
-      <PageHeader title="Intérêts des prospects" description="Visualisez les services et produits qui intéressent vos prospects." icon={<Star size={23} />} />
+    <div className="interest-page mx-auto max-w-[1600px] space-y-5">
+      <PageHeader
+        title="Intérêts des prospects"
+        description="Visualisez les services et produits qui intéressent vos prospects."
+        icon={<Star size={23} fill="currentColor" />}
+      />
 
-      {/* Search */}
-      <div className="relative mb-4 max-w-xl">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-        <input
-          type="text"
-          placeholder="Rechercher un prospect..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-        />
-      </div>
-
-      {/* Filtres produits */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => {
-              setProduitFilter('');
-              setPage(1);
-            }}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              produitFilter === ''
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary text-secondary-foreground hover:bg-accent'
-            }`}
-          >
-            Tout
-          </button>
-          {produits.map((p) => (
+      <div className="list-toolbar">
+        <div className="flex min-w-0 flex-1 items-start gap-2">
+          <FilterPills
+            value={produitFilter}
+            options={[
+              { value: '', label: 'Tout' },
+              ...(filtersExpanded ? produits : produits.slice(0, 5)).map((product) => ({ value: product, label: product })),
+            ]}
+            onChange={(value) => { setProduitFilter(value); setPage(1); }}
+            className="flex-1"
+          />
+          {produits.length > 5 && (
             <button
-              key={p}
-              onClick={() => {
-                setProduitFilter(p);
-                setPage(1);
-              }}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                produitFilter === p
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary text-secondary-foreground hover:bg-accent'
-              }`}
+              type="button"
+              onClick={() => setFiltersExpanded((expanded) => !expanded)}
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-amber-300 text-amber-950 shadow-sm transition hover:bg-amber-400"
+              aria-label={filtersExpanded ? "Réduire les filtres par intérêt" : "Afficher tous les filtres par intérêt"}
+              aria-expanded={filtersExpanded}
             >
-              {p}
+              {filtersExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
             </button>
-          ))}
+          )}
         </div>
         <TableSummary total={total} label="prospects avec intérêts" />
       </div>
@@ -237,9 +216,11 @@ export default function Interets() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button
+                        type="button"
                         onClick={() => setSelectedClient(client)}
-                        className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
+                        className="action-icon-button bg-amber-500 hover:bg-amber-600"
                         title="Voir les détails"
+                        aria-label={`Voir les intérêts de ${client.nom} ${client.prenom || ''}`}
                       >
                         <Eye size={16} />
                       </button>
@@ -308,8 +289,8 @@ export default function Interets() {
                       onClick={() => handleDeleteInteret(i.id_interet)}
                       disabled={deletingInteretId === i.id_interet}
                       className="ml-1 rounded-full p-0.5 text-muted-foreground hover:bg-red-500/10 hover:text-red-600 disabled:opacity-50"
-                      title="Supprimer cet intérêt"
-                      aria-label={`Supprimer l’intérêt ${i.produit_concerne}`}
+                      title="Retirer cet intérêt"
+                      aria-label={`Retirer l’intérêt ${i.produit_concerne}`}
                     >
                       <Trash2 size={13} />
                     </button>

@@ -12,6 +12,51 @@
 The PHP GD extension must be enabled for PDF generation. On Windows, enable
 `extension=gd` in the `php.ini` used by the Laravel server, then restart it.
 
+## Connexion depuis Softio principal
+
+La prospection peut rester accessible avec ses comptes locaux et accepter aussi
+les utilisateurs qui ouvrent le module depuis Softio. Pour les domaines de
+production actuels, configurer l’application du module dans Softio à
+`https://prospectioncom.tuto-info.com/sso`. Softio ajoutera le code temporaire à
+cette URL et le navigateur arrivera sur `/sso?code=<code-temporaire>`. Le code
+est échangé par le backend Prospection avec l’API de Softio ; le secret partagé
+reste exclusivement dans les `.env` des serveurs.
+
+Configurer les variables suivantes dans le `.env` du backend Prospection :
+
+- `SOFTIO_API_URL=https://softio-module-back.tuto-info.com/api`.
+- `SOFTIO_SSO_SECRET` : même valeur que `SSO_SECRET` dans le `.env` de Softio principal.
+- `SOFTIO_MODULE_ID` : identifiant du module Prospection dans Softio.
+- `SOFTIO_SSO_VERIFY_MINUTES` : fréquence de revalidation de l’abonnement (10 minutes par défaut).
+- `FRONTEND_URL=https://prospectioncom.tuto-info.com` : origine autorisée par le CORS.
+
+Le contrat serveur-à-serveur attendu est le même que celui utilisé par le module
+Comptabilité : `POST /sso/echanger` et `POST /sso/verifier`, avec l’en-tête
+`X-Sso-Secret`. L’échange renvoie `utilisateur` (`id`, `email`, `nom`, `prenom`),
+`organisation` (`id`, `nom`, `email`), `module.id` et `acces.actif`. La
+vérification reçoit `user_id` et `module_id` et renvoie `acces.actif`.
+
+Le propriétaire de l’organisation (même identifiant utilisateur et organisation)
+est rattaché à un compte Admin ; les autres membres deviennent des Commerciaux
+dans la même organisation. Les comptes locaux existants ne sont jamais repris
+automatiquement sur la seule base de leur adresse e-mail.
+Le nom commercial et le téléphone renseignés sur le compte propriétaire Softio
+sont transmis à la première connexion et synchronisés avec les informations
+d’entreprise de Prospection. La visite guidée est activée lors du premier
+rattachement de l’entreprise.
+
+Configurer `VITE_SOFTIO_URL` dans le frontend pour que la déconnexion des comptes
+arrivés par SSO retourne au tableau de bord Softio. Le frontend appelle l’API
+prospection avec `VITE_API_URL`. En production, utiliser
+`VITE_SOFTIO_URL=https://softio-module.tuto-info.com` et l’URL HTTPS de l’API
+Prospection pour `VITE_API_URL`.
+
+Exécuter `php artisan migrate` après le déploiement pour ajouter les identifiants
+Softio aux comptes Admin et Commercial. Les abonnements inactifs bloquent les
+requêtes authentifiées après la période de cache configurée. Si Softio est
+temporairement injoignable lors d’une revalidation, les comptes déjà connectés
+restent accessibles et la vérification sera retentée à la requête suivante.
+
 ## Prospection e-mail
 
 Outgoing prospection messages with type **Email** use Laravel's configured mail

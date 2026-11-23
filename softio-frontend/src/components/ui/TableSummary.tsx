@@ -7,8 +7,8 @@ interface TableSummaryProps {
 
 export default function TableSummary({ total, label }: TableSummaryProps) {
   return (
-    <span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-medium text-primary">
-      <List size={15} aria-hidden="true" />
+    <span data-toolbar-total className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary">
+      <List size={12} aria-hidden="true" />
       {new Intl.NumberFormat("fr-FR").format(total)} {label}
     </span>
   )

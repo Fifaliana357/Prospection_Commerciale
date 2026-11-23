@@ -1,7 +1,9 @@
 import axios from 'axios';
+import { logout } from '@/lib/session';
 
 const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api',
+  //baseURL: 'http://127.0.0.1:8000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api',
   headers: {
     Accept: 'application/json',
     'Content-Type': 'application/json',
@@ -21,12 +23,16 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (
+      error.response?.status === 403 &&
+      error.response?.data?.code === 'softio_access_inactive'
+    ) {
+      logout();
+    }
+
     if (error.response?.status === 401) {
       // Token expiré ou invalide
-      sessionStorage.removeItem('@Softio:token');
-      sessionStorage.removeItem('@Softio:user');
-      sessionStorage.removeItem('@Softio:type');
-      window.location.href = '/login';
+      logout();
     }
     return Promise.reject(error);
   }

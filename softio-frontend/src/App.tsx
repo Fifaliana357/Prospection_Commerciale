@@ -18,7 +18,6 @@ import Tutoriels from "./pages/Tutoriels"
 import Prospects from "./pages/Prospects"
 import Prospection from "./pages/Prospection"
 import ProspectionDetail from "./pages/ProspectionDetail"
-import ProspectionCreate from "./pages/ProspectionCreate"
 import Catalogue from './pages/Catalogue';
 import CatalogueImpression from "./pages/CatalogueImpression"
 import Notifications from './pages/Notifications'
@@ -30,6 +29,7 @@ import ForgotPassword from "./pages/ForgotPassword"
 import ResetPassword from "./pages/ResetPassword"
 import EmailVerified from "./pages/EmailVerified"
 import Apparence from "./pages/Apparence"
+import Sso from "./pages/Sso"
 
 
 
@@ -47,6 +47,7 @@ function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/email-verifie" element={<EmailVerified />} />
+      <Route path="/sso" element={<Sso />} />
 
       <Route element={<PrivateRoute />}>
         <Route path="/dashboard" element={<Dashboard />} />
@@ -58,7 +59,7 @@ function App() {
         <Route path="/statistiques" element={<Statistiques />} />
         <Route path="/prospects" element={<Prospects />} />
         <Route path="/prospections" element={<Prospection />} />
-        <Route path="/prospections/create" element={<ProspectionCreate />} />
+        <Route path="/prospections/create" element={<Navigate to="/prospections?create=1" replace />} />
         <Route path="/prospections/:id" element={<ProspectionDetail />} />
         <Route path="/rendez-vous" element={<RendezVous />} />
         <Route path="/interets" element={<Interets />} />

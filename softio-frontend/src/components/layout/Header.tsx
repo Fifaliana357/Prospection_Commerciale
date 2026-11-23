@@ -2,8 +2,8 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import {
   Menu, Moon, Sun, Bell, LogOut, Palette, CheckCheck, UserRound, Building2, Wallet,
   Search, Command, X, ArrowRight, LayoutDashboard, UsersRound, Target, CalendarDays,
-  Sparkles, Trophy, ShoppingCart, FileText, LifeBuoy, Package, Boxes, UserCog,
-  BookOpen, GraduationCap, ChartNoAxesCombined,
+  Sparkles, Trophy, ShoppingCart, FileText, LifeBuoy, Package, Boxes, UserCog, CircleHelp,
+  BookOpen, GraduationCap,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { useTheme } from "@/contexts/ThemeContext"
@@ -67,7 +67,6 @@ const destinations: Array<{ label: string; path: string; group: string; icon: Lu
   { label: "Équipe commerciale", path: "/commerciaux", group: "Équipe", icon: UserCog },
   { label: "Bibliothèque", path: "/bibliotheque", group: "Ressources", icon: BookOpen },
   { label: "Tutoriels", path: "/tutoriels", group: "Ressources", icon: GraduationCap },
-  { label: "Statistiques", path: "/statistiques", group: "Pilotage", icon: ChartNoAxesCombined },
   { label: "Notifications", path: "/notifications", group: "Compte", icon: Bell },
   { label: "Profil", path: "/profil", group: "Compte", icon: UserRound },
   { label: "Apparence et thèmes", path: "/apparence", group: "Compte", icon: Palette },
@@ -75,7 +74,13 @@ const destinations: Array<{ label: string; path: string; group: string; icon: Lu
   { label: "Comptabilité", path: "/comptabilite", group: "Compte", icon: Wallet },
 ]
 
-export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
+export default function Header({
+  onMenuClick,
+  onStartGuidedTour,
+}: {
+  onMenuClick: () => void
+  onStartGuidedTour: () => void
+}) {
   const { theme, toggleTheme } = useTheme()
   const [user, setUser] = useState(getSessionUser)
   const navigate = useNavigate()
@@ -223,24 +228,24 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
         >
           <Search size={18} />
         </button>
-        <button
-          type="button"
-          onClick={() => navigate("/apparence")}
-          className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-primary"
-          title="Personnaliser l’apparence"
-          aria-label="Personnaliser l’apparence"
-        >
-          <Palette size={18} />
-        </button>
-
-        {/* Dark / Light */}
-        <button
-          onClick={toggleTheme}
-          className="p-2 rounded-lg text-muted-foreground hover:bg-accent"
-          title={theme === "light" ? "Mode sombre" : "Mode clair"}
-        >
-          {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
-        </button>
+        <div data-tour="themes" className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => navigate("/apparence")}
+            className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-primary"
+            title="Personnaliser l’apparence"
+            aria-label="Personnaliser l’apparence"
+          >
+            <Palette size={18} />
+          </button>
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-lg text-muted-foreground hover:bg-accent"
+            title={theme === "light" ? "Mode sombre" : "Mode clair"}
+          >
+            {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
+          </button>
+        </div>
 
         {/* Notifications */}
         <div className="relative" ref={notifRef}>
@@ -250,6 +255,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
               setShowUserMenu(false)
               refreshNotifications()
             }}
+            data-tour="notifications"
             className="p-2 rounded-lg text-muted-foreground hover:bg-accent relative"
             title="Notifications"
           >
@@ -322,6 +328,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
               setShowUserMenu(!showUserMenu)
               setShowNotifications(false)
             }}
+            data-tour="account"
             className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium hover:opacity-90"
           >
             {user.initiale}
@@ -365,6 +372,16 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
                     </button>
                   </>
                 )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowUserMenu(false)
+                    onStartGuidedTour()
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <CircleHelp size={16} /> Visite guidée
+                </button>
                 <button
                   onClick={logout}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"

@@ -15,6 +15,7 @@ interface ModalProps {
   topAligned?: boolean
   ariaLabel?: string
   contentClassName?: string
+  titleIcon?: ReactNode
 }
 
 interface ModalPortalProps {
@@ -108,6 +109,7 @@ function ModalContent({
   topAligned = false,
   ariaLabel,
   contentClassName,
+  titleIcon,
 }: ModalProps) {
   const [internalClosing, setInternalClosing] = useState(false)
   const closeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -163,7 +165,14 @@ function ModalContent({
       >
         {!hideHeader && (
           <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
-            <h2 id={titleId} className="text-lg font-semibold tracking-tight">{title}</h2>
+            <div className="flex min-w-0 items-center gap-3">
+              {titleIcon && (
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
+                  {titleIcon}
+                </span>
+              )}
+              <h2 id={titleId} className="text-lg font-semibold tracking-tight">{title}</h2>
+            </div>
             <button
               type="button"
               onClick={requestClose}

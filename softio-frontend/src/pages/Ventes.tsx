@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   BriefcaseBusiness, CalendarDays, Check,
@@ -6,11 +6,13 @@ import {
   Trash2, X,
 } from "lucide-react"
 import Modal from "@/components/ui/Modal"
+import DateRangeModal from "@/components/ui/DateRangeModal"
 import DatePicker from "@/components/ui/DatePicker"
 import Select from "@/components/ui/Select"
 import TablePagination from "@/components/ui/TablePagination"
 import TableSummary from "@/components/ui/TableSummary"
 import PageHeader from "@/components/ui/PageHeader"
+import FilterPills from "@/components/ui/FilterPills"
 import { useToast } from "@/contexts/ToastContext"
 import { formatMGA } from "@/lib/utils"
 import type { Client } from "@/services/clients"
@@ -410,7 +412,7 @@ export default function Ventes() {
   const navigate = useNavigate()
   const toast = useToast()
   const toastRef = useRef(toast)
-  const [view, setView] = useState<View>("enregistrement")
+  const [view, setView] = useState<View>("liste")
   const [mode, setMode] = useState<ModalMode>(null)
   const [clients, setClients] = useState<Client[]>([])
   const [products, setProducts] = useState<CatalogProduct[]>([])
@@ -429,8 +431,6 @@ export default function Ventes() {
   const [filterType, setFilterType] = useState("tous")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
-  const [draftDateFrom, setDraftDateFrom] = useState("")
-  const [draftDateTo, setDraftDateTo] = useState("")
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
   const [editorInitial, setEditorInitial] = useState<Sale | null>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -591,22 +591,7 @@ export default function Ventes() {
   }
 
   const openDates = () => {
-    setDraftDateFrom(dateFrom)
-    setDraftDateTo(dateTo)
     setMode("dates")
-  }
-
-  const applyDates = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (draftDateFrom && draftDateTo && draftDateFrom > draftDateTo) {
-      toast.error("La date de début doit précéder la date de fin")
-      return
-    }
-    setDateFrom(draftDateFrom)
-    setDateTo(draftDateTo)
-    setLoadingList(true)
-    setPage(1)
-    setMode(null)
   }
 
   const openDelete = (sale: Sale) => {
@@ -615,15 +600,14 @@ export default function Ventes() {
   }
 
   const tabs: Array<{ key: View; label: string }> = [
-    { key: "enregistrement", label: "Enregistrement" },
     { key: "liste", label: "Liste" },
     { key: "brouillon", label: "Brouillon" },
   ]
 
   const filters = [
-    { key: "tous", label: "Tous", icon: ClipboardList },
-    { key: "produit", label: "Produit", icon: Package },
-    { key: "service", label: "Service", icon: BriefcaseBusiness },
+    { value: "tous", label: "Tous", icon: <ClipboardList size={14} /> },
+    { value: "produit", label: "Produit", icon: <Package size={14} /> },
+    { value: "service", label: "Service", icon: <BriefcaseBusiness size={14} /> },
   ]
 
   const pageTitle = view === "enregistrement" ? "Nouvelle vente" : view === "brouillon" ? "Brouillons" : "Liste des ventes"
@@ -633,19 +617,12 @@ export default function Ventes() {
       ? "Ventes non validées : ouvrez-les pour les terminer ou supprimez-les"
       : "Consultez et filtrez vos ventes"
 
-  const visibleTotal = useMemo(() => new Intl.NumberFormat("fr-FR").format(totalSales), [totalSales])
-
   return (
     <div className="space-y-4">
       <PageHeader
         title={pageTitle}
         description={pageSubtitle}
         icon={view === "enregistrement" ? <ShoppingCart size={23} /> : <ClipboardList size={23} />}
-        action={view !== "enregistrement" ? (
-          <button type="button" onClick={openNewSale} disabled={loadingCatalog} className={`${buttonClass} bg-primary text-primary-foreground hover:opacity-90`}>
-            <Plus size={17} /> Nouvelle vente
-          </button>
-        ) : undefined}
       />
 
       <nav className="page-tabs" role="tablist" aria-label="Navigation des ventes">
@@ -655,7 +632,7 @@ export default function Ventes() {
             type="button"
             role="tab"
             aria-selected={view === tab.key}
-            onClick={() => { setView(tab.key); setPage(1); if (tab.key !== "enregistrement") setLoadingList(true) }}
+            onClick={() => { setView(tab.key); setPage(1); setLoadingList(true) }}
             className="page-tab"
           >
             {tab.label}
@@ -680,8 +657,8 @@ export default function Ventes() {
         </section>
       ) : (
         <>
-          <div className="space-y-3">
-            <div className="relative">
+          <div className="list-toolbar">
+            <label className="relative min-w-[14rem] flex-1 basis-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
               <input
                 type="search"
@@ -689,21 +666,16 @@ export default function Ventes() {
                 value={search}
                 onChange={(event) => { setSearch(event.target.value); setPage(1); setLoadingList(true) }}
                 className={`${inputClass} pl-9 pr-10`}
+                aria-label="Rechercher une vente"
               />
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-primary" size={16} />
-            </div>
+            </label>
             <div className="flex flex-wrap items-center gap-2">
-              {filters.map(({ key, label, icon: Icon }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => { setFilterType(key); setPage(1); setLoadingList(true) }}
-                  className={`${buttonClass} rounded-full border border-border px-3.5 py-2 text-xs ${filterType === key ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-accent"}`}
-                >
-                  <Icon size={14} /> {label}
-                </button>
-              ))}
-              <button type="button" onClick={openDates} className={`${buttonClass} rounded-full border border-border bg-card px-3.5 py-2 text-xs text-muted-foreground hover:bg-accent`}>
+              <FilterPills
+                value={filterType}
+                options={filters}
+                onChange={(value) => { setFilterType(value); setPage(1); setLoadingList(true) }}
+              />
+              <button type="button" onClick={openDates} className="date-filter-button">
                 <CalendarDays size={14} /> Dates{dateFrom || dateTo ? " •" : ""}
               </button>
               {(dateFrom || dateTo) && (
@@ -711,8 +683,11 @@ export default function Ventes() {
                   <X size={13} /> Effacer dates
                 </button>
               )}
-              <TableSummary total={totalSales} label="ventes" />
             </div>
+            <button type="button" onClick={openNewSale} disabled={loadingCatalog} className="list-add-button">
+              <Plus size={16} /> {loadingCatalog ? "Chargement..." : "Nouvelle vente"}
+            </button>
+            <TableSummary total={totalSales} label="ventes" />
           </div>
 
           <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
@@ -749,7 +724,7 @@ export default function Ventes() {
                           {sale.statut === "brouillon" && (
                             <button type="button" onClick={() => openDelete(sale)} className="rounded-full bg-rose-500 p-2 text-white hover:bg-rose-600" title="Supprimer le brouillon" aria-label="Supprimer le brouillon"><Trash2 size={14} /></button>
                           )}
-                          <button type="button" onClick={() => void showDetails(sale)} className="rounded-full bg-amber-400 p-2 text-amber-950 hover:bg-amber-500" title="Détail de la vente" aria-label="Voir le détail"><ClipboardList size={14} /></button>
+                          <button type="button" onClick={() => void showDetails(sale)} className="action-icon-button bg-primary hover:opacity-90" title="Détail de la vente" aria-label="Voir le détail"><Eye size={14} /></button>
                           {sale.statut !== "brouillon" && (
                             <button
                               type="button"
@@ -773,10 +748,7 @@ export default function Ventes() {
                 </tbody>
               </table>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground">
-              <span>{visibleTotal} vente(s)</span>
-              <TablePagination page={page} lastPage={lastPage} onChange={(value) => { setPage(value); setLoadingList(true) }} />
-            </div>
+            <TablePagination page={page} lastPage={lastPage} onChange={(value) => { setPage(value); setLoadingList(true) }} />
           </section>
         </>
       )}
@@ -875,18 +847,26 @@ export default function Ventes() {
         </div>
       </Modal>
 
-      <Modal open={mode === "dates"} onClose={closeModal} title="Filtrer par dates" size="sm">
-        <form onSubmit={applyDates} className="space-y-5">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-1.5 text-sm font-medium"><span>Du</span><DatePicker value={draftDateFrom} onChange={setDraftDateFrom} /></label>
-            <label className="space-y-1.5 text-sm font-medium"><span>Au</span><DatePicker value={draftDateTo} onChange={setDraftDateTo} /></label>
-          </div>
-          <div className="flex justify-between gap-2 border-t border-border pt-4">
-            <button type="button" onClick={() => { setDraftDateFrom(""); setDraftDateTo(""); setDateFrom(""); setDateTo(""); setPage(1); setLoadingList(true); setMode(null) }} className={`${buttonClass} text-muted-foreground hover:bg-accent`}><X size={15} /> Effacer</button>
-            <button type="submit" className={`${buttonClass} bg-primary text-primary-foreground hover:opacity-90`}><Check size={15} /> Valider</button>
-          </div>
-        </form>
-      </Modal>
+      {mode === "dates" && <DateRangeModal
+        open={mode === "dates"}
+        onClose={closeModal}
+        initialFrom={dateFrom}
+        initialTo={dateTo}
+        onApply={(from, to) => {
+          setDateFrom(from)
+          setDateTo(to)
+          setPage(1)
+          setLoadingList(true)
+          setMode(null)
+        }}
+        onClear={() => {
+          setDateFrom("")
+          setDateTo("")
+          setPage(1)
+          setLoadingList(true)
+          setMode(null)
+        }}
+      />}
     </div>
   )
 }

@@ -188,15 +188,9 @@ class FacturationController extends Controller
     public function destroy(Request $request, int $id): JsonResponse
     {
         $document = $this->ownedDocuments($request->user())->findOrFail($id);
-        if ($document->vente()->exists()) {
-            return response()->json([
-                'message' => 'Ce document est lié à une vente et ne peut pas être supprimé.',
-            ], 422);
-        }
-
         $document->delete();
 
-        return response()->json(['message' => 'Document supprimé.']);
+        return response()->json(['message' => 'Document supprimé. La vente associée, le cas échéant, est conservée.']);
     }
 
     public function downloadPdf(Request $request, int $id): Response
